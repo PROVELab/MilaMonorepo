@@ -2,6 +2,8 @@ import javax.swing.*;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import java.awt.*;
+import java.io.IOException;
+import java.io.InputStream;
 
 public class MainFrame extends JFrame {
 
@@ -10,17 +12,62 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         //Title for App
         super("Telemetry Dashboard");
-    
+        
+        //Loads the telemetry CSV, creating lookup for sensor info
+        TelemetryLookup lookup = null;
+        try (InputStream in = MainApp.class.getResourceAsStream("/telemetry.csv")) {
+            if (in == null) throw new IllegalStateException("telemetry.csv not found");
+            lookup = new TelemetryLookup(in);   // parse CSV into memory
+        }catch (IOException e) {
+            e.printStackTrace();
+            // maybe handle it more gracefully, e.g. show an error dialog
+        }
+        // At this point, `in` is closed, but `tl` is still usable
+        //lookup.getFrameById(0, 0).ifPresent(f -> System.out.println(f.dataTimeout()));
+
         // Left Panel with Scrollbar
-        LeftPanel leftPanel = new LeftPanel();
+        SensorSelectionPanel leftPanel = new SensorSelectionPanel(lookup);
         Sensor[] sensors = leftPanel.getSensors();
         leftPanel.setPreferredSize(new Dimension(210, 100)); // Set preferred width to 400
         int leftPanelPreferredWidth = 210;
         JScrollPane scrollPane = new JScrollPane(leftPanel);
         scrollPane.setMaximumSize(new Dimension(400, Integer.MAX_VALUE)); // Set maximum width to 400
     
+        // NEW — Notification panel (left-most)
+        NotificationPanel notifications = new NotificationPanel();
+        int notificationsPreferredWidth = 230;
+        notifications.setPreferredSize(new Dimension(notificationsPreferredWidth, 100));
+
+        //Create Can Parse to handle Can messages
+        CanParser parser = new CanParser();
+        // --- Sample posts (simple “testing”) ---
+        //This temporary test code will go into Can Parser.
+        // var hVitalsOk  = notifications.post(NotificationPanel.Status.OK,
+        //                                     NotificationPanel.Channel.VITALS,
+        //                                     "Vitals online");
+        // var hTelemWarn = notifications.post(NotificationPanel.Status.WARNING,
+        //                                     NotificationPanel.Channel.VITALS,
+        //                                     "Frame 0 latency observed more random crap");
+        // for (int i=0;i<30;i++){
+        //     String dumby="";
+        //     for (int j=0;j<i;j++){
+        //         dumby+=i+" ";
+        //     }
+        //             var notif = notifications.post(NotificationPanel.Status.WARNING,
+        //                                     NotificationPanel.Channel.VITALS,
+        //                                     "Notification "+dumby);
+        // }
+
+
+        // Optional: later update (demonstrates handle usage; safe even if user dismisses)
+        SwingUtilities.invokeLater(() ->
+            hTelemWarn.updateText("Frame 0 latency observed more random crap")
+        );
+
         // Main Panel with Graph Components
-        MainPanel mainPanel = new MainPanel(sensors);
+        final int chartCountVertical = 2;
+        final int chartCountHorizontal = 2;
+        MainPanel mainPanel = new MainPanel(lookup, chartCountVertical, chartCountHorizontal);
     
         // Create expand/collapse button for the Left Panel
         JButton expandButton = new JButton("<");
@@ -49,19 +96,22 @@ public class MainFrame extends JFrame {
         buttonPanel.add(nightModeButton);
         buttonPanel.add(Box.createVerticalStrut(10)); // Add some space between the buttons
     
-        // Split Pane to combine Left and Main Panels
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane, mainPanel);
+        // innermost split: Sensor Selection | Main
+        JSplitPane innerSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane, mainPanel);
+        innerSplit.setDividerLocation(leftPanelPreferredWidth);
 
-        splitPane.setDividerLocation(leftPanelPreferredWidth);
+        // outer split: Notifications | (inner split)
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, notifications, innerSplit);
+        splitPane.setDividerLocation(notificationsPreferredWidth);
 
-        //Logic for Expand/Collapse button
+        //Logic for Expand/Collapse button for innermost split
         expandButton.addActionListener(e -> {
-            if (splitPane.getDividerLocation() < 50) {
-                splitPane.setDividerLocation(leftPanelPreferredWidth); // Expand
-                expandButton.setText("<"); // Change button text to "<"
+            if (innerSplit.getDividerLocation() < 50) {
+                innerSplit.setDividerLocation(leftPanelPreferredWidth); // Expand Sensor Selection
+                expandButton.setText("<");
             } else {
-                splitPane.setDividerLocation(0); // Collapse
-                expandButton.setText(">"); // Change button text to ">"
+                innerSplit.setDividerLocation(0); // Collapse Sensor Selection
+                expandButton.setText(">");
             }
         });
 
@@ -92,26 +142,28 @@ public class MainFrame extends JFrame {
         dialog.pack();
 
         //Setting the icon for the Clock
-        String iconName = "resources/clock.png";
-        ImageIcon icon = new ImageIcon(iconName);
+        ImageIcon icon = new ImageIcon(
+            MainApp.class.getResource("/clock.png")  // leading "/" means root of resources
+        );
         Image image = icon.getImage();
-        Image newImage = image.getScaledInstance(30, 30, java.awt.Image.SCALE_SMOOTH);
+        Image newImage = image.getScaledInstance(30, 30, Image.SCALE_SMOOTH);
         icon = new ImageIcon(newImage);
-
-        //Set the icon for multi
-        String multiIconName = "resources/multi.png";
-        ImageIcon multiIcon = new ImageIcon(multiIconName);
-        Image multiImage = multiIcon.getImage();
-        Image newMultiImage = multiImage.getScaledInstance(30, 30, java.awt.Image.SCALE_SMOOTH);
-        multiIcon = new ImageIcon(newMultiImage);
-        addSensorButton.setIcon(multiIcon);
-
-        // Create the button
+        
+        // Create Button for the Clock
         JButton sliderButton = new JButton(icon);
         sliderButton.addActionListener(e -> {
             dialog.setVisible(!dialog.isVisible()); // Toggle the visibility of the dialog
         });
         slider.setPreferredSize(buttonSize);
+
+        //Set the icon for multi
+        ImageIcon multiIcon = new ImageIcon(
+            MainApp.class.getResource("/multi.png")  // leading "/" means root of resources
+        );
+        Image multiImage = multiIcon.getImage();
+        Image newMultiImage = multiImage.getScaledInstance(30, 30, Image.SCALE_SMOOTH);
+        multiIcon = new ImageIcon(newMultiImage);
+        addSensorButton.setIcon(multiIcon);
 
         // Add the button to the button panel
         buttonPanel.add(sliderButton);

@@ -1,0 +1,27 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Only the libraries you use directly in your code:
+    implementation 'org.apache.commons:commons-csv:1.14.1'
+
+    // Add these only if you import/use them in your code:
+    implementation 'com.formdev:flatlaf:3.3'
+    implementation 'org.jfree:jfreechart:1.5.4'
+}
+
+application {
+    mainClass = 'MainApp'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21) 
+    }
+}
