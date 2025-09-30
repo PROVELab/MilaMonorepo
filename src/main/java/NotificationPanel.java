@@ -42,7 +42,7 @@ public class NotificationPanel extends JPanel {
         final JLabel ageLabel;     // Indicates age of message in seconds
         boolean expanded = false;
         boolean posted = true;     // track whether still visible
-        boolean oneActive = false; // NEW: whether this chip’s “1” is active (underlined)
+        boolean oneActive = false; // whether this chip’s “1” is active (underlined)
         int ageSeconds = 0; 
 
         Entry(NotificationPanel owner, Channel ch, Status st, JPanel chip, JTextArea text,
@@ -261,7 +261,7 @@ public class NotificationPanel extends JPanel {
         close.setForeground(Color.RED.darker());
         close.setToolTipText("Dismiss");
 
-        JLabel age = new JLabel("0s");           // NEW: live age indicator
+        JLabel age = new JLabel("0s");           // live age indicator
         age.setToolTipText("Seconds since posted/updated");
 
         JPanel right = new JPanel();
@@ -341,7 +341,7 @@ public class NotificationPanel extends JPanel {
         });
 
         //add the chip to panel
-        entries.add(entry); // NEW: track it
+        entries.add(entry); 
         section.list.revalidate();
         section.list.repaint();
         return entry;
