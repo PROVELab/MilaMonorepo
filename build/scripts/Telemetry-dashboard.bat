@@ -13,6 +13,8 @@
 @rem See the License for the specific language governing permissions and
 @rem limitations under the License.
 @rem
+@rem SPDX-License-Identifier: Apache-2.0
+@rem
 
 @if "%DEBUG%"=="" @echo off
 @rem ##########################################################################
@@ -68,7 +70,7 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=%APP_HOME%\lib\Telemetry-dashboard.jar;%APP_HOME%\lib\commons-csv-1.14.1.jar;%APP_HOME%\lib\flatlaf-3.3.jar;%APP_HOME%\lib\jfreechart-1.5.4.jar;%APP_HOME%\lib\commons-io-2.20.0.jar;%APP_HOME%\lib\commons-codec-1.19.0.jar
+set CLASSPATH=%APP_HOME%\lib\Telemetry-dashboard.jar;%APP_HOME%\lib\flatlaf-3.3.jar;%APP_HOME%\lib\jfreechart-1.5.4.jar;%APP_HOME%\lib\commons-csv-1.14.1.jar;%APP_HOME%\lib\jSerialComm-2.10.4.jar;%APP_HOME%\lib\commons-io-2.20.0.jar;%APP_HOME%\lib\commons-codec-1.19.0.jar
 
 
 @rem Execute Telemetry-dashboard

@@ -2,29 +2,32 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+import javax.swing.SwingUtilities;
+
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
 public class TelemetryLookup {
 
-    /* ======================= Domain records ======================= */
+    /* ======================= Records ======================= */
 
     // Node as defined by CSV
     public record Node(
-        int nodeId,     // CAN node ID. Primary key
-        String name     // CSV column node_name 
+        int nodeID,     // CAN node ID. Primary key
+        String nodeName     
     ) {}
 
     public record CANFrame(
-        int frameIndex,   // index *within* node
-        int dataTimeout   // CSV dataTimeout
+        int frameIndex,   // index of frame for this node
+        int dataTimeout,   
+        int numData
     ) {}
 
-    // Formerly DataPoint → now DataInfo
     public record DataInfo(
-        int dataIndex,     // index *within* frame
-        String dataName,   // CSV data_name
+        int dataIndex,     // index within frame, 0-7
+        String dataName,  
+        int bitLength,
         int min,
         int max,
         int minWarning,
@@ -37,11 +40,10 @@ public class TelemetryLookup {
     public record FrameKey(int nodeId, int frameIndex) {}
     public record DataKey(int nodeId, int frameIndex, int dataIndex) {}
 
-    // What you called a “Commitment”: the joined triple
+    // Commitment for each triple (node, frame sent by that node, data within that frame)
     public record Commitment(Node node, CANFrame frame, DataInfo data) {}
 
-    /* ======================== Normalized state ======================== */
-
+    /* ============== Hashmaps to look up specific items ================*/
     // nodeId → Node
     private final Map<Integer, Node> nodesById = new HashMap<>();
 
@@ -51,7 +53,8 @@ public class TelemetryLookup {
     // (nodeId, frameIndex, dataIndex) → DataInfo
     private final Map<DataKey, DataInfo> dataById = new HashMap<>();
 
-    /* =========================== Construction =========================== */
+
+    /* =========================== Construction of the class from CSV =========================== */
 
     /** Load from a filesystem path. */
     public TelemetryLookup(String csvPath) throws IOException {
@@ -59,7 +62,6 @@ public class TelemetryLookup {
             loadInto(r);
         }
     }
-
     /** Load from a classpath resource InputStream (e.g., getResourceAsStream). */
     public TelemetryLookup(InputStream in) throws IOException {
         try (Reader r = new InputStreamReader(in, StandardCharsets.UTF_8)) {
@@ -71,57 +73,53 @@ public class TelemetryLookup {
         try (CSVParser parser = CSVFormat.Builder.create(CSVFormat.DEFAULT)
                 .setHeader()
                 .setSkipHeaderRecord(true)
-                .build()
+                .get()
                 .parse(r)) {
 
-            for (CSVRecord rec : parser) {
+            for (CSVRecord rec : parser) {  //for each line of telemetry.csv
                 // Parse IDs/indices from CSV
                 int nodeId   = Integer.parseInt(rec.get("nodeID"));          // primary node identity
-                int frameIdx = Integer.parseInt(rec.get("frame_index"));     // index within node
-                int dataIdx  = Integer.parseInt(rec.get("data_point_index"));// index within frame
-                String nodeName = rec.get("node_name");
+                int frameIdx = Integer.parseInt(rec.get("frameIndex"));     // index within node
+                int dataIdx  = Integer.parseInt(rec.get("dataIndex"));// index within frame
 
-                // Upsert Node keyed by nodeId
-                nodesById.putIfAbsent(nodeId, new Node(nodeId, nodeName));
+                // Insert new node if needed
+                nodesById.putIfAbsent(
+                    nodeId,
+                    RecordFactory.createRecord(Node.class, rec::get, Map.of("nodeId", nodeId))
+                );
 
-                // Upsert Frame keyed by (nodeId, frameIndex)
+                // Insert new frame if needed
                 FrameKey fk = new FrameKey(nodeId, frameIdx);
-                framesById.putIfAbsent(fk, new CANFrame(
-                        frameIdx,
-                        Integer.parseInt(rec.get("dataTimeout"))
-                ));
+                framesById.putIfAbsent(
+                    fk,
+                    RecordFactory.createRecord(CANFrame.class, rec::get, Map.of("frameIndex", frameIdx))
+                );
 
-                // Insert/overwrite DataInfo keyed by (nodeId, frameIndex, dataIndex)
+                // Insert new if needed DataInfo
                 DataKey dk = new DataKey(nodeId, frameIdx, dataIdx);
-                dataById.put(dk, new DataInfo(
-                        dataIdx,
-                        rec.get("data_name"),
-                        Integer.parseInt(rec.get("min")),
-                        Integer.parseInt(rec.get("max")),
-                        Integer.parseInt(rec.get("minWarning")),
-                        Integer.parseInt(rec.get("maxWarning")),
-                        Integer.parseInt(rec.get("minCritical")),
-                        Integer.parseInt(rec.get("maxCritical"))
-                ));
+                dataById.put(
+                    dk,
+                    RecordFactory.createRecord(DataInfo.class, rec::get, Map.of("dataIndex", dataIdx))
+                );
             }
         }
     }
 
-    /* ============================== Lookups ============================== */
+    /* ============================== Public Lookup Functions ============================== */
 
     public Optional<Node> getNodeById(int nodeId) {
         return Optional.ofNullable(nodesById.get(nodeId));
     }
 
-    public Optional<CANFrame> getFrameById(int nodeId, int frameIndex) {
+    public Optional<CANFrame> getFrame(int nodeId, int frameIndex) {
         return Optional.ofNullable(framesById.get(new FrameKey(nodeId, frameIndex)));
     }
 
-    public Optional<DataInfo> getDataInfoById(int nodeId, int frameIndex, int dataIndex) {
+    public Optional<DataInfo> getDataInfo(int nodeId, int frameIndex, int dataIndex) {
         return Optional.ofNullable(dataById.get(new DataKey(nodeId, frameIndex, dataIndex)));
     }
 
-    public Optional<DataInfo> getDataInfoById(DataKey key) {
+    public Optional<DataInfo> getDataInfo(DataKey key) {
         return Optional.ofNullable(dataById.get(key));
     }
 
@@ -134,8 +132,30 @@ public class TelemetryLookup {
                 : Optional.empty();
     }
 
-    public Optional<Commitment> getCommitmentById(DataKey key) {
+    public Optional<Commitment> getCommitmentById(DataKey key) {    //Optional give as dataKey instead of each component
         return getCommitmentById(key.nodeId(), key.frameIndex(), key.dataIndex());
+    }
+
+    /* ========= Convenient String Helpers ======= */
+
+    /** Handy for chart titles, etc.: "<nodeName>.<dataName>" */
+    public String titleFor(DataKey key) {
+        Node n = nodesById.get(key.nodeId());
+        DataInfo d = dataById.get(key);
+        String nodePart = (n != null) ? n.nodeName() : ("node" + key.nodeId());
+        String dataPart = (d != null) ? d.dataName() : ("dp" + key.dataIndex());
+        return nodePart + "." + dataPart;
+    }
+
+    public Optional<String> getNodeName(int nodeId){
+        //return name of sensor, if this is a sensors
+        Optional<Node> sensorIDOpt = getNodeById(nodeId);
+        if(sensorIDOpt.isPresent()){
+            return Optional.of(sensorIDOpt.get().nodeName);
+        }
+
+        //Otherwise, check special IDs:
+        return IntConstUtils.nameFromInt(Constants.specialIDs.class, nodeId);
     }
 
     /* ============================= Iteration ============================= */
@@ -145,17 +165,11 @@ public class TelemetryLookup {
         return Collections.unmodifiableSet(dataById.keySet());
     }
 
-    /** Handy for chart titles, etc.: "<nodeName>.<dataName>" */
-    public String titleFor(DataKey key) {
-        Node n = nodesById.get(key.nodeId());
-        DataInfo d = dataById.get(key);
-        String nodePart = (n != null) ? n.name() : ("node" + key.nodeId());
-        String dataPart = (d != null) ? d.dataName() : ("dp" + key.dataIndex());
-        return nodePart + "." + dataPart;
+    public Set<Integer> allNodeIDs(){
+        return Collections.unmodifiableSet(nodesById.keySet());
     }
 
-    /* ============================ Optional accessors ============================ */
-
+    /* ============================ Acces entire map ============================ */
     public Map<Integer, Node> nodesById() { return Collections.unmodifiableMap(nodesById); }
     public Map<FrameKey, CANFrame> framesById() { return Collections.unmodifiableMap(framesById); }
     public Map<DataKey, DataInfo> dataById() { return Collections.unmodifiableMap(dataById); }

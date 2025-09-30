@@ -11,6 +11,7 @@ import java.util.concurrent.*;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 
+import org.jfree.data.Range;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -18,33 +19,29 @@ import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.chart.plot.ValueMarker;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.AbstractRenderer;
+import org.jfree.chart.ui.Layer;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.axis.ValueAxis;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
-// assumes you have these (from the DnD step)
-// import telemetry.TelemetryDnD.DataPointRef;
-// import telemetry.TelemetryDnD.DataPointTransferable;
-
+// The panel displaying the charts of data
 public class MainPanel extends JPanel {
 
-    private ChartPanel chartPanel1, chartPanel2, chartPanel3, chartPanel4;
-    private static final List<JFreeChart> charts = new ArrayList<>();
-    private static final List<JPanel> chartPanels = new ArrayList<>();
-    private static List<ChartPanel> chartPanelList = new ArrayList<>();
+    private final List<JFreeChart> charts = new ArrayList<>();
+    private final List<JPanel> chartPanels = new ArrayList<>();
+    private List<ChartPanel> chartPanelList = new ArrayList<>();
 
-    // Cache: key -> XYSeries (so we can reuse series in charts & timers)
-    // key format: "<nodeName>.<dataName>"
     private final Map<TelemetryLookup.DataKey, XYSeries> seriesByRef = new HashMap<>();
 
-    private static int MAX_ELEMENTS_TO_SHOW = 10;
-    private static final double currTime = System.currentTimeMillis();
+    private int MAX_ELEMENTS_TO_SHOW = 10;   //set default number of data displayed to 10, can be updated with slider
+    private static final double startTime = System.currentTimeMillis();
 
-    private final TelemetryLookup lookup; // keep to resolve indices on drop
+    private final TelemetryLookup lookup; 
+    private MainFrame mainFrame = null;
 
 public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountHorizontal) {
-    this.lookup = lookup;                           // keep a field: private final TelemetryLookup lookup;
+    this.lookup = lookup;
     setLayout(new GridLayout(chartCountVertical, chartCountHorizontal));
 
     /* 1) Build one XYSeries per DataKey */
@@ -74,8 +71,18 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
         plot.getRenderer().setDefaultStroke(new BasicStroke(4.0f));
         ((AbstractRenderer) plot.getRenderer()).setAutoPopulateSeriesStroke(false);
         plot.getDomainAxis().setLabel("Time (s)");
-        ((NumberAxis) plot.getRangeAxis()).setAutoRangeIncludesZero(false);
+        NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
+        Optional<TelemetryLookup.DataInfo> inf= lookup.getDataInfo(key);
+        if(inf.isEmpty()){
+            System.out.println("unable to find dataInfo for a chart that needs to be displayed! Quitting");
+            System.exit(1);
+        }
+        int minimumSize = Math.max(Math.min( 1  << (inf.get().bitLength()>>1), 2), 100);
+        yAxis.setAutoRangeIncludesZero(false);   // dont force include zero
+        yAxis.setAutoRangeMinimumSize(minimumSize);     // enforce at least 2 units tall
         plot.getRangeAxis().setLabel(title);
+        applyThresholdMarkers(chart, key);
+
 
         charts.add(chart);
 
@@ -98,7 +105,7 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
         @Override
         public void drop(DropTargetDropEvent dtde) {
             try {
-                var t = dtde.getTransferable();
+                var t = dtde.getTransferable(); //Transferable allows us to associate the dataKey with corresponding chart in on click events
                 if (!t.isDataFlavorSupported(DataInfoTransferable.FLAVOR)) {
                     dtde.rejectDrop(); return;
                 }
@@ -109,7 +116,7 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
                 // Build tuple key by IDs (nodeId, frameIndex, dataIndex)
                 TelemetryLookup.DataKey key = new TelemetryLookup.DataKey(ref.nodeId(), ref.frameIdx(), ref.dpIdx());
 
-                var dpOpt = lookup.getDataInfoById(key);
+                var dpOpt = lookup.getDataInfo(key);
                 if (dpOpt.isEmpty()) { dtde.dropComplete(false); return; }
                 TelemetryLookup.DataInfo dp = dpOpt.get();
 
@@ -122,8 +129,10 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
 
                 ChartPanel droppedChartPanel = (ChartPanel) dtde.getDropTargetContext().getComponent();
                 JFreeChart chart = droppedChartPanel.getChart();
-
-                if (MainFrame.getMultiStatus()) {
+                if(mainFrame == null){
+                    System.out.println("havent connected mainFrame yet. :/");
+                }
+                if (mainFrame != null && mainFrame.getMultiStatus()) {
                     // Add series to existing dataset
                     XYSeriesCollection dataset = (XYSeriesCollection) chart.getXYPlot().getDataset();
                     dataset.addSeries(ser);
@@ -143,12 +152,9 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
                         .setNumberFormatOverride(NumberFormat.getNumberInstance());
 
                 // Threshold markers from DataInfo
+                //TODO: test that these work.
                 var plot = chart.getXYPlot();
-                plot.clearRangeMarkers();
-                plot.addRangeMarker(new ValueMarker(dp.minWarning()) {{ setPaint(Color.YELLOW); }});
-                plot.addRangeMarker(new ValueMarker(dp.maxWarning()) {{ setPaint(Color.YELLOW); }});
-                plot.addRangeMarker(new ValueMarker(dp.minCritical()) {{ setPaint(Color.RED); }});
-                plot.addRangeMarker(new ValueMarker(dp.maxCritical()) {{ setPaint(Color.RED); }});
+                applyThresholdMarkers(chart, key);
 
                 plot.getRangeAxis().setLabel(lookup.titleFor(key));
 
@@ -166,28 +172,47 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
         new DropTarget(cp, DnDConstants.ACTION_COPY, dtl, true);
     }
 
-    /* 4) Demo data feed (random). 
-          If you persist real data, replace this with your data source. 
-          Also update your CSV/status-signatures to use DataKey. */
-    long startTime = System.currentTimeMillis();
-    Random random = new Random();
-    javax.swing.Timer timer = new javax.swing.Timer(1000, e -> {
-        seriesByRef.forEach((key, series) -> {
-            double value = 10 + random.nextGaussian() * 0.5;
-            series.add((System.currentTimeMillis() - startTime) / 1000.0, value);
-
-            // OPTIONAL: if you keep CSV or status indicators, update them here.
-            // Suggested signatures (change your methods accordingly):
-            updateCSV(value, lookup.titleFor(key), currTime);
-            lookup.getDataInfoById(key).ifPresent(dp -> SensorSelectionPanel.setStatusIndicator(lookup, key, dp, value));
-        });
-    });
-    timer.start();
-
-    // Keep your theming hook if you have one
     darkenCharts();
 }
+    public void connectFrame(MainFrame mainFrame) {
+        this.mainFrame=mainFrame;
+    }
+    private void applyThresholdMarkers(JFreeChart chart, TelemetryLookup.DataKey key) {
+        lookup.getDataInfo(key).ifPresent(dp -> {
+            XYPlot plot = chart.getXYPlot();
+            plot.clearRangeMarkers();
 
+            ValueMarker wMin = new ValueMarker(dp.minWarning());
+            wMin.setPaint(Color.YELLOW); wMin.setStroke(new BasicStroke(2f));
+            plot.addRangeMarker(wMin, Layer.FOREGROUND);
+
+            ValueMarker wMax = new ValueMarker(dp.maxWarning());
+            wMax.setPaint(Color.YELLOW); wMax.setStroke(new BasicStroke(2f));
+            plot.addRangeMarker(wMax, Layer.FOREGROUND);
+
+            ValueMarker cMin = new ValueMarker(dp.minCritical());
+            cMin.setPaint(Color.RED); cMin.setStroke(new BasicStroke(2f));
+            plot.addRangeMarker(cMin, Layer.FOREGROUND);
+
+            ValueMarker cMax = new ValueMarker(dp.maxCritical());
+            cMax.setPaint(Color.RED); cMax.setStroke(new BasicStroke(2f));
+            plot.addRangeMarker(cMax, Layer.FOREGROUND);
+        });
+
+    }
+    public boolean addDataPoint(TelemetryLookup.DataKey key, int value){
+        if(!seriesByRef.containsKey(key)){
+            return false;
+        }
+        XYSeries updatedSeries = seriesByRef.get(key);
+        updatedSeries.add((System.currentTimeMillis() - startTime) / 1000.0, value);
+        updateCSV(value, lookup.titleFor(key), startTime);
+        return true;
+    }
+    public boolean addDataPoint(int nodeId, int frameIdx, int dataIdx, int value){
+        TelemetryLookup.DataKey key = new TelemetryLookup.DataKey(nodeId, frameIdx, dataIdx);
+        return addDataPoint(key, value);
+    }
 
     //Chart Axis Labels and Frame
     private JFreeChart createChart(XYSeriesCollection dataset, String title) {
@@ -200,8 +225,8 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
             true, true, false);
     }
 
-    public static void lightenCharts() {
-        for (JFreeChart chart : charts) {
+    public void lightenCharts() {
+        for (JFreeChart chart : this.charts) {
             chart.getTitle().setPaint(Color.BLACK);
             chart.setBackgroundPaint(Color.WHITE);
             chart.getPlot().setBackgroundPaint(Color.WHITE);
@@ -223,8 +248,8 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
             chart.getXYPlot().getRendererForDataset(chart.getXYPlot().getDataset()).setSeriesPaint(0, Color.DARK_GRAY);
         }
     }
-    public static void darkenCharts() {
-        for (JFreeChart chart : charts) {
+    public void darkenCharts() {
+        for (JFreeChart chart : this.charts) {
             chart.getTitle().setPaint(Color.WHITE);
             chart.setBackgroundPaint(Color.DARK_GRAY);
             chart.getPlot().setBackgroundPaint(Color.DARK_GRAY);
@@ -248,15 +273,15 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
         }
     }
 
-    public static void setMaxElementsToShow(int maxElementsToShow) {
+    public void setMaxElementsToShow(int maxElementsToShow) {
         MAX_ELEMENTS_TO_SHOW = maxElementsToShow;
     }
 
-    public static int getMaxElementsToShow() {
+    public int getMaxElementsToShow() {
         return MAX_ELEMENTS_TO_SHOW;
     }
 
-    public static void updateCharts() {
+    public void updateCharts() {
         for (JFreeChart chart : charts) {
             for (int i = 0; i < chart.getXYPlot().getDataset().getSeriesCount(); i++) {
                 XYSeries series = ((XYSeriesCollection) chart.getXYPlot().getDataset()).getSeries(i);
@@ -278,7 +303,7 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
                 f.createNewFile();
             }
             FileWriter writer = new FileWriter(f, true);
-            writer.append(String.valueOf(Math.floorDiv( (long) (System.currentTimeMillis() - MainPanel.currTime), 1000)));
+            writer.append(String.valueOf(Math.floorDiv( (long) (System.currentTimeMillis() - MainPanel.startTime), 1000)));
             writer.append(",");
             writer.append(String.valueOf(data));
             writer.append(",\n");

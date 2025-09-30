@@ -1,63 +1,42 @@
-import java.awt.Image;
-
 import javax.swing.*;
 import com.formdev.flatlaf.FlatDarkLaf;
-import com.formdev.flatlaf.FlatLightLaf;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.io.IOException;
+import java.io.InputStream;
 
 public class MainApp {
-    private static boolean isNightMode = true;
     public static void main(String[] args) {
-        //Initially have dark mode on
-        try {
-            UIManager.setLookAndFeel(new FlatDarkLaf());
-        } catch (Exception ex) {
-            System.err.println("Failed to initialize LaF");
-        }
+        // Start in dark
+        try { UIManager.setLookAndFeel(new FlatDarkLaf()); }
+        catch (Exception ex) { System.err.println("Failed to init LaF"); }
 
-        //Textbook Swing Stuff
         SwingUtilities.invokeLater(() -> {
-            MainFrame mainFrame = new MainFrame();
-            mainFrame.setSize(800, 600);
-            mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            mainFrame.setVisible(true);
-        });
-    }
+            try {
+                // Load Telemetry lookup, which contains info on sensors.
+                TelemetryLookup lookup;
+                try (InputStream in = MainApp.class.getResourceAsStream("/telemetry.csv")) {
+                    if (in == null) throw new IllegalStateException("telemetry.csv not found on classpath");
+                    lookup = new TelemetryLookup(in);
+                }
 
-    //Logic for Light/Dark Mode button
-    public static void toggleNightMode() {
-        try {
-            if (isNightMode) {
-                UIManager.setLookAndFeel(new FlatLightLaf());
-                MainPanel.lightenCharts();
-            } else {
-                UIManager.setLookAndFeel(new FlatDarkLaf());
-                MainPanel.darkenCharts();
+                // Build UI
+                System.out.println("making UI");
+                NotificationPanel notifications = new NotificationPanel();
+                SensorSelectionPanel selectionPanel = new SensorSelectionPanel(lookup);
+                final int chartCountVertical = 2; final int chartCountHorizontal = 2;
+                MainPanel mainPanel = new MainPanel(lookup, chartCountVertical, chartCountHorizontal);
+                MainFrame frame = new MainFrame(lookup, selectionPanel, notifications, mainPanel);
+                mainPanel.connectFrame(frame);
+                frame.setVisible(true);
+                System.out.println("parsing");
+
+                // Parse Can Messages, and update UI for them
+                CanParser parser = new CanParser(lookup, notifications, mainPanel);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "Failed to load telemetry.csv", "Error",
+                        JOptionPane.ERROR_MESSAGE);
             }
-            isNightMode = !isNightMode;
-            SwingUtilities.updateComponentTreeUI(MainFrame.getFrames()[0]);
-        } catch (Exception ex) {
-            System.err.println("Failed to toggle night mode");
-        }
-    }
-
-    //Getter for night mode
-    public static boolean isNightMode() {
-        return isNightMode;
-    }
-
-    //Fetching/Setting the icon for the Light/Dark Mode button
-    public static Icon getNightModeIcon() {
-        String iconName = isNightMode ? "/sun_icon.png" : "/moon_icon.png";
-
-        ImageIcon icon = new ImageIcon(
-            MainApp.class.getResource(iconName)  // leading "/" means root of resources
-        );
-        Image image = icon.getImage();
-        Image newImage = image.getScaledInstance(30, 30, Image.SCALE_SMOOTH);
-        icon = new ImageIcon(newImage);
-        return icon;
+        });
     }
 }

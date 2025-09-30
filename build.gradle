@@ -8,12 +8,15 @@ repositories {
 }
 
 dependencies {
-    // Only the libraries you use directly in your code:
-    implementation 'org.apache.commons:commons-csv:1.14.1'
-
-    // Add these only if you import/use them in your code:
+    // UI Stuff
     implementation 'com.formdev:flatlaf:3.3'
     implementation 'org.jfree:jfreechart:1.5.4'
+
+    // CSV parser
+    implementation 'org.apache.commons:commons-csv:1.14.1'
+
+    //UART
+    implementation("com.fazecast:jSerialComm:2.10.4")
 }
 
 application {

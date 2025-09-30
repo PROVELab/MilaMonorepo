@@ -50,7 +50,7 @@ public class SensorSelectionPanel extends JPanel {
     // One flat iteration over all telemetry channels
     for (TelemetryLookup.DataKey key : lookup.allDataKeys()) {
         // Resolve metadata and a friendly title
-        TelemetryLookup.DataInfo dp = lookup.getDataInfoById(key).orElse(null);
+        TelemetryLookup.DataInfo dp = lookup.getDataInfo(key).orElse(null);
         if (dp == null) continue; // CSV could be malformed; skip defensively
 
         String title = lookup.titleFor(key); // e.g., "<nodeName>.<dataName>"
@@ -79,7 +79,7 @@ public class SensorSelectionPanel extends JPanel {
         final int nodeId  = key.nodeId();
         final int frameIdx = key.frameIndex();
         final int dpIdx    = key.dataIndex();
-        final String nodeName = lookup.getNodeById(nodeId).map(TelemetryLookup.Node::name).orElse("node" + nodeId);
+        final String nodeName = lookup.getNodeById(nodeId).map(TelemetryLookup.Node::nodeName).orElse("node" + nodeId);
 
         DragSource ds = new DragSource();
         ds.createDefaultDragGestureRecognizer(sensorLabel, DnDConstants.ACTION_COPY, dge -> {

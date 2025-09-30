@@ -2,6 +2,7 @@
 import java.awt.datatransfer.*;
 import java.io.IOException;
 
+//Transferable allows us to associate charts/buttons with their corresponding lookup info
 // Payload: just indices (+ nodeName for display)
 public record DataInfoRef(String nodeName, int nodeId, int frameIdx, int dpIdx) {}
 
