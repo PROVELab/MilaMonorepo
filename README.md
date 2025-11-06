@@ -10,7 +10,7 @@ vehicle (except for embedded code, for now). It includes:
 Essentially all code that is necessary for Mila will eventually end up in this repository.
 
 ## Structure
-
+```
 /
     /.github
     /tools
@@ -24,13 +24,16 @@ Essentially all code that is necessary for Mila will eventually end up in this r
         /test_result/
     /experiments
         /bms
+```
 
 Future:
+```
     /embedded
         /mcu
         /vitals
         /imu... etc
     /autonomy
+```
 
 ## Documentation
 All new PROVE Memos will now reside in /doc as Markdown for CS and CPE-related
