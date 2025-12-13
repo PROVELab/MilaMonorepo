@@ -14,3 +14,5 @@ start_dashboard: setup_dashboard
 start_reverse_camera_recv: setup_reverse_camera
     (cd reverse-camera && uv run receiver.py)
 
+[parallel]
+start_dashboard_reverse_camera: start_reverse_camera_recv start_dashboard
