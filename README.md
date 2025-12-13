@@ -40,3 +40,13 @@ All new PROVE Memos will now reside in /doc as Markdown for CS and CPE-related
 items. This keeps the documentation close to the code, beneficial both for reviewers
 and devs
 
+# Dependencies
+To use the items in this monorepo, it's recommended that you have:
+- [Python](https://www.python.org/)
+- [uv](https://docs.astral.sh/uv/)
+- [NodeJS](https://nodejs.org/en/download)
+- [Rust](https://rust-lang.org/tools/install/)
+- [Just](https://just.systems/man/en/)
+
+To manage build/setup, we use Justfile which is a slightly simpler Makefile.
+
