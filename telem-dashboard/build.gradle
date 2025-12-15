@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // UI Stuff
+    implementation 'com.formdev:flatlaf:3.3'
+    implementation 'org.jfree:jfreechart:1.5.4'
+
+    // CSV parser
+    implementation 'org.apache.commons:commons-csv:1.14.1'
+
+    //UART
+    implementation("com.fazecast:jSerialComm:2.10.4")
+}
+
+application {
+    mainClass = 'MainApp'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21) 
+    }
+}
