@@ -35,6 +35,12 @@ Future:
     /autonomy
 ```
 
+### Vehicle Dashboard
+The in-vehicle dashboard can be setup and run via `just start_dashboard`
+
+### Telemetry Dashboard
+The telemetry (home-base) dashboard can be run via `just start_telem_dashboard`
+
 ## Documentation
 All new PROVE Memos will now reside in /doc as Markdown for CS and CPE-related
 items. This keeps the documentation close to the code, beneficial both for reviewers
@@ -47,6 +53,9 @@ To use the items in this monorepo, it's recommended that you have:
 - [NodeJS](https://nodejs.org/en/download)
 - [Rust](https://rust-lang.org/tools/install/)
 - [Just](https://just.systems/man/en/)
+- Java JDK (Please look at your package manager on how to do this)
+- Gradle
 
 To manage build/setup, we use Justfile which is a slightly simpler Makefile.
 
+We recommend using [sdkman](https://sdkman.io/) to install the jdk and gradle.
