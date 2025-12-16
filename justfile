@@ -20,6 +20,12 @@ reverse_camera_recv: setup_reverse_camera
 [parallel]
 dashboard_reverse_camera: reverse_camera_recv dashboard
 
+### Formatting/Code Quality ###
+format:
+    (cd mila-embedded && ./format.sh)
+
+check_format:
+    (cd mila-embedded && ./check_format.sh)
 
 ### Telem Dashboard Stuff ###
 telem_dashboard:
