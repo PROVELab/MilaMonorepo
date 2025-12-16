@@ -1,0 +1,4 @@
+[submodule "mila-embedded/src/mcu/motor_h300"]
+	path = mila-embedded/src/mcu/motor_h300
+	url = git@github.com:PROVELab/motor_h300.git
+	branch = main

@@ -16,3 +16,10 @@ start_reverse_camera_recv: setup_reverse_camera
 
 [parallel]
 start_dashboard_reverse_camera: start_reverse_camera_recv start_dashboard
+
+### Formatting/Code Quality ###
+format:
+    (cd mila-embedded && ./format.sh)
+
+check_format:
+    (cd mila-embedded && ./check_format.sh)
