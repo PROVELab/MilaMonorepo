@@ -8,14 +8,17 @@ setup_dashboard:
 setup_reverse_camera:
     (cd reverse-camera && uv sync)
 
-start_dashboard: setup_dashboard
+build_dashboard: setup_dashboard
+    (cd dashboard && npm run tauri:build)
+
+dashboard: setup_dashboard
     (cd dashboard && npm run tauri dev)
 
-start_reverse_camera_recv: setup_reverse_camera
+reverse_camera_recv: setup_reverse_camera
     (cd reverse-camera && uv run receiver.py)
 
 [parallel]
-start_dashboard_reverse_camera: start_reverse_camera_recv start_dashboard
+dashboard_reverse_camera: reverse_camera_recv dashboard
 
 ### Formatting/Code Quality ###
 format:
@@ -23,3 +26,8 @@ format:
 
 check_format:
     (cd mila-embedded && ./check_format.sh)
+
+### Telem Dashboard Stuff ###
+telem_dashboard:
+    (cd telem-dashboard && gradle run)
+
