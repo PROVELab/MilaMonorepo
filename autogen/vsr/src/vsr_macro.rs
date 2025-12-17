@@ -1,5 +1,3 @@
-use crate::vsr_metadata::vsr_subtype;
-use crate::vsr_metadata::vsr_type;
 
 #[macro_export]
 macro_rules! vsr_gen {
