@@ -2,8 +2,8 @@ public final class Constants {
     private Constants() {}
 
     //generated Constants
-    public static final int numberOfNodes = 2;
-    public static final int totalNumFrames = 2;
+    public static final int numberOfNodes = 3;
+    public static final int totalNumFrames = 3;
     public static final int numMissingIDs = 1;
     public static final int startingOffset = 8;
 
@@ -38,8 +38,8 @@ public final class Constants {
 	// global enum functionCodes
 	public static final class functionCodes {
 		private functionCodes() {}
-		public static final int CAN_Open_NMT_Function = 0;	// 0b0000
-		public static final int CAN_Open_Synchronization = 1;	// 0b0001
+		public static final int reservedForMotorController_1 = 0;	// 0b0000
+		public static final int reservedForMotorController_2 = 1;	// 0b0001
 		public static final int warningCode = 2;	// 0b0010
 		public static final int TelemetryCommand = 3;	// 0b0011
 		public static final int statusUpdate = 4;	// 0b0100
@@ -48,6 +48,7 @@ public final class Constants {
 		public static final int transmitData = 7;	// 0b0111
 		public static final int HBRespUpdate = 8;	// 0b1000
 		public static final int busStatusUpdate = 9;	// 0b1001
+		public static final int vitalsErr = 10;	// 0b1010
 		public static final int CAN_Open_Err_Cntrl = 14;	// 0b1110
 	}
 
@@ -84,14 +85,14 @@ public final class Constants {
 		public static final int prechargeOff = 7;	// 0b00000111
 	}
 
-	// global enum twaiState
-	public static final class twaiState {
-		private twaiState() {}
-		public static final int TWAI_STATE_STOPPED = 0;	// 0
-		public static final int TWAI_STATE_RUNNING = 1;	// 1
-		public static final int TWAI_STATE_BUS_OFF = 2;	// 2
-		public static final int TWAI_STATE_RECOVERING = 3;	// 3
+	// global enum telem_twai_state
+	public static final class telem_twai_state {
+		private telem_twai_state() {}
+		public static final int TELEM_TWAI_STATE_STOPPED = 0;	// 0
+		public static final int TELEM_TWAI_STATE_RUNNING = 1;	// 1
+		public static final int TELEM_TWAI_STATE_BUS_OFF = 2;	// 2
+		public static final int TELEM_TWAI_STATE_RECOVERING = 3;	// 3
 	}
 
-	public static final int[] nodeIDs = new int[]{ 8, 10 };
+	public static final int[] nodeIDs = new int[]{ 8, 10, 11 };
 }

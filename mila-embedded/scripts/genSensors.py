@@ -1,26 +1,22 @@
 import os
 from parseFile import dataPoint_fields, CANFrame_fields, ACCESS
 
-def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, generated_code_dir):
-    
-    # create files for which only one exists (sensorHelper.hpp, and vitalsStaticDec)
-    universalPath = os.path.join(generated_code_dir, "Universal")
-    os.makedirs(universalPath, exist_ok=True)
+def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, base_dir, generated_code_dir):
 
-    file_path = os.path.join(universalPath, 'sensorHelper.hpp')
-    with open(file_path, 'w') as f:
-        f.write(
-            "#ifndef SENSOR_HELP\n"
-            "#define SENSOR_HELP\n\n"
-            "#ifdef __cplusplus\nextern \"C\" { //Need C linkage since ESP uses C \"C\"\n#endif\n"
-            "#include \"../../programConstants.h\"\n"
-            "#define STRINGIZE_(a) #a\n"
-            "#define STRINGIZE(a) STRINGIZE_(a)\n"
-            '#include STRINGIZE(../NODE_CONFIG)  //includes node Constants\n\n'
-            '#include "../../pecan/pecan.h"\n'
-            '#include <stdint.h>\n\n'
-            "//universal globals. Used by every sensor\n"
-        )
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    sensors_dir = os.path.join(script_dir, "..", "src", "sensors")
+    sensors_dir = os.path.normpath(sensors_dir)
+
+    common_dir = os.path.join(sensors_dir, "common")
+    common_dir = os.path.normpath(common_dir)
+    os.makedirs(common_dir, exist_ok=True)    
+
+    helperPath = os.path.join(common_dir, "sensorHelper.hpp")
+
+    with open(helperPath, 'w') as f:
+        with open(os.path.join(base_dir, "codeBlocks/sensors/helpTop.c"), 'r') as fread:
+            f.write(fread.read())
+            fread.close()
 
         # write the dataPoints struct (for sensors):
         f.write("typedef struct{\n")
@@ -50,10 +46,67 @@ def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numDat
     # write stuff for each sensor
     nodeIndex = 0
     dataIndex = 0
-    for node in vitalsNodes:
-        sub_dir_path = os.path.join(generated_code_dir, nodeNames[nodeIndex])
-        os.makedirs(sub_dir_path, exist_ok=True)  # Create each subdirectory
-        
+    copyAll = False
+    while nodeIndex < len(vitalsNodes):
+        node = vitalsNodes[nodeIndex]
+        # For sensors, do not overwrite, just create a copy with a unique name. They user can easily drag over as needed. This avoids overwriting user edited sensor main files        # Define the base name
+        sub_dir_path = os.path.join(sensors_dir, nodeNames[nodeIndex])
+        # If the directory exists, find a unique "CopyX" name
+        if os.path.exists(sub_dir_path):
+            if (copyAll):
+                counter = 1
+                # Keep incrementing until the path does not exist
+                while os.path.exists(f"{sub_dir_path}_Copy{counter}"):
+                    counter += 1
+                
+                # Update the path to the unique Copy version
+                sub_dir_path = f"{sub_dir_path}_Copy{counter}"
+            else:
+                print(f"\nDirectory {os.path.relpath(sub_dir_path)} already exists. Press 'h' or 'help' for help")
+                response = input("Do you want to make copy, overwrite, skip, copy all, or skip all (c/o/s/ca/sa)? : ").strip().lower()
+                if response == 'o' or response == 'overwrite':
+                    # User chose to overwrite, so we can remove the existing directory
+                    import shutil
+                    counter = 1 #remove all existing copies for this sensor
+                    while(os.path.exists(sub_dir_path)):
+                        shutil.rmtree(sub_dir_path)
+                        sub_dir_path= os.path.join(sensors_dir, nodeNames[nodeIndex])
+                        sub_dir_path = f"{sub_dir_path}_Copy{counter}"
+                        counter += 1
+                    sub_dir_path = os.path.join(sensors_dir, nodeNames[nodeIndex])
+                elif response == 's' or response == 'skip':
+                    print(f"Skipping generation for {nodeNames[nodeIndex]}")
+                    nodeIndex += 1
+                    dataIndex += numData[nodeIndex - 1]
+                    continue
+                elif response == 'sa' or response == 'skip all':
+                    print(f"Skipping all remaining sensor generations.")
+                    break
+                elif response == 'c' or response == 'copy' or response == 'ca' or response == 'copy all':
+                    counter = 1
+                    # Keep incrementing until the path does not exist
+                    while os.path.exists(f"{sub_dir_path}_Copy{counter}"):
+                        counter += 1
+                    
+                    # Update the path to the unique Copy version
+                    sub_dir_path = f"{sub_dir_path}_Copy{counter}"
+                elif response == 'h' or response == 'help':
+                    print("\"Copying\" a sensor node means making a new folder with a unique name, \n" \
+                      "like <name>CopyX. Do this if you are updating sensor node parameters, \n" \
+                      "but have custom user code for that sensor you want to save and copy over\n" \
+                      "Overwrite will delete all existing folders for that sensor, as well as any manual user code,\n" \
+                      "Only do this if you do not care about existing user code for that sensor node.\n")
+                    continue
+                else: 
+                    print("invalid response, try again")
+                    continue
+                if(response == 'ca' or response == 'copy all'):
+                    copyAll = True  # do not ask again
+
+        # Create the directory (exist_ok=True is safe but technically redundant now)
+        os.makedirs(sub_dir_path, exist_ok=True)
+
+        # Proceed with writing your file
         file_path = os.path.join(sub_dir_path, 'myDefines.hpp')
         with open(file_path, 'w') as f:
             # includes
@@ -65,7 +118,7 @@ def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numDat
             f.write("\n#define node_numData " + str(numData[nodeIndex]) + "\n\n")
             localDataIndex = dataIndex
             for i in range(numData[nodeIndex]):
-                f.write("int32_t collect_" + dataNames[dataIndex] + "();\n")
+                f.write("int32_t collect_" + dataNames[dataIndex] + "(bool* cancelFrameSend);\n")
                 localDataIndex += 1
                 dataIndex += 1  # increment dataIndex for each function declared
             f.write("\n#define dataCollectorsList ")
@@ -84,94 +137,41 @@ def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numDat
             while(1): pass
         with open(file_path, 'w') as f:
             if(boardTypes[nodeIndex]=="arduino"):    #create main.cpp for arduino sensors
-                f.write("#include <Arduino.h>\n"
-                    "#include <avr/wdt.h>\n"
-                    "#include \"CAN.h\"\n"
-                    "#include \"../../pecan/pecan.h\"                  //used for CAN\n"
-                    "#include \"../../arduinoSched/arduinoSched.hpp\"  //used for scheduling\n"
-                    "#include \"../common/sensorHelper.hpp\"      //used for compliance with vitals and sending data\n"
-                    "#include \"myDefines.hpp\"    //contains #define statements specific to this node like myId.\n\n")
-                f.write("PCANListenParamsCollection plpc={ .arr={{0}}, .defaultHandler = defaultPacketRecv, .size = 0};"
-                    "\nPScheduler ts;\n"
-                    "//For Standard behavior, fill in the collectData<NAME>() function(s).\n"
-                    "//In the function, return an int32_t with the corresponding data\n")
+                with open(os.path.join(base_dir, "codeBlocks/sensors/arduinoTop.cpp"), 'r') as fread:
+                    f.write(fread.read())
+                    fread.close()
+
                 localDataIndex = dataIndex - numData[nodeIndex]  # reset localDataIndex for this node
                 for frame in ACCESS(node, "CANFrames")["value"]:
                     for dataPoint in ACCESS(frame, "dataInfo")["value"]:
-                        f.write("int32_t collect_{0}(){{\n    int32_t {0} = {1};\n\
-                                Serial.println(\"collecting {0}\");\n    return {0};\n}}\n\n".format(
+                        f.write("int32_t collect_{0}(bool* cancelFrameSend){{\n    int32_t {0} = {1};\n"\
+                                "\tSerial.println(\"collecting {0}\");\n    return {0};\n}}\n\n".format(
                             dataNames[localDataIndex], str(ACCESS(dataPoint, "startingValue")["value"])))
                         localDataIndex += 1
-                f.write("void setup() {\n"
-                    "\tSerial.begin(9600);\n"
-	                "\tSerial.println(\"sensor begin\");\n"
-                    "\twdt_enable(WDTO_2S); // enable watchdog with 2s timeout. reset in ts.mainloop\n"
-                    "\tpecanInit config={.nodeId= myId, .pin1= defaultPin, .pin2= defaultPin};\n"
-                    "\tpecan_CanInit(config);\n"
-                    "\tsensorInit(&plpc, &ts);\n"
-                    "}\n\n")
-                f.write("void loop() {\n"
-                    "\twdt_reset();\n"
-                    "\twhile( waitPackets(&plpc) != NOT_RECEIVED);	//handle CAN messages\n"
-                    "\tts.execute();	//Execute scheduled tasks\n"
-                    "}\n")
+                with open(os.path.join(base_dir, "codeBlocks/sensors/arduinoMain.cpp"), 'r') as fread:
+                    f.write(fread.read())
+                    fread.close()
                 f.close()
             elif(boardTypes[nodeIndex]=="esp"):
-                f.write("#include \"freertos/FreeRTOS.h\"\n"  
-                    "#include \"freertos/task.h\"\n"
-                    "#include \"esp_system.h\"\n"
-                    "#include \"driver/gpio.h\"\n"
-                    "#include \"driver/twai.h\"\n"
-                    "#include \"freertos/semphr.h\"\n"
-                    "#include <string.h>\n"
-                    "#include \"esp_timer.h\"\n\n"
-                    "#include \"../../pecan/pecan.h\"             //used for CAN\n"
-                    "#include \"../common/sensorHelper.hpp\"      //used for compliance with vitals and sending data\n"
-                    "#include \"myDefines.hpp\"       //contains #define statements specific to this node like myId.\n"
-                    "#include \"../../espBase/debug_esp.h\"\n"
-                    "//add declerations to allocate space for additional tasks here as needed\n"
-                    "StaticTask_t recieveMSG_Buffer;\n"
-                    "StackType_t recieveMSG_Stack[STACK_SIZE]; //buffer that the task will use as its stack\n\n"
-                    "//For Standard behavior, fill in the collectData<NAME>() function(s).\n"
-                    "//In the function, return an int32_t with the corresponding data\n")
+                with open(os.path.join(base_dir, "codeBlocks/sensors/espTop.c"), 'r') as fread:
+                    f.write(fread.read())
+                    fread.close()
                 localDataIndex = dataIndex - numData[nodeIndex]  # reset localDataIndex for this node
                 for frame in ACCESS(node, "CANFrames")["value"]:
                     for dataPoint in ACCESS(frame, "dataInfo")["value"]:
-                        f.write("int32_t collect_{0}(){{\n    int32_t {0} = {1};\n"
+                        f.write("int32_t collect_{0}(bool* cancelFrameSend){{\n    int32_t {0} = {1};\n"
                                 "\tmutexPrint(\"collecting {0}\\n\");\n    return {0};\n}}\n\n".format(
                             dataNames[localDataIndex], str(ACCESS(dataPoint, "startingValue")["value"])))
                         localDataIndex += 1
-                f.write("void recieveMSG(){  //task handles recieving Messages\n"
-                    "\tPCANListenParamsCollection plpc={ .arr={{0}}, .defaultHandler = defaultPacketRecv, .size = 0, };\n"
-                    "\tsensorInit(&plpc,NULL); //vitals Compliance\n\n"
-                    "\t//declare CanListenparams here, each param has 3 entries:\n"
-                    "\t//When recv msg with id = 'listen_id' according to matchtype (or 'mt'), 'handler' is called.\n"
-                    "\t\n//task calls the appropriate ListenParams function when a CAN message is recieved\n"
-                    "\tfor(;;){\n"
-                    "\t\twhile(waitPackets(&plpc) != NOT_RECEIVED);\n"
-                    "\t\ttaskYIELD();\n"
-                    "\t}\n"
-                    "}\n\n"
-                    "void app_main(void){\n" 
-                    "\tbase_ESP_init();\n"
-                    "\tpecanInit config={.nodeId= myId, .pin1= defaultPin, .pin2= defaultPin};\n"  
-                    "\tpecan_CanInit(config);   //initialize CAN\n\n"
-                    "\t//Declare tasks here as needed\n"
-                    "\tTaskHandle_t recieveHandler = xTaskCreateStaticPinnedToCore(  //recieves CAN Messages \n"
-                    "\t\trecieveMSG,       /* Function that implements the task. */\n"
-                    "\t\t\"msgRecieve\",          /* Text name for the task. */\n"
-                    "\t\tSTACK_SIZE,      /* Number of indexes in the xStack array. */\n"
-                    "\t\t( void * ) 1,    /* Task Parameter. Must remain in scope or be constant!*/ \n"
-                    "\t\ttskIDLE_PRIORITY,/* Priority at which the task is created. */\n"
-                    "\t\trecieveMSG_Stack,          /* Array to use as the task's stack. */\n"
-                    "\t\t&recieveMSG_Buffer,   /* Variable to hold the task's data structure. */\n"
-                    "\t\ttskNO_AFFINITY);  //assign to either core\n"
-                    "}\n")
+                with open(os.path.join(base_dir, "codeBlocks/sensors/espMain.c"), 'r') as fread:
+                    f.write(fread.read())
+                    fread.close()
                 f.close()
         
         file_path = os.path.join(sub_dir_path, 'staticDec.cpp')
         # file_path = os.path.join(sub_dir_path, nodeNames[nodeIndex] + 'staticDec.cpp')
         with open(file_path, 'w') as f:
+
             frameNum = 0
             f.write('#include "myDefines.hpp"\n#include "../common/sensorHelper.hpp"\n\n'
                     '//creates CANFrame array from this node. It stores data to be sent, and info for how to send\n\n')

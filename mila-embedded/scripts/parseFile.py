@@ -28,7 +28,9 @@ dataPoint_fields = [
     {"name": "max",             "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False},
     {"name": "minWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
     {"name": "maxWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
-    {"name": "startingValue",   "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals"], "isSet": False}
+    {"name": "startingValue",   "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals"], "isSet": False},
+    {"name": "crit_count_max",  "type": "uint8_t", "expectation": "optional",    "value": 0,  "node": ["vitals, telemetry"], "isSet": False},  #how many consecutive criticals (after removing outliers) before considered in critical range? default is 1 if unsepecified and a critical range is set. 0 if not critical at all
+    {"name": "crit_count",   "type": "uint8_t", "expectation": "dontSpecify",    "value": 0,  "node": ["vitals"], "isSet": False}
 ]
 
 # A copy of each of these will be made for every CANFrame
@@ -37,7 +39,6 @@ CANFrame_fields = [
     {"name": "frameID",         "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals"], "isSet": False},    # explicitly computed by program
     {"name": "numData",    "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},     # computed by the program
     {"name": "dataInfo",        "type": "list",   "expectation": "dontSpecify", "value": [], "node": [], "isSet": False},      # List of dataPoint structs; element‐wise parsed. was node: "array", but I think uncessary?
-    {"name": "isCritical",      "type": "int8_t",  "expectation": "optional", "value": 0,  "node": ["vitals"], "isSet": False},  # should we raise critical error if this frame is not being sent? 
     {"name": "flags",           "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # if not specified, set to 0
     {"name": "dataLocation",    "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # never needs to be changed
     {"name": "consecutiveMisses","type": "int8_t", "expectation": "optional",   "value": 0, "node": ["vitals"], "isSet": False},
@@ -88,7 +89,10 @@ def validate_datapoint(dp, dataName, node_id):
     minCriticalSet= bool(ACCESS(dp, "minCritical")["isSet"])
     maxCritical   = int(ACCESS(dp, "maxCritical")["value"])
     maxCriticalSet= bool(ACCESS(dp, "maxCritical")["isSet"])
-    starting_val  = int(ACCESS(dp, "startingValue")["value"])   
+    starting_val  = int(ACCESS(dp, "startingValue")["value"])  
+    crit_count_max = int(ACCESS(dp, "crit_count_max")["value"])
+    crit_count_max_Set= bool(ACCESS(dp, "crit_count_max")["isSet"])
+
     # Check overall range is valid.
     if not (min_value < max_value):
         print(f"Error: For {dataName} (node {node_id}): \
@@ -123,6 +127,23 @@ def validate_datapoint(dp, dataName, node_id):
     if not maxCriticalSet:
          maxCritical=(int)(ACCESS(dp, "max")["value"])
          ACCESS(dp, "maxCritical")["value"]= maxCritical
+
+    #check crit_count_max
+    if( minCriticalSet or maxCriticalSet):  #set crit_count_max to 1 by default
+        if(not crit_count_max_Set):
+            crit_count_max=1
+            ACCESS(dp, "crit_count_max")["value"]= crit_count_max
+        if crit_count_max == 0:
+            print(f"Error: For {dataName} (node {node_id}): crit_count_max shouldn't be zero when critical range is specified.")
+            while(1): pass
+    else:
+        if crit_count_max_Set:
+            print(f"Error: For {dataName} (node {node_id}): crit_count_max specified without critical range.")
+            while(1): pass
+    
+    if crit_count_max < 0  or crit_count_max > 255:
+        print(f"Error: For critical data: {dataName} (node {node_id}): crit_count_max not in uint8_t range.")
+        while(1): pass
 
     # Check range ordering.
     if(minWarningSet and minWarning<min_value or (maxWarningSet and maxWarning>max_value)):

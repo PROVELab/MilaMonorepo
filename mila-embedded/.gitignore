@@ -10,6 +10,7 @@ build/
 scripts/Gen*/
 scripts/Gen_For_sensors/
 scripts/Gen_For_simpleTest/
+rust/
 
 build/
 sdkconfig.*

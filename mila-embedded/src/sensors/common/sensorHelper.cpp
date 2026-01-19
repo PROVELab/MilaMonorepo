@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include <stdbool.h>
 #include <string.h>
 // Declare Timers for data collection and sending
 TimerHandle_t dataCollection_Timers[numFrames]; // one of these timers going off trigers callback function for missing
@@ -41,7 +42,7 @@ int32_t checkBus_myId = myId;                  // parameter passed to check_bus_
 
 #include <stdint.h>
 
-int32_t (*mydataCollectors[node_numData])(void) = {
+int32_t (*mydataCollectors[node_numData])(bool*) = {
     dataCollectorsList}; // the list of functions to be called for collecting data. These are to be defined in the main
                          // file for each sensor
 
@@ -67,7 +68,13 @@ void sendFrame(int8_t frameNum) {
     uint8_t tempData[8] = {0};
     for (int i = 0; i < frameNumData;
          i++) { // iterate over each data. Colect data from dataCollectors, and store compressed version into tempdata.
-        int32_t data = mydataCollectors[collectorFuncIndex + i](); // collects the data point
+        bool sendFrame=true; //sendFrame by default
+        //Any datapoint can request to cancel sending the entire frame by setting sendFrame to 0
+        int32_t data = mydataCollectors[collectorFuncIndex + i](&sendFrame); // collects the data point
+        if(sendFrame == false){
+            flexiblePrint("data collector requested to cancel frame send\n");
+            return; //skip sending this frame
+        }
         dataPoint info = myframes[frameNum].dataInfo[i];
         uint32_t unsignedConstrained =
             formatValue(data, info.min, info.max); // constraining and subtracting min forces this value to be positive

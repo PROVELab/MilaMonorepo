@@ -1,16 +1,25 @@
 import os
 from parseFile import dataPoint_fields, CANFrame_fields, vitalsNode_fields, globalDefine, ACCESS
 from constantGen import writeConstants
+from genTelemetry import get_telem_path
 
 
 def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, generated_code_dir, globalDefines):
 
-    vitals_dir = os.path.join(generated_code_dir, "generatedVitalsCode")
+    # 1. Get the directory where this script resides
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # 2. Construct the target path:
+    #    Go UP one level (..) -> into 'src' -> 'vitalsNode' -> 'vitalsHelper'
+    vitals_dir = os.path.join(script_dir, "..", "src", "vitalsNode", "vitalsHelper")
+    # 3. Clean up the path (resolves the ".." so it looks like a normal path)
+    vitals_dir = os.path.normpath(vitals_dir)
+
+    # 4. Create the directory tree if it doesn't exist
     os.makedirs(vitals_dir, exist_ok=True)
 
-    file_path = os.path.join(vitals_dir, 'sensorHelper.hpp')
-    numMissingIDs=0 #will be used for programConstants.h, Value determined when generating staticDec.c
-    #make the vitalsStaticDec.c file
+    numMissingIDs=0
+    # Define the file path (this joins the path with the filename)
     file_path = os.path.join(vitals_dir, 'vitalsStaticDec.c')
     print("generating\n")
     with open(file_path, 'w') as f:
@@ -130,13 +139,29 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
 
     #generate constants files
     minId = min(nodeIds)
-    constants_file_path = os.path.join(vitals_dir, 'programConstants.h')
+    # 1. Anchor to the current script's directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # --- 1. C Constants (Target: src/programConstants.h) ---
+    # Go up one level (..) -> into src
+    c_constants_dir = os.path.join(script_dir, "..", "src")
+    c_constants_dir = os.path.normpath(c_constants_dir)
+    os.makedirs(c_constants_dir, exist_ok=True)
+
+    constants_file_path = os.path.join(c_constants_dir, 'programConstants.h')
+
+    # Write C Constants
     writeConstants("c", constants_file_path, minId, numMissingIDs, nodeCount, frameCount, globalDefines, missingIDs)
-    #Easier to just put telem constant gen here asw.
-    telem_generated_code_dir = os.path.join(generated_code_dir, 'generatedTelemetryCode') 
-    os.makedirs(telem_generated_code_dir, exist_ok=True)
-    constants_file_path = os.path.join(telem_generated_code_dir, 'Constants.java')
+
+
+    # --- 2. Java Constants (Target: ../../telem-dashboard/src/main/java/Constants.java) ---
+    # Go up two levels (../..) -> into telem-dashboard -> src -> main -> java
+
+    constants_file_path = os.path.join(get_telem_path(), 'java', 'Constants.java')
+
+    # Write Java Constants
     writeConstants("java", constants_file_path, minId, numMissingIDs, nodeCount, frameCount, globalDefines, missingIDs)
+
 # Note: The ACCESS helper is also defined here to allow local field lookup.
 def ACCESS(fields, name):
     return next(field for field in fields if field["name"] == name)

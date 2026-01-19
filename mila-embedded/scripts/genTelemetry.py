@@ -2,6 +2,13 @@ import os
 import csv
 from parseFile import ACCESS, dataPoint_fields, CANFrame_fields
 
+def get_telem_path():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Go up two levels (../..) -> into telem-dashboard -> src -> main -> java
+    java_dir = os.path.join(script_dir, "..", "..", "telem-dashboard", "src", "main")
+    java_dir = os.path.normpath(java_dir)
+    return java_dir
+
 # Created by Chat. dont bother reading, it makes the appropriate CSV for telem dashboard.
 def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_names=None, dataNames=None):
     """
@@ -26,9 +33,8 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_names=None,
     header.append("dataName")
     header += frame_fields + dp_fields
 
-    telemPath = os.path.join(generated_code_dir, "generatedTelemetryCode")
-    os.makedirs(telemPath, exist_ok=True)
-    csv_path = os.path.join(telemPath, "telemetry.csv")
+    csv_path = os.path.join(get_telem_path(), 'resources', 'telemetry.csv')
+
     with open(csv_path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=header)
         w.writeheader()

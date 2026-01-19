@@ -23,13 +23,13 @@ if(CMAKE_SENSOR_ESP_BUILD)  #CMAKE_SENSOR_ESP_BUILD <- Assumed
         "sensors/${SENS_DIR}/*.cpp"
     )
     set(SRC_FILES
-        # "sensors/${SENS_DIR}/main.c"
-        "sensors/${SENS_DIR}/staticDec.cpp"
+        ${SENSOR_SRC_FILES}
         
         "sensors/common/sensorHelper.cpp"
         "pecan/common.cpp"
         "pecan/espSpecific.c"
         "pecan/vitalsInit.c"
+        "espBase/debug_esp.c"
         # "espMutexes/mutex_declarations.c"
     )
     # message(SEND_ERROR "DECPATH: ${DECPATH}")
@@ -55,6 +55,62 @@ if(CMAKE_MCU_ESP_BUILD)
     # If you also want to include other existing files outside mcu/, add them here:
     set(SRC_FILES
         ${MCU_SRC} ${SRC_FILES}
+    )
+endif()
+
+if(CMAKE_TELEM_TX)
+    file(GLOB TX_LORA_SRC
+        #Need pecan
+        "sensors/${SENS_DIR}/*.c"
+        "sensors/${SENS_DIR}/*.cpp"
+        #
+        "telemetryTX/*.c"
+        "telemetryTX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+    )
+    set(SRC_FILES
+        ${TX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_TELEM_RX)
+    file(GLOB TX_LORA_SRC
+        #Need pecan
+        "sensors/${SENS_DIR}/*.c"
+        "sensors/${SENS_DIR}/*.cpp"
+        #
+        "telemetryRX/*.c"
+        "telemetryRX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+    )
+    set(SRC_FILES
+        ${TX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_TELEM_Listen)
+    file(GLOB RX_LORA_SRC
+        "LoraSimpleListen/*.c"
+        "LoraSimpleListen/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+    )
+    set(SRC_FILES
+        ${RX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_TELEM_SIMPLE_TRANSMIT)
+    file(GLOB SIMPLE_TX_LORA_SRC
+        "LoraTestTransmit/*.c"
+        "LoraTestTransmit/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+    )
+    set(SRC_FILES
+        ${SIMPLE_TX_LORA_SRC}
     )
 endif()
 

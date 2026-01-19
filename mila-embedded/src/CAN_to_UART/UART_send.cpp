@@ -58,6 +58,7 @@ static inline void sendU64_LE(uint64_t v) {
 #endif
 // -------------------------------------
 
+//will need to update based on Lora
 int16_t CAN_TO_UART(CANPacket* packet) {
 
     // Build 12-byte payload: 4 byte ID + 8 byte DATA

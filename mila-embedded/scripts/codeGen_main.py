@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     # pretty_print_vitals(vitalsNodes)
     # Generate sensor files
-    createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, generated_code_dir)
+    createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, script_dir, generated_code_dir)
     #Generate Vitals Files
     createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, generated_code_dir, globalDefines)
 

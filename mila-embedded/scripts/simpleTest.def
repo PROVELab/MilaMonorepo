@@ -15,8 +15,8 @@ global: nodeIDSizeBits = 7
 
 //set motor controller ID = 1.
 global enum: functionCodes = {
-    reservedForMotorController = 0b0000,
-    reservedForMotorController = 0b0001,
+    reservedForMotorController_1 = 0b0000,
+    reservedForMotorController_2 = 0b0001,
     warningCode             = 0b0010,
     TelemetryCommand        = 0b0011,
     statusUpdate            = 0b0100,
@@ -27,6 +27,7 @@ global enum: functionCodes = {
     HBRespUpdate            = 0b1000,
     busStatusUpdate         = 0b1001,
 
+    vitalsErr               = 0b1010,
     CAN_Open_Err_Cntrl      = 0b1110
 }
 
@@ -85,11 +86,11 @@ global enum: statusUpdates = {
 #
 
 #state reported in Vitals' busStatusUpdate
-global enum: twaiState = {
-    TWAI_STATE_STOPPED    = 0,            
-    TWAI_STATE_RUNNING    = 1,             
-    TWAI_STATE_BUS_OFF    = 2,             
-    TWAI_STATE_RECOVERING = 3
+global enum: telem_twai_state = {
+    TELEM_TWAI_STATE_STOPPED    = 0,            
+    TELEM_TWAI_STATE_RUNNING    = 1,             
+    TELEM_TWAI_STATE_BUS_OFF    = 2,             
+    TELEM_TWAI_STATE_RECOVERING = 3
 }
 
 # # For HBRespUpdate # #
@@ -120,6 +121,11 @@ pedalReadingOne: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, mi
 pedalReadingTwo: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
 
 node: id=10, name=APSensorArduino, board=arduino
+CANFrame: frequency=700, dataTimeout=1500
+airPressure: bitLength=32, min=-2147483648, max=2147483647, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=50
+#airPressure: bitLength=32, min=-2147483648, max=2147483647, startingValue=2147483647
+
+node: id=11, name=APSensorESP, board=esp
 CANFrame: frequency=700, dataTimeout=1500
 airPressure: bitLength=32, min=-2147483648, max=2147483647, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=50
 #airPressure: bitLength=32, min=-2147483648, max=2147483647, startingValue=2147483647
