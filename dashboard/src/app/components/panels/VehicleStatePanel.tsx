@@ -3,16 +3,17 @@ import type { VehicleSection } from "../../types/telemetry";
 interface Props {
   sections: VehicleSection[];
   logs: string[];
+  showLogs?: boolean;
 }
 
-export function VehicleStatePanel({ sections, logs }: Props) {
+export function VehicleStatePanel({ sections, logs, showLogs = true }: Props) {
   return (
     <div className="panel panel--vsr">
       <div className="panel__header">
         <h3>Vehicle State Report</h3>
         <p>Structured, high-rate telemetry</p>
       </div>
-      <div className="vsr-layout">
+      <div className={`vsr-layout ${showLogs ? "" : "vsr-layout--no-logs"}`}>
         <div className="vsr-layout__sections">
           {sections.map(section => (
             <section key={section.id} className="vsr-section">
@@ -34,14 +35,16 @@ export function VehicleStatePanel({ sections, logs }: Props) {
             </section>
           ))}
         </div>
-        <div className="panel__logs">
-          <h4>Live Text Logs</h4>
-          <ul>
-            {logs.map((line, idx) => (
-              <li key={`${line}-${idx}`}>{line}</li>
-            ))}
-          </ul>
-        </div>
+        {showLogs && (
+          <div className="panel__logs">
+            <h4>Live Text Logs</h4>
+            <ul>
+              {logs.map((line, idx) => (
+                <li key={`${line}-${idx}`}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
