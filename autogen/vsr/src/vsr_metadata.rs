@@ -10,7 +10,7 @@ impl vsr_type {
     pub fn get_size(&self) -> Option<usize> {
         let mut total_size = 0;
         for subtype in self.subtypes {
-            for &(_, type_id, _) in subtype.fields {
+            for &(_, type_id, _, _) in subtype.fields {
                 total_size += match type_id {
                     id if id == TypeId::of::<u8>() => 1,
                     id if id == TypeId::of::<i8>() => 1,
@@ -22,6 +22,7 @@ impl vsr_type {
                     id if id == TypeId::of::<u64>() => 8,
                     id if id == TypeId::of::<i64>() => 8,
                     id if id == TypeId::of::<f64>() => 8,
+                    id if id == TypeId::of::<bool>() => 1,
                     _ => return None, // Unknown type
                 };
             }
@@ -30,9 +31,10 @@ impl vsr_type {
     }
 }
 
+
 // A subtype is a substruct within the VSR. Each substruct
 // gets its own mutex in the C code to allow for fine-grained locking.
 pub struct vsr_subtype {
     pub name: &'static str,
-    pub fields: &'static [(&'static str, TypeId, &'static str)], // (field name, field type, description)
+    pub fields: &'static [(&'static str, TypeId, &'static str, &'static str)], // (field name, field type, units, description)
 }
