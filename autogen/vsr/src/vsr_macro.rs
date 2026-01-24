@@ -19,7 +19,7 @@ macro_rules! vsr_gen {
                         name: stringify!($item_name),
                         fields: &[
                             $(
-                                (stringify!($field_name), std::any::TypeId::of::<$ty>(), $desc),
+                                (stringify!($field_name), std::any::TypeId::of::<$ty>(), $units, $desc),
                             )*
                         ],
                     },

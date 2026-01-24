@@ -1,19 +1,21 @@
+use crate::{vsr::VSR_METADATA_IMPL, vsr_codegen::generate_c};
+use std::fs;
+
 pub mod vsr_macro;
 pub mod vsr_metadata;
-
-vsr_gen!(
-    version: 1;
-
-    ExampleStruct {
-        field_one<u32>("cm") "This is the first field.";
-        field_two<i16>("mm") "This is the second field.";
-    }
-
-    AnotherStruct {
-        subitem<f64>("m") "A floating point value.";
-    }
-);
+pub mod vsr_codegen;
+pub mod vsr;
 
 fn main() {
-    println!("Hello, world!");
+    let (h, c) = generate_c(&VSR_METADATA_IMPL);
+    
+    let header_path = "../../mila-embedded/src/mcu/vsr.h";
+    let source_path = "../../mila-embedded/src/mcu/vsr.c";
+
+    fs::write(header_path, h).expect("Unable to write header file");
+    fs::write(source_path, c).expect("Unable to write source file");
+
+    println!("Successfully generated VSR code:");
+    println!("  Header: {}", header_path);
+    println!("  Source: {}", source_path);
 }
