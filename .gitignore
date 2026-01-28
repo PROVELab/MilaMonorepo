@@ -1,2 +1,6 @@
 .venv/
-.devbox/
+target/
+vsr.h
+vsr.c
+compile_commands.json
+.cache/
