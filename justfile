@@ -1,5 +1,8 @@
 # Justfile - Build, Setup, and Run Commands
 
+### Autogen ###
+autogen:
+    (cd autogen/vsr/ && cargo run -- ../../mila-embedded/src/mcu/)
 
 ### Dashboard Stuff ###
 setup_dashboard:
@@ -20,9 +23,16 @@ reverse_camera_recv: setup_reverse_camera
 [parallel]
 dashboard_reverse_camera: reverse_camera_recv dashboard
 
-### Build Embedded libs ###
-build_embedded:
+### Build Embedded stuff ###
+# Builds all pio envs in mila-embedded
+build_embedded: autogen
     (cd mila-embedded && pio run)
+
+# Generates compile_commands.json for a specific (prompt)
+# platformio environment
+generate_cc_db:
+    @read -p "Just target: " pio_env; \
+    (cd mila-embedded && pio run -t compiledb -e $pio_env)
 
 ### Formatting/Code Quality ###
 format:
