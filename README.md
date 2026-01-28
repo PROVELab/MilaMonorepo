@@ -9,6 +9,12 @@ vehicle (except for embedded code, for now). It includes:
 
 Essentially all code that is necessary for Mila will eventually end up in this repository.
 
+## Justfile
+The justfile provides handy tools/commands to build, run, and generate. 
+For example, just `generate_cc_db` allows you to generate compile_commands.json
+so that your LSP gets the requisite symbols. `build_embedded` will build all our 
+embedded targets. Feel free to use `just --choose` to see and choose targets.
+
 ## Structure
 ```
 /
