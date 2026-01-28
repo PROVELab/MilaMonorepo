@@ -20,6 +20,10 @@ reverse_camera_recv: setup_reverse_camera
 [parallel]
 dashboard_reverse_camera: reverse_camera_recv dashboard
 
+### Build Embedded libs ###
+build_embedded:
+    (cd mila-embedded && pio run)
+
 ### Formatting/Code Quality ###
 format:
     (cd mila-embedded && ./format.sh)
