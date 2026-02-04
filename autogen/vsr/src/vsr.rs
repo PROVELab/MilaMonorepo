@@ -3,19 +3,19 @@ use crate::vsr_gen;
 vsr_gen!(
     version: 1;
 
-    motor_power {
+    motor_mspeed_status as motor_power {
         measured_dc_voltage_v<f32>("V") "DC Bus Voltage";
         calculated_dc_current_a<f32>("A") "Calculated DC Current";
         motor_current_limit_arms<f32>("A") "Motor Current Limit";
     }
 
-    motor_speed {
-        quadrature_current<f32>("A") "Quadrature Current (Arms)";
-        direct_current<f32>("A") "Direct Current (Arms)";
+    motor_hspeed_status as motor_speed {
+        quadrature_current<f32>("Arms") "Quadrature Current";
+        direct_current<f32>("Arms") "Direct Current";
         motor_speed<i16>("RPM") "Motor Speed";
     }
 
-    motor_safety {
+    motor_safety_status as motor_safety {
         protection_code<u8>("") "Protection Code";
         safety_error_code<u8>("") "Safety Error Code";
         motor_temp<i16>("F") "Motor Temperature";
@@ -30,7 +30,7 @@ vsr_gen!(
         charge_limit_pct<u8>("%") "Charge Limit";
     }
 
-    motor_error {
+    motor_error_state as motor_error {
         motor_state<u32>("") "High Level Motor State Enum";
     }
 
@@ -43,7 +43,7 @@ vsr_gen!(
         use_pedal<bool>("") "Use Pedal Flag";
     }
 
-    motor_prot1 {
+    motor_protections_1 as motor_prot1 {
         can_timeout_ms<u16>("ms") "CAN Timeout";
         dc_regen_current_limit_neg_a<u16>("A") "DC Regen Current Limit";
         dc_traction_current_limit_a<u16>("A") "DC Traction Current Limit";
@@ -53,7 +53,7 @@ vsr_gen!(
         overspeed_protection_speed_rpm<u8>("RPM") "Overspeed Protection Speed (x10)";
     }
 
-    motor_prot2 {
+    motor_protections_2 as motor_prot2 {
         max_motor_temp_c<u8>("C") "Max Motor Temp";
         motor_temp_high_gain_a_per_c<u8>("A/C") "Motor Temp High Gain";
         max_inverter_temp_c<u8>("C") "Max Inverter Temp";

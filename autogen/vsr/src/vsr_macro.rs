@@ -1,10 +1,16 @@
 
 #[macro_export]
 macro_rules! vsr_gen {
+    (@alias) => {
+        None
+    };
+    (@alias $alias:ident) => {
+        Some(stringify!($alias))
+    };
     (
         version: $version:expr;
         $(
-            $item_name:ident {
+            $item_name:ident $(as $alias:ident)? {
                 $(
                     $field_name:ident<$ty:ty>($units:expr) $desc:expr;
                 )*
@@ -17,6 +23,7 @@ macro_rules! vsr_gen {
                 $(
                     crate::vsr_metadata::vsr_subtype {
                         name: stringify!($item_name),
+                        alias: crate::vsr_gen!(@alias $($alias)?),
                         fields: &[
                             $(
                                 (stringify!($field_name), std::any::TypeId::of::<$ty>(), $units, $desc),

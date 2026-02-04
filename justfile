@@ -24,8 +24,14 @@ reverse_camera_recv: setup_reverse_camera
 dashboard_reverse_camera: reverse_camera_recv dashboard
 
 ### Build Embedded stuff ###
-# Builds all pio envs in mila-embedded
+
+# Build one target
 build_embedded: autogen
+    @read -p "PIO target: " pio_env; \
+    (cd mila-embedded && pio run -e $pio_env)
+
+# Builds all pio envs in mila-embedded
+build_embedded_all: autogen
     (cd mila-embedded && pio run)
 
 # Generates compile_commands.json for a specific (prompt)

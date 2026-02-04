@@ -36,5 +36,6 @@ impl vsr_type {
 // gets its own mutex in the C code to allow for fine-grained locking.
 pub struct vsr_subtype {
     pub name: &'static str,
+    pub alias: Option<&'static str>,
     pub fields: &'static [(&'static str, TypeId, &'static str, &'static str)], // (field name, field type, units, description)
 }

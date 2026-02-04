@@ -18,7 +18,7 @@ static void print_timestamp_info(const char* indent, int64_t timestamp_us) {
 }
 
 static void print_motor_power(volatile vehicle_status_reg_s* vsr) {
-    motor_mspeed_status_s data;
+    motor_mspeed_status_t data;
     int64_t timestamp_us = 0;
     ACQ_REL_VSRSEM_R(motor_power, {
         data = vsr->motor_power;
@@ -85,7 +85,7 @@ static const char* motor_state_to_str(high_level_motor_state state) {
 }
 
 static void print_motor_error(volatile vehicle_status_reg_s* vsr) {
-    motor_error_state data;
+    motor_error_state_s data;
     int64_t timestamp_us = 0;
     ACQ_REL_VSRSEM_R(motor_error, {
         data = vsr->motor_error;
