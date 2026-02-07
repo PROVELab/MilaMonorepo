@@ -1,4 +1,4 @@
-use crate::{vsr::VSR_METADATA_IMPL, vsr_codegen::generate_c};
+use crate::{vsr::VSR_METADATA_IMPL, vsr_codegen::{generate_c, generate_print}};
 use std::fs;
 use std::path::PathBuf;
 
@@ -47,7 +47,27 @@ fn main() {
     fs::write(&header_path, h).expect("Unable to write header file");
     fs::write(&source_path, c).expect("Unable to write source file");
 
+    let mut print_dir = cli.out_dir.clone();
+    print_dir.push("tasks");
+    let print_in_tasks = print_dir.is_dir();
+    if !print_in_tasks {
+        print_dir = cli.out_dir.clone();
+    }
+    let vsr_header_include = if print_in_tasks { "../vsr.h" } else { "vsr.h" };
+    let (print_h, print_c) = generate_print(&VSR_METADATA_IMPL, vsr_header_include);
+
+    let mut print_header_path = print_dir.clone();
+    print_header_path.push("print_vsr.h");
+
+    let mut print_source_path = print_dir.clone();
+    print_source_path.push("print_vsr.c");
+
+    fs::write(&print_header_path, print_h).expect("Unable to write print header file");
+    fs::write(&print_source_path, print_c).expect("Unable to write print source file");
+
     println!("Successfully generated VSR code:");
     println!("  Header: {}", header_path.display());
     println!("  Source: {}", source_path.display());
+    println!("  Print Header: {}", print_header_path.display());
+    println!("  Print Source: {}", print_source_path.display());
 }
