@@ -120,7 +120,7 @@ int32_t collect_pedalReadingTwo() {
     }
 
     // Send the speed (if necessary)
-    vehicle_status_reg_s* vsr = &vehicle_status_register; // easier to type
+    volatile vehicle_status_reg_s* vsr = &vehicle_status_register; // easier to type
     bool use_pedal = false;
     ACQ_REL_VSRSEM_W(pedal, {
         vsr->pedal.pedal_position_pct = (float) a;

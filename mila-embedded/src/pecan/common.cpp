@@ -107,6 +107,9 @@ void sendStatusUpdate(uint8_t flag, uint32_t Id) {
     sendPacket(&statusUpdatePacket);
 }
 
+bool (*matcher[4])(uint32_t, uint32_t) = {
+    exact, matchID, matchFunction, matchHasAllBits};
+
 // note: ID sent over CAN is 11 bit long, with first 7 bitsbeing the identifier of sending node, and last 4 bits being
 // the function code
 bool matchID(uint32_t id, uint32_t mask) { // check if the 7 bits of node ID must match mask
@@ -115,4 +118,8 @@ bool matchID(uint32_t id, uint32_t mask) { // check if the 7 bits of node ID mus
 
 bool matchFunction(uint32_t id, uint32_t mask) {     // mask should contain 4 bit functoin code in bits 7-10.
     return getFunctionId(id) == getFunctionId(mask); // only compares the functionCodes
+}
+
+bool matchHasAllBits(uint32_t id, uint32_t mask) { // all bits enabled in mask should be enabled in id at least
+    return (id & mask) == mask;
 }

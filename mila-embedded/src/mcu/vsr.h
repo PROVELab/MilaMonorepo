@@ -11,7 +11,7 @@
 
 #include "esp_timer.h" // for getting timestamps, since start
 #include "freertos/FreeRTOS.h"
-#include "motor_h300/vsr_motor.h" // motor speed status
+#include "motor_h300/vsr_motor.h" // motor speed substruct
 
 // Acquire and release a vsr subregister semaphore
 // Assumes vsr is defined as a pointer named 'vsr'
@@ -76,6 +76,6 @@ extern volatile vehicle_status_reg_s vehicle_status_register;
 
 // initializes the mutexes and the structs
 // returns 0 on success, -1 on failure (but it always returns 0)
-int vsr_init(vehicle_status_reg_s* vsr);
+int vsr_init(volatile vehicle_status_reg_s* vsr);
 
 #endif

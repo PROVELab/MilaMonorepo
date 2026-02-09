@@ -17,3 +17,5 @@ sdkconfig*.old
 
 __pycache__/
 managed_components/
+compile_commands.json
+.cache

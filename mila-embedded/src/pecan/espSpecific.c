@@ -118,9 +118,6 @@ void pecan_CanInit(pecanInit config) {
     return;
 }
 
-bool (*matcher[3])(uint32_t, uint32_t) = {
-    exact, matchID, matchFunction}; // used by waitPackets to match incomming packets based on match type
-
 // Unlike pecan for Arduino, this is blocking! (everything on esp should be a seperate task, as part of the esp-idf
 // design philosophy, but make sure not to have other stuff in the same task with this! Matches any recieved packets
 // with their handler Not thread-safe (only call from one thread). The packet reference is overriden upon call. returns

@@ -25,12 +25,26 @@ enum PCAN_ERR {
     GEN_FAILURE = 1,
 };
 
+// === Matcher ===
 // Exact match or Similar match (with mask)
 enum MATCH_TYPE {
     MATCH_EXACT = 0,
     MATCH_ID = 1,
     MATCH_FUNCTION = 2,
+    MATCH_HAS_ALL_BITS = 3
 };
+// Returns true if id and func code of id match mask
+bool exact(uint32_t id, uint32_t mask);
+// Returns true if id matches the bits of mask
+bool matchID(uint32_t id, uint32_t mask);
+// Returns true if the functionCode of id matches mask
+bool matchFunction(uint32_t id, uint32_t mask);
+// returns true if all bits in the mask are enabled in the ID
+bool matchHasAllBits(uint32_t id, uint32_t mask);
+
+extern bool (*matcher[4])(uint32_t, uint32_t); // used by waitPackets to match incomming packets based on match type
+
+// === End Matcher ===
 
 // A CANPacket: takes in 11-bit id, 8 bytes of data
 typedef struct { // can initialize using {0} for .c (esp). For arduino (cpp) need to use memset.
@@ -92,15 +106,6 @@ inline uint32_t getDataFrameId(uint32_t id) {
     return getIdExtension(id) &
            ((0b1 << maxFrameCntBits) - 1); // the Can Frame index is stored in first two bits of extension
 }
-
-// Returns true if id and func code of id match mask
-bool exact(uint32_t id, uint32_t mask);
-// Returns true if id matches the bits of mask
-bool matchID(uint32_t id, uint32_t mask);
-// Returns true if the functionCode of id matches mask
-bool matchFunction(uint32_t id, uint32_t mask);
-// bool (*matcher[3])(uint32_t, uint32_t);   //moved to common.cpp. Making function static was cringe imo.
-// static bool (*matcher[3])(uint32_t, uint32_t) = {exact, matchID, matchFunction};
 
 // Write size bytes to the packet, accounting
 // For Max Length

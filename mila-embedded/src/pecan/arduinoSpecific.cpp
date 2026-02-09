@@ -73,11 +73,6 @@ static inline bool queuePacketPop(CANPacket* outPkt) {
     interrupts();
     return ok;
 }
-//  //
-
-bool (*matcher[3])(uint32_t, uint32_t) = {
-    exact, matchID, matchFunction}; // could alwys be moved back to pecan.h as an extern variable if its needed
-                                    // elsewhere? I am not sure why this was declared there in the first place
 
 // expects waitPackets to 0 initialize irellevant id and data.
 // Want to keep ISR as short as possible
