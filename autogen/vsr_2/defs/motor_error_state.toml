@@ -1,0 +1,7 @@
+alias = "motor_error"
+desc = ""
+
+[motor_state]
+type = "u32"
+unit = ""
+desc = "High Level Motor State Enum"

@@ -1,0 +1,32 @@
+alias = "motor_safety"
+desc = ""
+
+[protection_code]
+type = "u8"
+unit = ""
+desc = "Protection Code"
+
+[safety_error_code]
+type = "u8"
+unit = ""
+desc = "Safety Error Code"
+
+[motor_temp]
+type = "i16"
+unit = "F"
+desc = "Motor Temperature"
+
+[inverter_bridge_temp]
+type = "i16"
+unit = "F"
+desc = "Inverter Bridge Temperature"
+
+[bus_cap_temp]
+type = "i16"
+unit = "F"
+desc = "Bus Capacitor Temperature"
+
+[pwm_status]
+type = "u8"
+unit = ""
+desc = "PWM Status"

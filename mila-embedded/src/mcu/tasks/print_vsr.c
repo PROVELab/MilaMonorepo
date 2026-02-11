@@ -20,13 +20,6 @@ static void print_timestamp_info(const char* indent, int64_t timestamp_us) {
     printf("%stimestamp: %" PRIi64 " us (%" PRIi64 " ms ago%s)\n", indent, timestamp_us, age_ms, note);
 }
 
-static const char* motor_state_to_str(high_level_motor_state state) {
-    switch (state) {
-        case MOTOR_OK: return "MOTOR_OK";
-        case MOTOR_ERROR_STOP: return "MOTOR_ERROR_STOP";
-        default: return "UNKNOWN";
-    }
-}
 
 static void print_motor_power(volatile vehicle_status_reg_s* vsr) {
     motor_mspeed_status_s data;
