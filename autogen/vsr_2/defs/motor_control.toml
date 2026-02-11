@@ -1,0 +1,17 @@
+alias = "motor_control"
+desc = ""
+
+[current_reference]
+type = "i32"
+unit = "Arms"
+desc = "Current Reference"
+
+[discharge_limit_pct]
+type = "u8"
+unit = "%"
+desc = "Discharge Limit"
+
+[charge_limit_pct]
+type = "u8"
+unit = "%"
+desc = "Charge Limit"

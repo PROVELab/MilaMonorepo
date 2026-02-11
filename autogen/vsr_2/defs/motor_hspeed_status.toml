@@ -1,0 +1,17 @@
+alias = "motor_speed"
+desc = ""
+
+[quadrature_current]
+type = "f32"
+unit = "Arms"
+desc = "Quadrature Current"
+
+[direct_current]
+type = "f32"
+unit = "Arms"
+desc = "Direct Current"
+
+[motor_speed]
+type = "i16"
+unit = "RPM"
+desc = "Motor Speed"

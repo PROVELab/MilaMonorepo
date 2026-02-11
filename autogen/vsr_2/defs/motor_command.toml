@@ -1,0 +1,17 @@
+alias = "motor_command"
+desc = ""
+
+[command]
+type = "enum"
+unit = ""
+desc = "Which Mode are we in"
+
+  [command.variants.idle]
+
+  [command.variants.pedal]
+    
+  
+  [command.variants.cruise]
+    target_speed_rpm = { type = "u16" }
+
+

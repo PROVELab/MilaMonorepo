@@ -1,0 +1,37 @@
+alias = "motor_prot1"
+desc = ""
+
+[can_timeout_ms]
+type = "u16"
+unit = "ms"
+desc = "CAN Timeout"
+
+[dc_regen_current_limit_neg_a]
+type = "u16"
+unit = "A"
+desc = "DC Regen Current Limit"
+
+[dc_traction_current_limit_a]
+type = "u16"
+unit = "A"
+desc = "DC Traction Current Limit"
+
+[stall_protection_type]
+type = "u8"
+unit = ""
+desc = "Stall Protection Type"
+
+[stall_protection_time_ms]
+type = "u16"
+unit = "ms"
+desc = "Stall Protection Time"
+
+[stall_protection_current_a]
+type = "u16"
+unit = "A"
+desc = "Stall Protection Current"
+
+[overspeed_protection_speed_rpm]
+type = "u8"
+unit = "RPM"
+desc = "Overspeed Protection Speed (x10)"
