@@ -55,13 +55,24 @@ and devs
 # Dependencies
 To use the items in this monorepo, it's recommended that you have:
 - [Python](https://www.python.org/)
-- [uv](https://docs.astral.sh/uv/)
+  - [uv](https://docs.astral.sh/uv/)
+  - Platformio (can be pip installed)
 - [NodeJS](https://nodejs.org/en/download)
 - [Rust](https://rust-lang.org/tools/install/)
 - [Just](https://just.systems/man/en/)
 - Java JDK (Please look at your package manager on how to do this)
 - Gradle
+- [Protocol Buffers compiler (`protoc`)](https://protobuf.dev/installation/)
+  - Python packages for nanopb codegen: `nanopb`, `protobuf`
 
 To manage build/setup, we use Justfile which is a slightly simpler Makefile.
 
 We recommend using [sdkman](https://sdkman.io/) to install the jdk and gradle.
+
+### VSR Autogen Requirements
+For `just autogen` (VSR v2), make sure nanopb tooling is installed for your Python environment:
+
+```bash
+pip3 install --user nanopb protobuf
+```
+

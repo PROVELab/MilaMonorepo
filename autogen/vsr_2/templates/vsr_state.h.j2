@@ -20,24 +20,14 @@ extern "C" {
 #endif
 
 typedef struct {
-    SemaphoreHandle_t mutex;
-    int64_t updated_at_us;
-} vsr_slot_meta_t;
-
-#define VSR_SLOT_LIST(X) \
-{%- for (name, _sub) in substructs %}
-    X({{ name }}) \
-{%- endfor %}
-    /* end */
-
-typedef struct {
     // Full wire-compatible payload.
     vsr_VehicleStatusRegister wire;
 
     // One lock/timestamp per top-level VSR section.
-#define VSR_DECLARE_SLOT_META(name) vsr_slot_meta_t name##_meta;
-    VSR_SLOT_LIST(VSR_DECLARE_SLOT_META)
-#undef VSR_DECLARE_SLOT_META
+{%- for (name, _sub) in substructs %}
+    SemaphoreHandle_t {{ name }}_mutex;
+    int64_t {{ name }}_updated_at_us;
+{%- endfor %}
 } vehicle_status_reg_t;
 
 /**
@@ -52,10 +42,10 @@ typedef struct {
  */
 #define VSR_SLOT_READ(vsr_ptr, slot_name, body)                     \
     do {                                                             \
-        xSemaphoreTake((vsr_ptr)->slot_name##_meta.mutex,           \
+        xSemaphoreTake((vsr_ptr)->slot_name##_mutex,                \
                        portMAX_DELAY);                               \
         body                                                         \
-        xSemaphoreGive((vsr_ptr)->slot_name##_meta.mutex);          \
+        xSemaphoreGive((vsr_ptr)->slot_name##_mutex);               \
     } while (0)
 
 /**
@@ -64,14 +54,15 @@ typedef struct {
  */
 #define VSR_SLOT_WRITE(vsr_ptr, slot_name, body)                     \
     do {                                                             \
-        xSemaphoreTake((vsr_ptr)->slot_name##_meta.mutex,           \
+        xSemaphoreTake((vsr_ptr)->slot_name##_mutex,                \
                        portMAX_DELAY);                               \
         body                                                         \
-        (vsr_ptr)->slot_name##_meta.updated_at_us =                 \
+        (vsr_ptr)->slot_name##_updated_at_us =                      \
             esp_timer_get_time();                                    \
-        xSemaphoreGive((vsr_ptr)->slot_name##_meta.mutex);          \
+        xSemaphoreGive((vsr_ptr)->slot_name##_mutex);               \
     } while (0)
 
+extern volatile vehicle_status_reg_t vsr;
 int vsr_init(vehicle_status_reg_t* vsr);
 
 bool vsr_serialize(

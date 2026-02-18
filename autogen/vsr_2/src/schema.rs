@@ -1,9 +1,8 @@
-use serde::Deserialize;
-use indexmap::IndexMap;
 use anyhow::{Result, bail};
+use indexmap::IndexMap;
+use serde::Deserialize;
 
-
-// Substruct for the VSR (i.e. like high rate motor 
+// Substruct for the VSR (i.e. like high rate motor
 // substruct etc)
 #[derive(Debug, Deserialize)]
 pub struct VsrSubstruct {
@@ -21,14 +20,17 @@ pub struct VsrSubstruct {
 impl VsrSubstruct {
     pub fn validate(&self) -> Result<()> {
         if self.fields.is_empty() {
-            bail!("definition `{}` must contain at least one field", self.alias);
+            bail!(
+                "definition `{}` must contain at least one field",
+                self.alias
+            );
         }
 
         for (name, field) in &self.fields {
-            if let FieldType::Enum { variants } = &field.kind {
-                if variants.is_empty() {
-                    bail!("enum field `{}` must have at least one variant", name);
-                }
+            if let FieldType::Enum { variants } = &field.kind
+                && variants.is_empty()
+            {
+                bail!("enum field `{}` must have at least one variant", name);
             }
         }
 
@@ -53,7 +55,6 @@ pub struct Field {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "type")]
 pub enum FieldType {
-    // TODO: add more
     #[serde(rename = "bool")]
     Bool,
 
