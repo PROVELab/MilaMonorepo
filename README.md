@@ -19,25 +19,17 @@ embedded targets. Feel free to use `just --choose` to see and choose targets.
 ```
 /
     /.github
-    /tools
-        /plot
+    /autogen
     /dashboard
+    /mila-embedded
+        /src/mcu
+        /src/vitals
     /reverse-camera
-    /telem
-    /doc
-        /memos
-        /rfc
-        /test_result/
-    /experiments
-        /bms
+    /telem-dashboard
 ```
 
 Future:
 ```
-    /embedded
-        /mcu
-        /vitals
-        /imu... etc
     /autonomy
 ```
 
@@ -75,4 +67,3 @@ For `just autogen` (VSR v2), make sure nanopb tooling is installed for your Pyth
 ```bash
 pip3 install --user nanopb protobuf
 ```
-

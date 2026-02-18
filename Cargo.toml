@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "autogen/vsr", "autogen/vsr_2",
+    "autogen/vsr",
     "dashboard/src-tauri"
 ]
 resolver = "3"
