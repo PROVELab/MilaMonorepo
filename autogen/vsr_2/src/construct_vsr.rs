@@ -1,22 +1,20 @@
-use std::{fs, path::{Path, PathBuf}};
+use crate::schema::VsrSubstruct;
 use anyhow::{self, Context, Result};
 use glob::glob;
 use indexmap::IndexMap;
-use crate::schema::{FieldType, VsrSubstruct};
-use askama::Result as AskamaResult;
-
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub fn load_subtype_from_file(path: &Path) -> Result<VsrSubstruct> {
     let text = fs::read_to_string(path).with_context(
-        || format!("Could not open file {}", path.to_str().unwrap())
-        // ifthat unwrap fails im cooked chat
+        || format!("Could not open file {}", path.to_str().unwrap()), // ifthat unwrap fails im cooked chat
     )?;
-    let def: VsrSubstruct = toml::from_str(&text).with_context(
-        || format!("Could not parse TOML file {}", path.display())
-    )?;
-    def.validate().with_context(
-        || format!("Invalid VSR definition {}", path.display())
-    )?;
+    let def: VsrSubstruct = toml::from_str(&text)
+        .with_context(|| format!("Could not parse TOML file {}", path.display()))?;
+    def.validate()
+        .with_context(|| format!("Invalid VSR definition {}", path.display()))?;
     Ok(def)
 }
 
@@ -38,12 +36,14 @@ pub fn load_all_vsr_substructs() -> Result<IndexMap<String, VsrSubstruct>> {
     paths.sort();
 
     for path in paths {
-        indexmap.insert(path.file_stem().ok_or(anyhow::anyhow!("Could not get filestem"))?.to_string_lossy().into_owned(), load_subtype_from_file(&path)?);
+        indexmap.insert(
+            path.file_stem()
+                .ok_or(anyhow::anyhow!("Could not get filestem"))?
+                .to_string_lossy()
+                .into_owned(),
+            load_subtype_from_file(&path)?,
+        );
     }
 
     Ok(indexmap)
-}
-
-pub fn c_type(kind: &FieldType) -> AskamaResult<&'static str> {
-    Ok(kind.c_type())
 }
