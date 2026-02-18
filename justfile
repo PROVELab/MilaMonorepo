@@ -4,8 +4,8 @@
 autogen:
     @command -v protoc >/dev/null || (echo "Missing protoc (Protocol Buffers compiler)." && exit 1)
     @command -v protoc-gen-nanopb >/dev/null || (echo "Missing protoc-gen-nanopb. Install with: python3 -m pip install --user nanopb protobuf" && exit 1)
-    (cd autogen/vsr_2 && cargo run)
-    (cd autogen/vsr_2 && protoc -I generated --plugin=protoc-gen-nanopb=$(command -v protoc-gen-nanopb) --nanopb_out=generated generated/vsr.proto)
+    (cd autogen/vsr && cargo run)
+    (cd autogen/vsr && protoc -I generated --plugin=protoc-gen-nanopb=$(command -v protoc-gen-nanopb) --nanopb_out=generated generated/vsr.proto)
 
 ### Dashboard Stuff ###
 setup_dashboard:
