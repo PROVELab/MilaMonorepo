@@ -122,7 +122,9 @@ impl FieldType {
 
     pub fn is_pure_enum(&self) -> bool {
         match self {
-            FieldType::Enum { variants } => variants.values().all(|payload| payload.fields.is_empty()),
+            FieldType::Enum { variants } => {
+                variants.values().all(|payload| payload.fields.is_empty())
+            }
             _ => false,
         }
     }

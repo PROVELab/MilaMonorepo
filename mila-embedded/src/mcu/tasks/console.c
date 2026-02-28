@@ -41,27 +41,19 @@ static int uart_log_vprintf(const char* fmt, va_list ap) {
     char buf[256];
     int n = vsnprintf(buf, sizeof(buf), fmt, ap);
     int out_len = n;
-    if (out_len < 0) {
-        return out_len;
-    }
-    if ((size_t) out_len >= sizeof(buf)) {
-        out_len = (int) sizeof(buf) - 1;
-    }
+    if (out_len < 0) { return out_len; }
+    if ((size_t) out_len >= sizeof(buf)) { out_len = (int) sizeof(buf) - 1; }
     static const char* kPrompt = "mcu> ";
     if (out_len > 0) {
         uart_write_bytes(UART_NUM_0, buf, out_len);
-        if (buf[out_len - 1] == '\n') {
-            uart_write_bytes(UART_NUM_0, kPrompt, strlen(kPrompt));
-        }
+        if (buf[out_len - 1] == '\n') { uart_write_bytes(UART_NUM_0, kPrompt, strlen(kPrompt)); }
     }
     return n;
 }
 
 // This is kinda useless but fun to have
 static int cmd_echo(int argc, char** argv) {
-    for (int i = 1; i < argc; ++i) {
-        printf("%s%s", argv[i], (i + 1 < argc) ? " " : "\n");
-    }
+    for (int i = 1; i < argc; ++i) { printf("%s%s", argv[i], (i + 1 < argc) ? " " : "\n"); }
     return 0;
 }
 
@@ -77,21 +69,15 @@ static int cmd_free(int argc, char** argv) {
 
 static bool console_consume_newline(void) {
     size_t pending = 0;
-    if (uart_get_buffered_data_len(UART_NUM_0, &pending) != ESP_OK) {
-        return false;
-    }
+    if (uart_get_buffered_data_len(UART_NUM_0, &pending) != ESP_OK) { return false; }
 
     bool saw_newline = false;
     size_t remaining = pending;
     while (remaining > 0) {
         uint8_t byte = 0;
         int read = uart_read_bytes(UART_NUM_0, &byte, 1, 0);
-        if (read <= 0) {
-            break;
-        }
-        if (byte == '\n' || byte == '\r') {
-            saw_newline = true;
-        }
+        if (read <= 0) { break; }
+        if (byte == '\n' || byte == '\r') { saw_newline = true; }
         --remaining;
     }
     return saw_newline;
@@ -99,15 +85,11 @@ static bool console_consume_newline(void) {
 
 static bool wait_for_enter(TickType_t wait_ticks) {
     TickType_t poll_ticks = pdMS_TO_TICKS(20);
-    if (poll_ticks == 0) {
-        poll_ticks = 1;
-    }
+    if (poll_ticks == 0) { poll_ticks = 1; }
 
     TickType_t remaining = wait_ticks;
     while (remaining > 0) {
-        if (console_consume_newline()) {
-            return true;
-        }
+        if (console_consume_newline()) { return true; }
         TickType_t step = (remaining > poll_ticks) ? poll_ticks : remaining;
         vTaskDelay(step);
         remaining -= step;
@@ -140,15 +122,11 @@ static int cmd_vsr_top(int argc, char** argv) {
         }
     }
 
-    if (rate_hz <= 0.0) {
-        rate_hz = 1.0;
-    }
+    if (rate_hz <= 0.0) { rate_hz = 1.0; }
 
     const double period_ticks = (double) configTICK_RATE_HZ / rate_hz;
     TickType_t wait_ticks = (TickType_t) (period_ticks + 0.5);
-    if (wait_ticks < 1) {
-        wait_ticks = 1;
-    }
+    if (wait_ticks < 1) { wait_ticks = 1; }
 
     const vehicle_status_reg_t* vsr = (const vehicle_status_reg_t*) &vsr_global;
 
@@ -193,16 +171,8 @@ static int cmd_top(int argc, char** argv) {
 
     uint32_t cpu_hz = 0;
     uint32_t apb_hz = 0;
-    esp_clk_tree_src_get_freq_hz(
-        SOC_MOD_CLK_CPU,
-        ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED,
-        &cpu_hz
-    );
-    esp_clk_tree_src_get_freq_hz(
-        SOC_MOD_CLK_APB,
-        ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED,
-        &apb_hz
-    );
+    esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_CPU, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &cpu_hz);
+    esp_clk_tree_src_get_freq_hz(SOC_MOD_CLK_APB, ESP_CLK_TREE_SRC_FREQ_PRECISION_CACHED, &apb_hz);
 
     esp_chip_info_t info;
     esp_chip_info(&info);
@@ -212,32 +182,21 @@ static int cmd_top(int argc, char** argv) {
 
     UBaseType_t task_count = uxTaskGetNumberOfTasks();
     if (task_count > CONSOLE_MAX_TASKS) {
-        printf(
-            "too many tasks (%lu) for stats buffer (%u max)\n",
-            (unsigned long) task_count,
-            (unsigned) CONSOLE_MAX_TASKS
-        );
+        printf("too many tasks (%lu) for stats buffer (%u max)\n", (unsigned long) task_count,
+               (unsigned) CONSOLE_MAX_TASKS);
         return 1;
     }
 
     uint32_t total_runtime = 0;
-    UBaseType_t fetched = uxTaskGetSystemState(
-        console_scratch.task_status,
-        CONSOLE_MAX_TASKS,
-        &total_runtime
-    );
+    UBaseType_t fetched = uxTaskGetSystemState(console_scratch.task_status, CONSOLE_MAX_TASKS, &total_runtime);
     if (fetched == 0) {
         puts("failed to collect task stats");
         return 1;
     }
 
     if (total_runtime == 0) {
-        for (UBaseType_t i = 0; i < fetched; ++i) {
-            total_runtime += console_scratch.task_status[i].ulRunTimeCounter;
-        }
-        if (total_runtime == 0) {
-            total_runtime = 1;
-        }
+        for (UBaseType_t i = 0; i < fetched; ++i) { total_runtime += console_scratch.task_status[i].ulRunTimeCounter; }
+        if (total_runtime == 0) { total_runtime = 1; }
     }
 
     puts("Task             St Prio Stack(B)  CPU%   AbsTime");
@@ -245,15 +204,8 @@ static int cmd_top(int argc, char** argv) {
         const TaskStatus_t* st = &console_scratch.task_status[i];
         const double cpu_pct = ((double) st->ulRunTimeCounter * 100.0) / (double) total_runtime;
         const unsigned stack_bytes = (unsigned) st->usStackHighWaterMark * sizeof(StackType_t);
-        printf(
-            "%-16s %c %4u %8u %6.2f %10lu\n",
-            st->pcTaskName,
-            task_state_char(st->eCurrentState),
-            (unsigned) st->uxCurrentPriority,
-            stack_bytes,
-            cpu_pct,
-            (unsigned long) st->ulRunTimeCounter
-        );
+        printf("%-16s %c %4u %8u %6.2f %10lu\n", st->pcTaskName, task_state_char(st->eCurrentState),
+               (unsigned) st->uxCurrentPriority, stack_bytes, cpu_pct, (unsigned long) st->ulRunTimeCounter);
     }
     return 0;
 }
@@ -269,9 +221,7 @@ static void register_cmds(void) {
          .func = &cmd_vsr_top},
     };
 
-    for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); ++i) {
-        ESP_ERROR_CHECK(esp_console_cmd_register(&cmds[i]));
-    }
+    for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); ++i) { ESP_ERROR_CHECK(esp_console_cmd_register(&cmds[i])); }
 }
 
 // Start the console repl essentially
@@ -301,14 +251,6 @@ static void console_main(void* arg) {
 void start_console_task() {
     static StackType_t stack[DEFAULT_STACK_SIZE];
     static StaticTask_t tcb;
-    xTaskCreateStaticPinnedToCore(
-        console_main,
-        "console_main",
-        DEFAULT_STACK_SIZE,
-        NULL,
-        CONSOLE_TASK_PRIO,
-        stack,
-        &tcb,
-        0
-    );
+    xTaskCreateStaticPinnedToCore(console_main, "console_main", DEFAULT_STACK_SIZE, NULL, CONSOLE_TASK_PRIO, stack,
+                                  &tcb, 0);
 }
