@@ -57,7 +57,7 @@ static const vsr_topic_printer_t k_topics[] = {
 
 static const size_t k_topic_count = sizeof(k_topics) / sizeof(k_topics[0]);
 
-static void print_available_topics_internal(void) {
+void print_available_topics_internal(void) {
     printf("available topics:\n");
     for (size_t i = 0; i < k_topic_count; ++i) {
         printf("  %s\n", k_topics[i].topic_name);
