@@ -50,9 +50,11 @@ generate_cc_db:
 ### Formatting/Code Quality ###
 format:
     (cd mila-embedded && ./format.sh)
+    cargo fmt --all
 
 check_format:
     (cd mila-embedded && ./check_format.sh)
+    cargo fmt --all --check
 
 ### Telem Dashboard Stuff ###
 telem_dashboard:
