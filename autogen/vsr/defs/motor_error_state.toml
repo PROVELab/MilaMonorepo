@@ -2,6 +2,12 @@ alias = "motor_error"
 desc = ""
 
 [motor_state]
-type = "u32"
+type = "enum"
 unit = ""
 desc = "High Level Motor State Enum"
+
+  [motor_state.variants.MOTOR_OK]
+    value = 0
+
+  [motor_state.variants.MOTOR_ERROR_STOP]
+    value = 1

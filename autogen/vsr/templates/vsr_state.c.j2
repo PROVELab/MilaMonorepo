@@ -35,9 +35,9 @@ bool vsr_serialize(
 
     vsr_VehicleStatusRegister snapshot = vsr_VehicleStatusRegister_init_zero;
 {% for slot in slots %}
-    VSR_SLOT_READ(vsr, {{ slot.name }}, {
+    ACQ_REL_VSRSEM_R(vsr, {{ slot.name }}, {
         snapshot.has_{{ slot.name }} = true;
-        snapshot.{{ slot.name }} = vsr->wire.{{ slot.name }};{% for field_name in slot.enum_field_names %}
+        snapshot.{{ slot.name }} = vsr->wire.{{ slot.name }};{% for field_name in slot.oneof_enum_field_names %}
         snapshot.{{ slot.name }}.has_{{ field_name }} = true;{% endfor %}
     });
 {% endfor %}

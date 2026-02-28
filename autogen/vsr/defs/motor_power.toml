@@ -1,5 +1,5 @@
-alias = "motor_power"
-desc = ""
+alias = "motor_mspeed_status"
+desc = "Medium Speed motor status output"
 
 [measured_dc_voltage_v]
 type = "f32"

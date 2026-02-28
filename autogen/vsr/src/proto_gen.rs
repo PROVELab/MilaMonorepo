@@ -71,6 +71,34 @@ mod filters {
         }
         Ok(out)
     }
+
+    /// Oneof field numbers must be >= 1, so enum semantic values map to proto tag = value + 1.
+    pub fn oneof_variant_tag(value: &u32) -> AskamaResult<u32> {
+        Ok(value.saturating_add(1))
+    }
+
+    /// Normalizes enum variant identifiers while preserving underscore-separated words.
+    pub fn enum_value_ident(variant_name: &str) -> AskamaResult<String> {
+        let mut out = String::new();
+        for ch in variant_name.chars() {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                out.push(ch.to_ascii_uppercase());
+            } else {
+                out.push('_');
+            }
+        }
+        while out.contains("__") {
+            out = out.replace("__", "_");
+        }
+        out = out.trim_matches('_').to_string();
+        if out.is_empty() {
+            out = "UNSPECIFIED".to_string();
+        }
+        if out.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+            out.insert(0, '_');
+        }
+        Ok(out)
+    }
 }
 
 #[derive(Template)]

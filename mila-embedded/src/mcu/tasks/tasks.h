@@ -12,7 +12,7 @@
 #ifndef TASKS_H
 #define TASKS_H
 
-#include "../vsr.h" // vehicle status register, holds all the information about the vehicle
+#include "../vsr/vsr_state.h" // vehicle status register, holds all the information about the vehicle
 #include "driver/twai.h"
 
 #include "freertos/FreeRTOS.h"

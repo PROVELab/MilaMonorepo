@@ -7,11 +7,13 @@ unit = ""
 desc = "Which Mode are we in"
 
   [command.variants.idle]
+    value = 0
 
   [command.variants.pedal]
+    value = 1
     
   
   [command.variants.cruise]
+    value = 2
     target_speed_rpm = { type = "u16" }
-
 

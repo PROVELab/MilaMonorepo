@@ -34,13 +34,12 @@ static void print_timestamp_info(const char* indent, int64_t timestamp_us) {
            note);
 }
 
-{% for slot in slots %}
-static void print_{{ slot.name }}(const vehicle_status_reg_t* vsr) {
+{% for slot in slots %}static void print_{{ slot.name }}(const vehicle_status_reg_t* vsr) {
     int64_t timestamp_us = 0;
     {{ slot.wire_type }} slot;
     memset(&slot, 0, sizeof(slot));
 
-    VSR_SLOT_READ(vsr, {{ slot.name }}, {
+    ACQ_REL_VSRSEM_R(vsr, {{ slot.name }}, {
         timestamp_us = vsr->{{ slot.name }}_updated_at_us;
         slot = vsr->wire.{{ slot.name }};
     });
@@ -48,16 +47,13 @@ static void print_{{ slot.name }}(const vehicle_status_reg_t* vsr) {
     printf("{{ slot.topic_name_escaped }}:\n");
     print_timestamp_info("  ", timestamp_us);
 {% for print_line in slot.scalar_print_lines %}{{ print_line }}
-{% endfor %}{% for field_name in slot.skipped_enum_fields %}
-    /* TODO: enum field '{{ field_name }}' print is skipped for now. */
-{% endfor %}
-}
+{% endfor %}{% for field_name in slot.skipped_enum_fields %}    /* TODO: enum field '{{ field_name }}' print is skipped for now. */
+{% endfor %}}{% if !loop.last %}
 
-{% endfor %}
+{% endif %}{% endfor %}
 static const vsr_topic_printer_t k_topics[] = {
 {% for slot in slots %}    {.topic_name = "{{ slot.topic_name_escaped }}", .print = &print_{{ slot.name }}},
-{% endfor %}
-};
+{% endfor %}};
 
 static const size_t k_topic_count = sizeof(k_topics) / sizeof(k_topics[0]);
 
