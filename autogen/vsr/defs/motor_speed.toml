@@ -1,5 +1,5 @@
-alias = "motor_speed"
-desc = ""
+alias = "motor_highspeed_status"
+desc = "High speed (200 Hz) motor data"
 
 [quadrature_current]
 type = "f32"

@@ -17,7 +17,7 @@ struct VsrStateSlot<'a> {
     name: &'a str,
     topic_name_escaped: String,
     wire_type: String,
-    enum_field_names: Vec<&'a str>,
+    oneof_enum_field_names: Vec<&'a str>,
     scalar_print_lines: Vec<String>,
     skipped_enum_fields: Vec<&'a str>,
 }
@@ -116,13 +116,13 @@ fn build_slots<'a>(substructs: &'a IndexMap<String, VsrSubstruct>) -> Vec<VsrSta
 
             VsrStateSlot {
                 name,
-                topic_name_escaped: escape_c_string(&sub.alias),
-                wire_type: format!("vsr_{}", pascal(&sub.alias)),
-                enum_field_names: sub
+                topic_name_escaped: escape_c_string(name),
+                wire_type: format!("vsr_{}", pascal(name)),
+                oneof_enum_field_names: sub
                     .fields
                     .iter()
                     .filter_map(|(field_name, field)| {
-                        (!field.kind.is_scalar()).then_some(field_name.as_str())
+                        field.kind.is_oneof_enum().then_some(field_name.as_str())
                     })
                     .collect(),
                 scalar_print_lines,

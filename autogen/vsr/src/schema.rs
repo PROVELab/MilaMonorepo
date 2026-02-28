@@ -27,10 +27,30 @@ impl VsrSubstruct {
         }
 
         for (name, field) in &self.fields {
-            if let FieldType::Enum { variants } = &field.kind
-                && variants.is_empty()
-            {
-                bail!("enum field `{}` must have at least one variant", name);
+            if let FieldType::Enum { variants } = &field.kind {
+                if variants.is_empty() {
+                    bail!("enum field `{}` must have at least one variant", name);
+                }
+
+                let mut seen_values = std::collections::HashSet::new();
+                for (variant_name, payload) in variants {
+                    if !seen_values.insert(payload.value) {
+                        bail!(
+                            "enum field `{}` has duplicate value {} (at variant `{}`)",
+                            name,
+                            payload.value,
+                            variant_name
+                        );
+                    }
+                }
+
+                let is_pure_enum = variants.values().all(|payload| payload.fields.is_empty());
+                if is_pure_enum && !seen_values.contains(&0) {
+                    bail!(
+                        "pure enum field `{}` must define a variant with value 0 (proto3 default)",
+                        name
+                    );
+                }
             }
         }
 
@@ -99,10 +119,23 @@ impl FieldType {
             FieldType::Enum { .. } => "/* enum */ int",
         }
     }
+
+    pub fn is_pure_enum(&self) -> bool {
+        match self {
+            FieldType::Enum { variants } => variants.values().all(|payload| payload.fields.is_empty()),
+            _ => false,
+        }
+    }
+
+    pub fn is_oneof_enum(&self) -> bool {
+        matches!(self, FieldType::Enum { .. }) && !self.is_pure_enum()
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct EnumVariantPayload {
+    pub value: u32,
+
     #[serde(flatten)]
     pub fields: IndexMap<String, FieldType>,
 }

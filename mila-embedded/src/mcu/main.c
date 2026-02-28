@@ -13,7 +13,7 @@
 #include "esp_log.h"
 #include "motor_h300/h300.h"
 #include "tasks/tasks.h"
-#include "vsr.h" // vehicle status register, holds all the information about the vehicle
+#include "vsr/vsr_state.h" // vehicle status register, holds all the information about the vehicle
 
 #include "sensors/pedalSensor/pedal_sensor.h" // for pedal reading
 
@@ -40,7 +40,7 @@ void app_main() {
     ESP_LOGI(__func__, "Hello, minimal app starting");
 
     // Initialize the global VSR
-    vsr_init(&vehicle_status_register);
+    vsr_init(&vsr_global);
 
     static PCANListenParamsCollection plpc = {
         .arr = {{0}},
@@ -54,10 +54,10 @@ void app_main() {
     ESP_LOGI(__func__, "Initialized VSR, finished TWAI config");
 
     // Core 0 tasks
-    start_console_task();
+    // start_console_task(); // TODO: implement this
     ESP_LOGI(__func__, "StartedConsole");
 
-    start_logging_task(); //<- replaced with SD card version.
+    // start_logging_task(); //<- replaced with SD card version.
     ESP_LOGI(__func__, "StartedLogging");
 
     // Send data to the motor task

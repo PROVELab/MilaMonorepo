@@ -14,7 +14,7 @@
 #include "myDefines.hpp"                         //contains #define statements specific to this node like myId.
 
 #include "../../mcu/motor_h300/h300.h"
-#include "../../mcu/vsr.h"
+#include "../../mcu/vsr/vsr.h"
 #include "../powerSensor/powerSensor.h"
 #include "pedalInterpolation.h"
 #include "pedal_sensor.h"

@@ -1,5 +1,5 @@
-alias = "motor_safety"
-desc = ""
+alias = "motor_lowspeed_safety"
+desc = "Low Speed Motor Output (safety)"
 
 [protection_code]
 type = "u8"
