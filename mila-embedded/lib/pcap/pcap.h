@@ -16,7 +16,7 @@ typedef struct {
 typedef struct {
     uint32_t id;
     struct {
-        uint8_t padding: 4; // TODO: any other flags we want here?
+        uint8_t flags: 4; // Only 1 = EXTD (0 = normal)
         uint8_t dlc: 4;
     } __attribute((packed)) dlc_flags;
 
