@@ -21,16 +21,15 @@ is a CAN packet that was logged:
 
 #### PCAP Header ####
 
-| Field    | magic                          | start_timestamp                                        |
-|----------|--------------------------------|--------------------------------------------------------|
-| Size (b) | 4                              | 8                                                      |
-| Notes    | Magic. Should always be 'MILA' | The time when logging started (in terms of node start) |
+| Field    | magic                          | start_timestamp                                                   |
+|----------|--------------------------------|-------------------------------------------------------------------|
+| Size (b) | 4                              | 8                                                                 |
+| Notes    | Magic. Should always be 'MILA' | `esp_timer_get_time()` (microseconds since boot) when logging started |
 
 
 #### PCAP Body ####
 
-| Field    | id                  | flags                                                                   | dlc                                               | data     | crc                       |
-|----------|---------------------|-------------------------------------------------------------------------|---------------------------------------------------|----------|---------------------------|
-| Size (b) | 4                   | 4 bits                                                                  | 4 bits                                            | 8 bytes  | 1                         |
-| Notes    | The 11 or 29-bit ID | Flags. The only flag supported right now is EXD in which case flags = 1 | How many bytes of data is actually in this record | The data | SAE J1850 CRC8 (checksum) |
-
+| Field    | time_delta                                         | id                  | flags                                                                   | dlc                                               | data     | crc                       |
+|----------|----------------------------------------------------|---------------------|-------------------------------------------------------------------------|---------------------------------------------------|----------|---------------------------|
+| Size (b) | 4                                                  | 4                   | 4 bits                                                                  | 4 bits                                            | 8 bytes  | 1                         |
+| Notes    | Time since previous record in microseconds (`uint32_t`, saturates on overflow) | The 11 or 29-bit ID | Flags. The only flag supported right now is EXTD in which case flags = 1 | How many bytes of data is actually in this record | The data | SAE J1850 CRC8 (checksum) |

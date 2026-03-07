@@ -1,5 +1,6 @@
-
 # list(APPEND EXTRA_COMPONENT_DIRS icm20948)
+
+set(COMPONENT_INCLUDE_DIRS "." "mcu")
 
 if(CMAKE_VITALS_ESP_BUILD)
     set(SRC_FILES 
@@ -52,6 +53,13 @@ if(CMAKE_MCU_ESP_BUILD)
         "${CMAKE_CURRENT_SOURCE_DIR}/sensors/pedalSensor/*.c"
     )
 
+    list(APPEND MCU_SRC
+        "${CMAKE_CURRENT_SOURCE_DIR}/../lib/pcap/crc8_j1850.c"
+    )
+    list(APPEND COMPONENT_INCLUDE_DIRS
+        "${CMAKE_CURRENT_SOURCE_DIR}/../lib/pcap"
+    )
+
     # If you also want to include other existing files outside mcu/, add them here:
     set(SRC_FILES
         ${MCU_SRC} ${SRC_FILES}
@@ -63,4 +71,4 @@ endif()
 #         "${CMAKE_SRC_FILE}"
 #     )   
 # endif()
-idf_component_register(SRCS ${SRC_FILES} INCLUDE_DIRS ".")
+idf_component_register(SRCS ${SRC_FILES} INCLUDE_DIRS ${COMPONENT_INCLUDE_DIRS})

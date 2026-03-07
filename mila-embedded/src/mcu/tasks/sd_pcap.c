@@ -1,40 +1,16 @@
-#include <inttypes.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/stat.h>
-
-#include "pcap/pcap.h"
-
-#include "esp_err.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-#include "../vsr.h"
-#include "tasks.h" // defines LOGGING_TASK_PRIO (fallback provided below if missing)
-
-#include "driver/sdmmc_host.h"
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-
-#ifndef LOGGING_TASK_PRIO
-#define LOGGING_TASK_PRIO 5
-#endif
-
-#include "diskio_impl.h" // for ff_diskio_register_sdmmc (ESP-IDF 5.3.x)
-#include "driver/sdmmc_host.h"
-#include "esp_err.h"
-#include "esp_log.h"
-#include "esp_vfs_fat.h"
-#include "sdmmc_cmd.h"
-
-#include <sys/fcntl.h>
-#include <sys/unistd.h>
-#include <unistd.h>
+#include "sd_pcap.h"
+#include "esp_timer.h"
 
 static const char* TAG = "SDFMT";
 static sdmmc_card_t* g_card; // must live for the life of the mount
+static uint64_t g_start_time_us = 0;
+static uint64_t g_last_record_time_us = 0;
 
+static const uint32_t BUFFER_SIZE = 4096; // normal antics
+
+static inline bool file_exists(const char* path) { return (path != NULL) && (access(path, F_OK) == 0); }
+
+// Tori's Mount SD card thingy
 esp_err_t sd_mount(const char* base_path, bool allow_format_if_needed) {
     esp_vfs_fat_sdmmc_mount_config_t mc = {.format_if_mount_failed =
                                                allow_format_if_needed, // true => auto-FAT32 if needed
@@ -62,42 +38,59 @@ esp_err_t sd_mount(const char* base_path, bool allow_format_if_needed) {
     return ESP_OK;
 }
 
+// fsyncs
 static inline void log_fsync(FILE* fp) {
     fflush(fp);
     fsync(fileno(fp)); // forces FAT directory entry (size/time) to be updated
 }
-
-typedef struct {
-    FILE* fp;
-    char name[48];
-} log_file_t;
-
 // Writes the header to the file
-static esp_err_t _pcap_write_header(FILE* fp){
-    pcap_header_s phs;
-   
+static esp_err_t _pcap_write_header(FILE* fp, uint64_t start_time_us){
+    if (!fp) return ESP_ERR_INVALID_ARG;
+
+    pcap_header_s phs = DEFAULT_PCAP_HEADER_S;
+    phs.start_time = start_time_us;
+
     // Write the header to the file
-    write(fp, (void*) &phs, sizeof(pcap_header_s));
+    if (fwrite(&phs, 1, sizeof(pcap_header_s), fp) != sizeof(pcap_header_s)) {
+        ESP_LOGE(TAG, "Failed writing PCAP header");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 esp_err_t pcap_write_record(FILE * fp, CANPacket packet){
-    pcap_record_s prs = {
-        .id = packet.id,
-        .dlc_flags.dlc = packet.dataSize,
-        .dlc_flags.flags = (packet.extendedID) ? 1 : 0,
-        .crc = 0
-    };
+    if (!fp) return ESP_ERR_INVALID_ARG;
+    if (packet.dataSize > sizeof(packet.data)) return ESP_ERR_INVALID_ARG;
+
+    const uint64_t now_us = (uint64_t) esp_timer_get_time();
+    uint64_t delta_us = 0;
+    if (g_last_record_time_us > 0 && now_us >= g_last_record_time_us) {
+        delta_us = now_us - g_last_record_time_us;
+    }
+
+    pcap_record_s prs = {0};
+    prs.time_delta = (delta_us > UINT32_MAX) ? UINT32_MAX : (uint32_t) delta_us;
+    prs.id = packet.id;
+    prs.dlc_flags.dlc = packet.dataSize;
+    prs.dlc_flags.flags = (packet.extendedID) ? 1 : 0;
 
     memcpy(prs.data, packet.data, packet.dataSize);
     prs.crc = j1850_compute(packet.data, packet.dataSize);
+    g_last_record_time_us = now_us;
 
     // Write to file
-    write(fp, &prs, sizeof(pcap_record_s));
+    if (fwrite(&prs, 1, sizeof(pcap_record_s), fp) != sizeof(pcap_record_s)) {
+        ESP_LOGE(TAG, "Failed writing PCAP record");
+        return ESP_FAIL;
+    }
+    return ESP_OK;
 }
 
 // Creates first missing capX.pcap
 // And opens it
-static esp_err_t pcap_create_next(log_file_t* out) {
+esp_err_t pcap_start_logfile(log_file_t* out) {
+    j1850_init_table(); // make sure crc'ing will work
+
     if (!out) return ESP_ERR_INVALID_ARG;
     out->fp = NULL;
     out->name[0] = '\0';
@@ -106,17 +99,29 @@ static esp_err_t pcap_create_next(log_file_t* out) {
         char path[64];
         snprintf(path, sizeof(path), "/sdcard/cap%d.pcap", i);
         if (!file_exists(path)) {
-            FILE* fp = fopen(path, "w");
+            FILE* fp = fopen(path, "wb"); // open up file in binary mode
+
             if (!fp) {
                 ESP_LOGE(TAG, "Failed to create %s", path);
                 return ESP_FAIL;
             }
-            csv_header(fp);
-            log_fsync(fp);
-            setvbuf(fp, NULL, _IOLBF, 0); // line-buffered
+
+            g_start_time_us = (uint64_t) esp_timer_get_time();
+            g_last_record_time_us = g_start_time_us;
+
+            esp_err_t ret = _pcap_write_header(fp, g_start_time_us); // Write the PCAP Header
+            if (ret != ESP_OK) {
+                fclose(fp);
+                return ret;
+            }
+            log_fsync(fp); // Sync it up!
+
+            setvbuf(fp, NULL, _IOFBF, BUFFER_SIZE); // normal buffering (4 Kb buffer)
+            
             out->fp = fp;
             strncpy(out->name, path, sizeof(out->name) - 1);
             out->name[sizeof(out->name) - 1] = '\0';
+
             ESP_LOGI(TAG, "Created %s", out->name);
             return ESP_OK;
         }

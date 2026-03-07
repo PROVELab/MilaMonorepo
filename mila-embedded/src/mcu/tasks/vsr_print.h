@@ -1,7 +1,7 @@
 #ifndef VSR_PRINT_H
 #define VSR_PRINT_H
 
-#include "../vsr/vsr_state.h"
+#include "vsr/vsr_state.h"
 
 #ifdef __cplusplus
 extern "C" {
