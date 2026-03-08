@@ -9,12 +9,14 @@ extern "C" { // Ensure C linkage
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "stdint.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 
 #define STACK_SIZE 10000 // for how big we need tasks to be, This value should be plenty
 
 void base_ESP_init();
+void setMutexPrintEnabled(bool enabled);
 // mutexPrint
 void mutexPrint(const char* str);
 extern SemaphoreHandle_t printfMutex;
