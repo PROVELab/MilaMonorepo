@@ -2,13 +2,21 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include <stdbool.h>
 #include <stdio.h>
 
 SemaphoreHandle_t printfMutex;
 StaticSemaphore_t printfMutexBuffer;
 static TaskHandle_t heapWarnTask;
+static bool mutexPrintEnabled = true;
+
+void setMutexPrintEnabled(bool enabled) { mutexPrintEnabled = enabled; }
 
 void mutexPrint(const char* str) {
+    if (!mutexPrintEnabled || str == NULL || printfMutex == NULL) {
+        return;
+    }
+
     if (xSemaphoreTake(printfMutex, portMAX_DELAY)) {
         printf("%s\n", str);         // Call the non-reentrant function safely.
         xSemaphoreGive(printfMutex); // Release the mutex.
