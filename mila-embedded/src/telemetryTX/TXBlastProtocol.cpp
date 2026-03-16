@@ -9,182 +9,92 @@
 
 #include "../pecan/pecan.h"
 
+#include "../LoraCommon/blastProtocolConfig.hpp"
 #include "LoraTransmitQueue.hpp"
-#include "LoraErrLog.hpp"
+#include "../LoraCommon/LoraErrLog.hpp"
 #include "TXBlastProtocolHelper.hpp"
-#include "TXBlastProtocol.hpp"
-#include "../LoraCommon/LoraDriver.hpp"
+#include "../LoraCommon/Driver/Driver.hpp"
 
 static const char* TAG = "Blast_Protocol";
 
 // For receiving acks
 uint32_t packetTimeOnAir_us = 1; //computed in initProtocol
-TimerHandle_t ackTimer = NULL;
-StaticTimer_t ackTimer_Buffer;      
-std::atomic<bool> awaitingAck{0};
+
 //we will first send with ackParity = false
 bool ackParity = false; //parity bit to track acks. Ensure we know if we got old ack
 
-//For blasting out of a buffer
-bool isBlasting = false;
-
-//ensure only one call to protocol running at a time
-SemaphoreHandle_t protocolMutex = NULL; //not static since helper uses these
-StaticSemaphore_t protocolMutexBuffer;
-bool protocolRunning = false;
-static bool protocolInitialized = false; 
+//queue for incomming packets
+#define queueSize 3
+QueueHandle_t recvQueue = NULL;
+StaticQueue_t xQueueBuffer;
+//how much data for protocol packets
+#define recvMsgDataSize (sizeof(driverPacket) - TXHeaderSize);
+uint8_t ucQueueStorage[ queueSize * sizeof(driverPacket)];
 //
 
-// --- Prototypes ---
-void startNewBurstSequence();
-void ackTimeoutCallback(TimerHandle_t xTimer);
+ProtocolState state = unstarted;   //track where we are at in the protocol. Mainly for handling timeouts and crashes
 
-//can call again to re-initialize protocol
-void initProtocol(const RadioConfig config) {
-    protocolRunning = false;    //should already be false when called
-    if(protocolMutex == NULL){
-        protocolMutex = xSemaphoreCreateMutexStatic(&protocolMutexBuffer);
+static void initProtocol(const RadioConfig* config);
+//non-reentrant
+int16_t runProtocol(const RadioConfig* config, char*& errorMsg){
+    state = unstarted;
+    driverInfo* driverInfo;
+    while(1){
+        switch(state){
+            case unstarted:
+                initProtocol(config);
+                state = idle;
+                break;
+            case startNewBurst:
+                //will block until a data is ready if none
+                state = prepareNewBurst();
+                break;
+            case sendingData:
+                state = sendData();
+                break;
+            case awaitingAck:
+                state = awaitAck(); //can call processBitmap
+                break;
+            case resendLastData:
+                state = resendLastPacketInBurst();
+                break;            
+            case crashed:
+                driverInfo = getDriverInfo();
+                errorMsg = driverInfo->crashMsg;
+                return driverInfo->crashError;
+            default:
+                return -1;
+        }
     }
-    while(xSemaphoreTake(protocolMutex, portMAX_DELAY) != pdPASS);
-    if(crashBinary == NULL){
-        crashBinary = xSemaphoreCreateBinary();
+}
+
+void initProtocol(const RadioConfig* config){
+    ESP_LOGI(TAG, "called Init");
+    if(recvQueue == NULL){
+        recvQueue = xQueueCreateStatic( queueSize, // The number of items the queue can hold.
+                        sizeof(driverPacket),     // The size of each item in the queue
+                        ucQueueStorage, // The buffer that will hold the items in the queue.
+                        &xQueueBuffer );
     }
-    
+    LoraDriverInit(config); //start driver
+
     //initialize things in other files. 
     initQueue();    //init and re-init are the same for these
     initErr();
-    //anything whose init function cant also re-init is distinguished here
-    if(!protocolInitialized){   
-        LoraDriverInit(config);
-    } else{
-        LoraDriverRestart(config); 
-    }
-    //
-    
+
+    ackParity = !ackParity;
     packetTimeOnAir_us = LoraGetTimeOnAir(); //compute time on air for max size packet
 
-    //stuff for receiving acks
-    awaitingAck.store(false);
-    ESP_LOGI(TAG, "Packet Time on Air: %u us", packetTimeOnAir_us);
-    if(ackTimer != NULL){
-        ackTimer = xTimerCreateStatic("ackTimer",          //timer name, doesnt affect code execution
-                            pdMS_TO_TICKS((packetTimeOnAir_us * 4) / 1000), //give 4 packets worth of time to here ack
-                            pdFALSE,            //only fire one time (do not auto-renew)
-                            (void*) NULL,      //parameter
-                            ackTimeoutCallback, // the callback function
-                            &(ackTimer_Buffer)  // buffer that holds timer info stuff
-        );
-    }
-    
-    protocolRunning = true;
-    protocolInitialized = true;
-    xSemaphoreGive(protocolMutex);
+    return ;
 }
 
-//to handle crashes. Declared extern so can be accessed by API file
-SemaphoreHandle_t crashBinary = NULL;
-int16_t driverCrashError = 0;
-char driverCrashMsg [crashMsgSize] = {0};
-//
-void protocolCrash(const int16_t error, const char* msg){
-    //grab protocol if we dont have it already
-    if(xSemaphoreGetMutexHolder( protocolMutex ) != xTaskGetCurrentTaskHandle()){
-        while (xSemaphoreTake(protocolMutex, portMAX_DELAY) != pdPASS);
-    }
-
-    //copy values of error
-    memcpy(driverCrashMsg, msg, crashMsgSize - 1);
-    driverCrashMsg[crashMsgSize-1] = 0 ;    //force it to be null terminated
-    driverCrashError = error;
-
-    xSemaphoreGive(protocolMutex); //give mutex back
-    xSemaphoreGive(crashBinary);    //notify API of error
-}
-
+//false if protocol not running 
 bool protocolTransmit(uint8_t* data, uint8_t dataLen){
     addFrameToQueue(data, dataLen);
-    return nudgeTransmission();
+    return true;
 }
 
 //not implementing for now
 // bool protocolTransmitPriority(uint8_t* data, uint8_t dataLen){
 //
 // }
-// --- Logic Callbacks ---
-
-void ackTimeoutCallback(TimerHandle_t xTimer) {  //arg = SX1262_EXT* radio
-    if(!protocolGrab()){
-        return;
-    }
-    if(awaitingAck.exchange(false) == true){   //we were awaiting Ack
-        if(!isBlasting){
-            logErr(ackTimeout);
-            ESP_LOGW(TAG, "ACK Timeout! Retrying...");
-            startNewBurstSequence();
-        }
-    }
-    protocolYield();
-}
-
-void protocolTXComplete() {
-    if(!protocolGrab()){
-        return; //protocol no longer running
-    }
-    if (isBlasting) {
-        sendNextPacketInBurst();
-    } else {
-        // If we received an interrupt we weren't expecting
-        logErr(unexpectedTXCompletion);
-    }
-    protocolYield();
-}
-
-void protocolReceive(const uint8_t* rxBuffer, size_t length) {
-    if(!protocolGrab()){
-        return; //protocol no longer running
-    }
-    //cancel timeout
-    if(awaitingAck.exchange(false) == false){  //grab control
-        protocolYield();
-        return; //the timeout already fired, or we arent expecting a recv
-    }
-    xTimerStop(ackTimer, portMAX_DELAY);    //stop timer
-
-    bool packetErr = false;
-
-    //Error checking
-    if (length < 7) {   //basic length check
-        logErr(invalidRXLength);
-        packetErr = true;
-    }
-    //check our protocalID should be first 2 bytes
-    uint16_t recvID = rxBuffer[0] | (rxBuffer[1] << 8);
-    if (length < 2 || ((recvID & protocolUniqueIDMask) != protocolUniqueID)) {
-        logErr(incorrectProtocolId);
-        packetErr = true;
-    }
-    if(packetErr){
-        protocolYield();
-        return;
-    }
-
-    if((recvID & parityBitMask) != ackParity){ 
-        ESP_LOGE(TAG, "received outdated ack");
-        //we got sent an old ack
-        //try again with same as b4. dont move forward
-        startNewBurstSequence(); 
-        protocolYield();
-        return;
-    }
-
-    // 3. Branching: Process or Re-arm
-    // --- SUCCESS CASE ---
-    ESP_LOGI(TAG, "Valid Bitmap Received.");
-    uint16_t bitmap = *((uint16_t*)(rxBuffer + 5));
-    processBitmap(bitmap);
-    ackParity = !ackParity; //flip parity for next ack
-
-    startNewBurstSequence();
-    protocolYield();    
-}
-

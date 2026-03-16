@@ -1,7 +1,12 @@
-#ifndef ERROR_STRUCT_H
-#define ERROR_STRUCT_H
+#pragma once 
+#include <stdint.h>
 
-//struct used on both TX and RX side for logging errors
+#ifdef __cplusplus
+extern "C" { //Need C linkage since ESP uses C "C"
+#endif
+
+
+//error codes used on TX side by telem/vitals for logging errors
 //Positive = Our error Codes. negative = RadioLib error codes
 
 #define maxRadioErrs 8      //can log at most 8 errors per burst
@@ -19,15 +24,23 @@ typedef enum {
     unexpectedTXCompletion = 3,
     unexpectedRXCompletion = 4,
     incorrectProtocolId    = 5,
-    timerStartErr          = 6,
-    unexpectedTimeoutFire  = 7,
-    ackTimeout             = 8,
-    invalidRXLength        = 9,
-    queueOverflow          = 10,
-    burstFillFailure       = 11,
-    driverNotStarted     = 12
+    recvOutdatedAck        = 6,
+    timerStartErr          = 7,
+    unexpectedTimeoutFire  = 8,
+    ackTimeout             = 9,
+    invalidRXLength        = 10,
+    queueOverflow          = 11,
+    burstFillFailure       = 12
     //Raised by Vitals non-Lora code
 
-} custom_Vitals_Err_Codes; 
+} custom_Vitals_Er;
 
-#endif  // ERROR_STRUCT_H
+void initErr();
+
+//Can be called by Lora Driver or Vitals.
+//Positive = Our error Codes. negative = RadioLib error codes
+void logErr(int16_t err);
+
+#ifdef __cplusplus
+}  // End extern "C"
+#endif

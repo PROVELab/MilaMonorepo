@@ -1,5 +1,5 @@
-#include <cstdint>
 #pragma once
+#include <stdint.h>
 
 #define maxLoraPacketSize 255
 
@@ -8,6 +8,15 @@
 #else
     #define FN_CONSTEXPR
 #endif
+
+struct __attribute__((packed)) driverPacket{
+    size_t dataSize;
+    uint8_t data[maxLoraPacketSize];
+    //unused by driver on TX: 
+    float RSSI; 
+    float SNR; 
+    size_t irqFlags;  //set on interrupt, protocol can decide what to do with it
+};
 
 // Definitions for input choices
 enum class BoardType {
@@ -37,8 +46,6 @@ struct RadioConfig {
     uint8_t regulator_target_power;
 };
 
-//no reason we should be chaging the fixed default ones.
-//can update the power setting later SX1262_Ext::setOutputPowerOptimized
 FN_CONSTEXPR RadioConfig getStandardConfig(const BoardType board, const TestMode mode) {
     RadioConfig cfg;
 
@@ -82,7 +89,6 @@ FN_CONSTEXPR RadioConfig getStandardConfig(const BoardType board, const TestMode
     return cfg;
 }
 
-// The container for your pinout
 struct RadioPinout {
     int sclk;
     int miso;

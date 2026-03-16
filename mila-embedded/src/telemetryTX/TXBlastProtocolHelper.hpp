@@ -2,29 +2,30 @@
 #include <stdint.h>
 #include <atomic>
 
-//stuff from BlastProtocol.cpp that we want
-extern SemaphoreHandle_t protocolMutex;
-extern StaticSemaphore_t protocolMutexBuffer;
-extern bool protocolRunning;
-extern bool isBlasting;
-extern std::atomic<bool> awaitingAck;
-extern TimerHandle_t ackTimer;
 extern uint32_t packetTimeOnAir_us;
 extern bool ackParity;
+extern bool paritySet;
 //
 
-bool nudgeTransmission();
+typedef enum{
+    unstarted = 0,
+    idle = 1,
+    startNewBurst = 2,
+    reloadBurst = 3,
+    sendingData = 4,
+    resendLastData = 5,
+    awaitingAck = 6,
+    crashed = 7,
+} ProtocolState;
 
-void safeProtocolTransmit(const uint8_t* data, const uint16_t len, const uint32_t timeout_ms);
+// void safeProtocolTransmit(const uint8_t* data, const uint16_t len, const uint32_t timeout_ms);
 
-void processBitmap(uint16_t bitmap);
+void waitForTransmitRequest();
 
-void sendNextPacketInBurst();
+ProtocolState prepareNewBurst();
 
-void startNewBurstSequence();
+ProtocolState sendData();
 
-void listenForAck();
+ProtocolState resendLastPacketInBurst();
 
-bool protocolGrab();
-
-void protocolYield();
+ProtocolState awaitAck();

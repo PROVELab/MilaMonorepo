@@ -80,10 +80,12 @@ if(CMAKE_TELEM_RX)
         "sensors/${SENS_DIR}/*.c"
         "sensors/${SENS_DIR}/*.cpp"
         #
-        "telemetryRX/*.c"
-        "telemetryRX/*.cpp"
+        "telemetryRX/**.c"
+        "telemetryRX/**.cpp"
         "LoraCommon/*.c"
         "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
     )
     set(SRC_FILES
         ${TX_LORA_SRC}
@@ -96,6 +98,8 @@ if(CMAKE_TELEM_Listen)
         "LoraSimpleListen/*.cpp"
         "LoraCommon/*.c"
         "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
     )
     set(SRC_FILES
         ${RX_LORA_SRC}
@@ -106,11 +110,41 @@ if(CMAKE_TELEM_SIMPLE_TRANSMIT)
     file(GLOB SIMPLE_TX_LORA_SRC
         "LoraTestTransmit/*.c"
         "LoraTestTransmit/*.cpp"
-        "LoraCommon/*.c"
-        "LoraCommon/*.cpp"
+        # "LoraCommon/*.c"
+        # "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
+
     )
     set(SRC_FILES
         ${SIMPLE_TX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_ESP_LISTEN_BUILD)
+    set(SRC_FILES
+        "listenCAN/main.c"
+        "pecan/common.cpp"
+        "pecan/espSpecific.c"
+        "pecan/vitalsInit.c"
+        "espBase/debug_esp.c"
+    )
+endif()
+
+if(CMAKE_BMS)
+    file(GLOB BMS_SRC
+        "BMS_Test/*.c"
+    )
+    set(SRC_FILES
+        ${BMS_SRC}
+    )
+endif()
+if(CMAKE_HUMID_SENSE)
+    file(GLOB BMS_SRC
+        "temp_humid/*.cpp"
+    )
+    set(SRC_FILES
+        ${BMS_SRC}
     )
 endif()
 

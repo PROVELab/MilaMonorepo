@@ -120,6 +120,26 @@ pedalPowerReadingmV: bitLength=16, min=-30000, max=35000, minWarning=4900, maxWa
 pedalReadingOne: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
 pedalReadingTwo: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
 
+#m =meters. mmpss = milimeters per second^2
+#IMU units for pos are in 
+node: id=9, name=IMU, board=esp
+CANFrame: frequency=100, dataTimeout=1000
+posX_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
+posY_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
+posZ_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
+
+CANFrame: 
+accelX_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
+
+CANFrame: frequency=100, dataTimeout=1000
+accelY_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
+accelZ_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
+gyroX_deg_p_s: 
+gryoY_deg_p_s:
+gyroZ_deg_p_s:
+
+#can add magnotometer at some point later if wanted
+
 node: id=10, name=APSensorArduino, board=arduino
 CANFrame: frequency=700, dataTimeout=1500
 airPressure: bitLength=32, min=-2147483648, max=2147483647, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=50

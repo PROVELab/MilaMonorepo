@@ -4,7 +4,7 @@
 
 #include <RadioLib.h>
 
-#include "LoraErrLog.hpp"
+#include "../LoraCommon/LoraErrLog.hpp"
 #include "../LoraCommon/blastProtocolConfig.hpp"
 
 static const char* TAG = "Lora_Err_Log";
@@ -74,4 +74,5 @@ uint8_t generateErrPacket(int16_t* errPacket, uint8_t maxErrCount){
     memcpy(errPacket + errIndex, RadioLibErrBuffer, errorsToLog * sizeof(Error_Type));
     RadioLibErrCount = 0;
     xSemaphoreGive(radioLibErrMutex);
+    return errIndex;
 }
