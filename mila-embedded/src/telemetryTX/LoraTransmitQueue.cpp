@@ -1,109 +1,169 @@
-#include <stdint.h>
-#include <string.h>
 
-#include "freertos/FreeRTOS.h"
-
-#include "../LoraCommon/blastProtocolConfig.hpp"
+#include "LoraTransmitQueue.hpp"
 #include "../LoraCommon/LoraErrLog.hpp"
 
-static uint8_t TXQueue[maxPacketsInQueue][maxTXDataSize];
-static uint8_t TXQueueLens[maxPacketsInQueue];
+static const char* TAG = "TX_Queue";
 
-static uint16_t queueHead = 0, queueTail = 0, queueCount = 0;
+// --- queueBase Implementation ---
+queueBase::queueBase(TX_Data_Packet* buffer, int size, SemaphoreHandle_t* signal) 
+    : TXQueue(buffer), queueSize(size), wakeSignal(signal) {
+    queueMutex = xSemaphoreCreateMutex();
+    assert(queueMutex != NULL);
+}
 
-static SemaphoreHandle_t queueMutex = NULL; //mutex to take or add to msg queue.
+void queueBase::increment(int& index) {
+    index = (index == queueSize - 1) ? 0 : index + 1;
+}
 
-static SemaphoreHandle_t queueNonEmptyBinary = NULL;
+void queueBase::appendToBuffer(uint8_t index, uint8_t* frame, uint8_t frameSize) {
+    memcpy(TXQueue[index].data + TXQueue[index].dataSize, frame, frameSize);
+    TXQueue[index].dataSize += frameSize;
+}
 
-SemaphoreHandle_t queueReadyBinary = NULL;   //binary to indicate when we have something in the queue ready to send. Given by protocol when it wants us to nudge it to send
+bool queueBase::spaceInBuffer(uint8_t index, uint8_t frameSize) {
+    return TXQueue[index].dataSize + frameSize <= maxTXDataSize;
+}
 
-//may be called again on restart. Guaranteed not to have other queue functions running when called.
-void initQueue(){
-    if(queueMutex == NULL){ 
-        queueMutex = xSemaphoreCreateMutex();
-    }
-    if(queueNonEmptyBinary == NULL){
-        queueNonEmptyBinary = xSemaphoreCreateBinary();
-    }
+bool queueBase::queueEmpty() { return queueCount == 0; }
+
+bool queueBase::addFrameToBuffer(uint8_t* frame, uint8_t frameSize, bool overrideIfFull = true) {
+    if(frameSize > sizeof(TXQueue[0].data)) {return false;}
     xSemaphoreTake(queueMutex, portMAX_DELAY);
-    queueHead = 0; queueTail = 0; queueCount = 0;  
-    xSemaphoreGive(queueMutex);  
-}
-
-uint16_t getQueueCount(){
-    xSemaphoreTake(queueMutex, portMAX_DELAY);
-    uint16_t count = queueCount;
-    xSemaphoreGive(queueMutex);
-    return count;
-}
-
-inline void appendToBuffer(uint8_t index, uint8_t* frame, uint8_t frameSize){
-    memcpy(TXQueue[index] + TXQueueLens[index], frame, frameSize);
-    TXQueueLens[index] += frameSize;
-}
-inline bool spaceInBuffer(uint8_t index, uint8_t frameSize){
-    return TXQueueLens[index] + frameSize <= maxTXDataSize;
-}
-
-void addFrameToQueue(uint8_t* frame, uint8_t frameSize){
-    xSemaphoreTake(queueMutex, portMAX_DELAY);
-    //see if we can slot this packet into any not totally full packets already in queue
-    for(int i = queueTail; i != queueHead; i = ((i+1) % maxPacketsInQueue)){   
-        if(spaceInBuffer(i, frameSize)){
+    uint64_t candidates = roomMask;
+    // Scan all packets in the queue to check if they have room.
+    while (candidates > 0) {
+        // Get index of the first available packet
+        int i = __builtin_ctzll(candidates); 
+        
+        if (spaceInBuffer(i, frameSize)) {
             appendToBuffer(i, frame, frameSize);
+            
+            // If it's now too full for future frames, clear its bit
+            if (sizeof(TXQueue[i].data) - TXQueue[i].dataSize < MIN_USEFUL_SPACE) {
+                roomMask &= ~(1ULL << i);
+            }
             xSemaphoreGive(queueMutex);
-            return;
+            xSemaphoreGive(*wakeSignal);
+            return true;
         }
+
+        // This packet didn't fit this specific frame. clear it as an option.
+        candidates &= ~(1ULL << i);
     }
-    //otherwise, slot it into a new spot
-    if (queueCount == maxPacketsInQueue) {  //overide stale packet if needed
-        queueTail = (queueTail + 1) % maxPacketsInQueue;
+
+    // Couldnt find any packets with space. Add a new packet
+    if (queueCount == queueSize) {
+        if(overrideIfFull == false){
+            xSemaphoreGive(queueMutex);
+            return false;
+        }
+        //otherwise, can overide last entry:
+        TXQueue[queueTail].dataSize = 0;
+        roomMask &= ~(1ULL << queueTail);
+        increment(queueTail);
         queueCount--;
-        logErr(queueOverflow);
+        logErr(TAG, queueOverflow); 
     }
-    //slot into new spot. start from the header, so we can update the header in place
-    TXQueueLens[queueHead] = TXHeaderSize;
+
+    // Initialize the new packet at queueHead
+    TXQueue[queueHead].dataSize = TXHeaderSize;
     appendToBuffer(queueHead, frame, frameSize);
-    queueHead = (queueHead + 1) % maxPacketsInQueue;
+    roomMask |= (1ULL << queueHead); //it can be used for future packets (almost certainly)
+    increment(queueHead);
     queueCount++;
-    xSemaphoreGive(queueNonEmptyBinary);
-
+    
     xSemaphoreGive(queueMutex);
+    xSemaphoreGive(*wakeSignal);
+    return true;
 }
 
-
-//gives a new burst to use
-void refreshBurstBuffer(uint8_t burstBuffer[maxPacketGroupSize][maxLoraPacketSize],
-    uint8_t burstBufferLens[maxPacketGroupSize], uint8_t& burstBufferCount)
-{
-    if(queueCount == 0){
-        //wait until something is put on the queue
-        xSemaphoreTake(queueNonEmptyBinary, portMAX_DELAY);    
-    }
-
+bool queueBase::popFrame(uint8_t* newLocation, size_t& frameSize) {
     xSemaphoreTake(queueMutex, portMAX_DELAY);
-    while (burstBufferCount < maxPacketGroupSize && queueCount > 0) {
-        memcpy(&burstBuffer[burstBufferCount][TXHeaderSize], TXQueue[queueTail], maxTXDataSize);
-        burstBufferLens[burstBufferCount] = TXQueueLens[queueTail];
-        queueTail = (queueTail + 1) % maxPacketsInQueue;
-        queueCount--;
-        burstBufferCount++;
+    if(queueCount == 0){
+        xSemaphoreGive(queueMutex);
+        return false;   
     }
-    if(queueCount > 0){
-        xSemaphoreGive(queueNonEmptyBinary);
-    }
+    //move it over
+    frameSize = TXQueue[queueTail].dataSize;
+    memcpy(newLocation, TXQueue[queueTail].data, frameSize);
+    //house keeping
+    roomMask &= ~(1ULL << queueTail); //no longer a candidate
+    increment(queueTail);
+    queueCount--;
     xSemaphoreGive(queueMutex);
+    return true;
 }
 
-void waitForQueueItems(){
-
+// --- TXQueue Implementation ---
+TXQueue::TXQueue() : 
+    wakeSignal(xSemaphoreCreateBinary()), 
+    queue(&wakeSignal), 
+    priorityQueue(&wakeSignal) 
+{
+    assert(wakeSignal != NULL);
 }
 
-//insert a packet at start of burst buffer.
-//Ideally called before refreshBurstBuffer
-// void insertPriorityFrame(uint8_t burstBuffer[maxPacketGroupSize][maxLoraPacketSize], 
-//     uint8_t burstBufferLens[maxPacketGroupSize], uint8_t* pFrame, uint8_t pFrameLen){
+bool TXQueue::addFrameToQueue(uint8_t* frame, uint8_t frameSize) {
+    const bool overrideIfFull = false;  //switch to true for  actual use later
+    return queue.addFrameToBuffer(frame, frameSize, overrideIfFull);
+}
+bool TXQueue::addPriorityFrameToQueue(uint8_t* frame, uint8_t frameSize) {  
+    const bool overrideIfFull = false; //priority queue should not override existing frames, to preserve priority order  
+    return priorityQueue.addFrameToBuffer(frame, frameSize, overrideIfFull);
+}
+
+void TXQueue::insertErrorFrame(driverSendPacket burstBuffer[maxPacketGroupSize], uint8_t& numPackets){
+    // 1. Get pending errors. This also clears the error log.
+    uint8_t errPayload[(maxErrorCount * sizeof(Error_Type)) + 1];
+
+    uint8_t errCount = getErrorPacket((int16_t*)(errPayload + 1));
+    if(errCount == 0) return; //no errors to log
+
+    errPayload[0] = ((errCount & 0x0F) << 4) | (vitalsErr & 0x0F);
+    const uint8_t payloadSize = 1 + (errCount * sizeof(Error_Type));
+
+    // 3. Try to add to the priority queue without overriding if it's full.
+    if(priorityQueue.addFrameToBuffer(errPayload, payloadSize, false)){
+        return;
+    }
+
+    // 4. Fallback: Manually insert into the current burst if there's space.
+    if(numPackets >= maxPacketGroupSize) {
+        return;
+    }
+    // This is the corrected insertion. It writes to the next available slot.
+    // The queue stores payloads with header space, so we must do the same.
+    memcpy(burstBuffer[numPackets].data + TXHeaderSize, errPayload, payloadSize);
+    burstBuffer[numPackets].dataSize = payloadSize + TXHeaderSize; // Set final total size
+    ((TXProtocolPacket*)(burstBuffer[numPackets].data))->flags |= txFlagMasks::priorityPacketMask;
+    numPackets++;
+}
+
+//returns size of the burstBuffer. not thread safe (only call from one spot..)
+uint8_t TXQueue::refreshBurstBuffer(driverSendPacket burstBuffer[maxPacketGroupSize], uint8_t startIndex) {
+    uint8_t numPackets = startIndex;
+    size_t totalPacketSize = 0;
+    insertErrorFrame(burstBuffer, numPackets);
     
-//     xSemaphoreTake(queueMutex, portMAX_DELAY);
-    
-// }
+    do{
+        while(numPackets < maxPacketGroupSize && 
+            priorityQueue.popFrame(burstBuffer[numPackets].data, totalPacketSize) )
+        {
+            ((TXProtocolPacket*)(burstBuffer[numPackets].data))->flags |= txFlagMasks::priorityPacketMask;
+            burstBuffer[numPackets].dataSize = totalPacketSize; // Set final total size
+            numPackets++;
+        }
+        while(numPackets < maxPacketGroupSize && 
+            queue.popFrame(burstBuffer[numPackets].data, totalPacketSize) )
+        {
+            ((TXProtocolPacket*)(burstBuffer[numPackets].data))->flags &= ~txFlagMasks::priorityPacketMask;
+            burstBuffer[numPackets].dataSize = totalPacketSize; // Set final total size
+            numPackets++;
+        }   
+        if(numPackets == 0){
+            xSemaphoreTake(wakeSignal, portMAX_DELAY);  //wait for a packet
+        }
+    }  while(numPackets == 0); 
+
+    return numPackets;
+}

@@ -37,7 +37,7 @@ dataPoint_fields = [
 CANFrame_fields = [  
     {"name": "nodeID",          "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "telemetry"], "isSet": False},    # set based on which node this frame belongs to
     {"name": "frameID",         "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals"], "isSet": False},    # explicitly computed by program
-    {"name": "numData",    "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},     # computed by the program
+    {"name": "numData",         "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},     # computed by the program
     {"name": "dataInfo",        "type": "list",   "expectation": "dontSpecify", "value": [], "node": [], "isSet": False},      # List of dataPoint structs; element‐wise parsed. was node: "array", but I think uncessary?
     {"name": "flags",           "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # if not specified, set to 0
     {"name": "dataLocation",    "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # never needs to be changed
@@ -56,7 +56,8 @@ vitalsNode_fields = [   # these fields are only used by vitals. ATM each process
 @dataclass
 class EnumEntry:
     name: str
-    value: str  # raw string so we can eval later
+    value_str: str
+    value_int: int  # evaluated integer value
 
 @dataclass
 class GlobalEnum:
@@ -68,7 +69,8 @@ globalEnums: list[GlobalEnum] = []
 @dataclass
 class globalDefine:
     name: str
-    value: str
+    value_str: str
+    value_int: int  # evaluated integer value
 
 # Global list to store global defines (populated during parsing)
 globalDefines = []
@@ -187,12 +189,71 @@ def updateEntries(parsedFields, fields):
             print(field)
             while(1): pass
 
+import ast
+import operator
+# Safe evaluator for integer-only expressions and bitwise operators.
+def eval_int_expr(expr: str) -> int:
+    """
+    Accepts strings like:
+      "0b11<<3", "4<<1", "0xF>>2", "-(0b101<<2)"
+    and returns the evaluated integer. Disallows names, function calls, etc.
+    """
+    node = ast.parse(expr, mode="eval")
+
+    def _eval(n):
+        if isinstance(n, ast.Expression):
+            return _eval(n.body)
+
+        # Python already parses 0b..., 0o..., 0x..., and decimal ints as ints
+        if isinstance(n, ast.Constant) and isinstance(n.value, int):
+            return n.value
+
+        # Support unary + and -
+        if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.UAdd, ast.USub)):
+            val = _eval(n.operand)
+            return +val if isinstance(n.op, ast.UAdd) else -val
+
+        # Support parentheses via AST structure automatically
+
+        # Support shifts
+        if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.LShift, ast.RShift)):
+            left = _eval(n.left)
+            right = _eval(n.right)
+            if not isinstance(left, int) or not isinstance(right, int):
+                raise ValueError("Shift operands must be integers.")
+            return operator.lshift(left, right) if isinstance(n.op, ast.LShift) else operator.rshift(left, right)
+
+        # Other bitwise ops: |, &, ^
+        if isinstance(n, ast.BinOp) and isinstance(n.op, (ast.BitOr, ast.BitAnd, ast.BitXor)):
+            left = _eval(n.left); right = _eval(n.right)
+            if isinstance(n.op, ast.BitOr):  return left | right
+            if isinstance(n.op, ast.BitAnd): return left & right
+            return left ^ right
+
+        raise ValueError("Only integer literals (3, 0b11, 0x3) with <<, >>, &, ^, | are allowed.")
+
+    return _eval(node)
+
+def expression_to_int(input_str):
+    raw = input_str.strip()
+    try:
+        val = eval_int_expr(raw) if isinstance(raw, str) else int(raw)
+    except Exception:
+        if isinstance(raw, str) and raw.startswith("0b"):
+            val = int(raw, 2)
+        else:
+            raise ValueError(f"Non-numeric enum value for {e.name}: {raw!r}")
+    return val
+
 # --- parse_config function moved here ---
 def parse_config(file_path):
     # Variables storing info as we go about our parsing
     startingNodeID = None
     nodeCount = 0
     frameCount = 0
+    maxFrameCount = 0
+    maxDataCount = 0
+
 
     # Parallel arrays for each node.
     vitalsNodes = []  # stores info for vitals and sensor nodes
@@ -234,6 +295,7 @@ def parse_config(file_path):
         # Process a CANFrame
         elif line.startswith("CANFrame"):
             frameCount+=1
+
             nodeFrames = ACCESS(vitalsNodes[nodeCount - 1], "numFrames")
             nodeFrames["value"] += 1
             numFrames=nodeFrames["value"]
@@ -299,7 +361,7 @@ def parse_config(file_path):
                 if "=" not in piece:
                     raise ValueError(f"Bad enum entry: {piece!r}")
                 k, v = [s.strip() for s in piece.split("=", 1)] #split name and value on '='
-                entries.append(EnumEntry(k, v))
+                entries.append(EnumEntry(k, v, expression_to_int(v)))
 
             globalEnums.append(GlobalEnum(enum_name, entries))  #add the enum block to the global list
 
@@ -307,7 +369,7 @@ def parse_config(file_path):
         elif "global" in line:
             # example: global: vitalsID=0b000010, will make: #define vitalsID 2
             split = line.strip().split(":")[1].strip().split("=")
-            newGlobal = globalDefine(split[0], split[1])
+            newGlobal = globalDefine(split[0], split[1], expression_to_int(split[1]))
             globalDefines.append(newGlobal)
 
         # Process a dataPoint
@@ -331,5 +393,9 @@ def parse_config(file_path):
     all_ids = range(min(node_ids), max(node_ids) + 1)
     missingIDs = [node_id for node_id in all_ids if node_id not in node_ids]
 
+    maxFrameCount = max(ACCESS(vitalsNodes[i], "numFrames")["value"] for i in range(nodeCount))
+    maxDataCount = max(numData)
+
     return vitalsNodes, nodeNames, boardTypes, dataNames, numData, \
-            node_ids, startingNodeID, missingIDs, nodeCount, frameCount
+            node_ids, startingNodeID, missingIDs, nodeCount, frameCount, \
+            maxFrameCount, maxDataCount

@@ -22,26 +22,16 @@ uint32_t packetTimeOnAir_us = 1; //computed in initProtocol
 
 ProtocolState protocolState = unStarted;   //track where we are at in the protocol. Mainly for handling timeouts and crashes
 
+burstStateContainer burstState;
+
 //queue for incomming packets to give to the user
 #define queueSize 8
 QueueHandle_t recvQueue = NULL;
 StaticQueue_t xQueueBuffer;
-uint8_t ucQueueStorage[ queueSize * sizeof(driverPacket)];
+uint8_t ucQueueStorage[ queueSize * sizeof(driverRecvPacket)];
 //
 
-//the ack packet
-RXProtocolPacket responsePacket;
-
-//set by awaitData
-bool paritySet = false;
-bool recordedAckParity = 0; 
-//
-
-bool protocolTransmit(uint8_t* data, uint8_t dataLen){
-    return false;
-}
-
-bool protocolRecv(driverPacket* msg){
+bool protocolRecv(driverRecvPacket* msg){
     if(!recvQueue){
         return false;
     }
@@ -53,7 +43,6 @@ bool protocolRecv(driverPacket* msg){
 }
 
 static void initProtocol(const RadioConfig* config);
-static ProtocolState sendAck();
 //non-reentrant
 int16_t runProtocol(const RadioConfig* config, char*& errorMsg){
     protocolState = unStarted;
@@ -83,31 +72,24 @@ int16_t runProtocol(const RadioConfig* config, char*& errorMsg){
 void initProtocol(const RadioConfig* config){
     if(recvQueue == NULL){
         recvQueue = xQueueCreateStatic( queueSize, // The number of items the queue can hold.
-                        sizeof(driverPacket),     // The size of each item in the queue
+                        sizeof(driverRecvPacket),     // The size of each item in the queue
                         ucQueueStorage, // The buffer that will hold the items in the queue.
                         &xQueueBuffer );
     }
+    initSendBuffer();
+
     LoraDriverInit(config); //start driver
 
-    paritySet = false;
+    burstState.recordedAckParity = false;
+    burstState.paritySet = false;
+    burstState.latestBurstSize = 0;
+    burstState.lastFrameRecv = -1;
+    burstState.firstBurstEncounter = false;
+    burstState.bitmap = 0;
+    burstState.last_sent_ack_bitmap = 0;
+    burstState.last_sent_ack_burst_size = 0;
 
     packetTimeOnAir_us = LoraGetTimeOnAir(); //compute time on air for max size packet
 
-    return ;
-}
-
-
-ProtocolState sendAck(){
-    //TODO: add a means for user to send their own stuff, instead of just dataSize = 0.
-    //send an ack with the same parity bit as the last packet we got, so the other side knows we got it
-    responsePacket.dataSize = RXHeaderSize;   //just send a 1 byte packet for the ack, with the parity bit to indicate which packet we are acking
-    responsePacket.protocolID = protocolUniqueID;
-    responsePacket.flags = recordedAckParity ? 0x01 : 0x00;
-    //ok to block for a very long time to get this packet queued:
-    const uint64_t timeoutTime_us = esp_timer_get_time() + ((maxPacketGroupSize * packetTimeOnAir_us) * 8);
-    if((LoraTransmit((driverPacket*) &responsePacket, timeoutTime_us)) != RADIOLIB_ERR_NONE){
-        ESP_LOGE(TAG, "cant queue transmission");
-        return crashed;
-    }
-    return awaitingData;
+    return;
 }

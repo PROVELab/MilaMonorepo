@@ -2,9 +2,12 @@
 #include <stdint.h>
 #include <atomic>
 
+#include "LoraTransmitQueue.hpp"
+
 extern uint32_t packetTimeOnAir_us;
 extern bool ackParity;
-extern bool paritySet;
+extern bool firstBurst;
+extern TXQueue queue;
 //
 
 typedef enum{

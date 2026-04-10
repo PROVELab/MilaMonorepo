@@ -7,6 +7,13 @@
 #include "../../programConstants.h"
 #define R10(x) {x,x,x,x,x,x,x,x,x,x}
 
+// For packing/unpacking telemetry packets.
+typedef struct {
+    int8_t bits;
+    int32_t min;
+    int32_t max;
+} simpleDataPoint;
+
 typedef struct {
     int8_t bitLength;
     int32_t minCritical;

@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import ttk
 
 csv_file = input("give name of BMS.csv file\n")
+if(csv_file == ""):
+    csv_file = "BMS_Parsed.csv"
 
 print("--- REC BMS Live Visualizer ---")
 start_input = input("Enter START time in seconds (or press Enter for 0): ").strip()

@@ -18,7 +18,7 @@ void protocolTXComplete(){
 static int64_t firstNum = -1;
 static int64_t lastNum = -1;
 static int64_t recvCount = 0;
-void protocolRecv(const driverPacket* packet){
+void protocolRecv(const driverRecvPacket* packet){
     // ESP_LOGI(TAG, "Received LoRa Packet - Length: %u", packet->dataSize);
     uint16_t recvSeqNum = *((uint16_t*)packet->data);
     if(recvSeqNum == seqNum){

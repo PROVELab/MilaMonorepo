@@ -25,7 +25,10 @@ class EspHal : public RadioLibHal {
     }
 
     void init() override { spiBegin(); }
-    void term() override { spiEnd(); }
+    void term() override { 
+        removeInterrupt();
+        spiEnd();
+      }
 
     void pinMode(uint32_t pin, uint32_t mode) override {
       if(pin == RADIOLIB_NC) return;
@@ -50,6 +53,7 @@ class EspHal : public RadioLibHal {
 
     void attachInterrupt(uint32_t interruptNum, void (*interruptCb)(void), uint32_t mode) override {
       if(interruptNum == RADIOLIB_NC) return;
+      this->interruptNum = interruptNum;
       gpio_install_isr_service(0);
       gpio_set_intr_type((gpio_num_t)interruptNum, (gpio_int_type_t)(mode & 0x7));
       gpio_isr_handler_add((gpio_num_t)interruptNum, (void (*)(void*))interruptCb, NULL);
@@ -58,6 +62,20 @@ class EspHal : public RadioLibHal {
     void detachInterrupt(uint32_t interruptNum) override {
       if(interruptNum == RADIOLIB_NC) return;
       gpio_isr_handler_remove((gpio_num_t)interruptNum);
+    }
+
+    void removeInterrupt(){
+      // 1. Ignore if not connected
+      if(this->interruptNum == RADIOLIB_NC) return;
+
+      // 2. Remove the specific interrupt handler for this pin
+      gpio_isr_handler_remove((gpio_num_t)this->interruptNum);
+
+      // 3. Disable the interrupt trigger type for this pin
+      gpio_set_intr_type((gpio_num_t)this->interruptNum, GPIO_INTR_DISABLE);
+
+      // 4. Uninstall the global ISR service (See warning below!)
+      gpio_uninstall_isr_service(); 
     }
 
     void delay(unsigned long ms) override { vTaskDelay(pdMS_TO_TICKS(ms)); }
@@ -124,6 +142,7 @@ class EspHal : public RadioLibHal {
     int8_t spiSCK;
     int8_t spiMISO;
     int8_t spiMOSI;
+    uint32_t interruptNum = RADIOLIB_NC;
     spi_device_handle_t spiHandle;
 };
 

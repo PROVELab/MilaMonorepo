@@ -97,6 +97,13 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
         f.write("#include \"../../programConstants.h\"\n")
         f.write("#define R10(x) {x,x,x,x,x,x,x,x,x,x}\n\n")
 
+        f.write("// For packing/unpacking telemetry packets.\n")
+        f.write("typedef struct {\n")
+        f.write("    int8_t bits;\n")
+        f.write("    int32_t min;\n")
+        f.write("    int32_t max;\n")
+        f.write("} simpleDataPoint;\n\n")
+
         # DataPoint struct definition
         f.write("typedef struct {\n")
         for field in dataPoint_fields:

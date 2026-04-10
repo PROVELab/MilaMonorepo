@@ -2,30 +2,30 @@
 #define progConsts
 
 //generated Constants
-#define numberOfNodes 3
-#define totalNumFrames 3
-#define numMissingIDs 1
-#define startingOffset 8
+#define numberOfNodes 1
+#define totalNumFrames 1
+#define numMissingIDs 0
+#define startingOffset 10
 
 //Explicilty defined in sensors.def constants
-#define nullID  0		// 0
+#define nullID  0		//  0
 #define pointsPerData 10		// 10
-#define nodeIDSizeBits  7		// 7
-#define nonCriticalWarning 2		// 0b010
-#define CriticalWarning  4		// 0b100
-#define warningTypeMask  7		// 0b111
-#define warningNodeFlagIndex  11		// 11
+#define nodeIDSizeBits  7		//  7
+#define nonCriticalWarning 2		//  0b010
+#define CriticalWarning  4		//  0b100
+#define warningTypeMask  7		//  0b111
+#define warningNodeFlagIndex  11		//  11
 #define warningFrameFlagIndex 18		// 18
 #define maxFrameCntBits 3		// 3
 #define warningDataFlagIndex 21		// 21
 #define maxDataInFrameBits 3		// 3
-#define HBupdateTypeBits  1		// 1
-#define HBupdateStatus  0		// 0b0
-#define HBupdateTiming  1		// 0b1
-#define slowestNodeCount  3		// 3
-#define HBStatusFrameBits  1		// 1
-#define HBTimerMSBits  10		// 10
-#define frame0FillerBits  11		// 11
+#define HBupdateTypeBits  1		//  1
+#define HBupdateStatus  0		//  0b0
+#define HBupdateTiming  1		//  0b1
+#define slowestNodeCount  3		//  3
+#define HBStatusFrameBits  1		//  1
+#define HBTimerMSBits  10		//  10
+#define frame0FillerBits  11		//  11
 
 // global enum specialIDs
 typedef enum {
@@ -43,49 +43,52 @@ typedef enum {
 	statusUpdate = 4,	/* 0b0100 */
 	HBPing = 5,	/* 0b0101 */
 	HBPong = 6,	/* 0b0110 */
-	transmitData = 7,	/* 0b0111 */
-	HBRespUpdate = 8,	/* 0b1000 */
-	busStatusUpdate = 9,	/* 0b1001 */
-	vitalsErr = 10,	/* 0b1010 */
-	CAN_Open_Err_Cntrl = 14	/* 0b1110 */
+	transmitData = 7	/* 0b0111 */
 } functionCodes;
-
-// global enum warningFlags
-typedef enum {
-	missingFrameFlag = 16,	/* 0b1 << 4 */
-	frameTimerSetFail = 32,	/* 0b1 << 5 */
-	dataToHigh = 64,	/* 0b1 << 6 */
-	dataToLow = 128,	/* 0b1 << 7 */
-	doubleCritical = 256,	/* 0b1 << 8 */
-	extrapolate5 = 512,	/* 0b1 << 9 */
-	extrap10 = 1024	/* 0b1 << 10 */
-} warningFlags;
 
 // global enum telemetryCommandFlags
 typedef enum {
 	enablePrecharge = 4,	/* 4 */
 	disablePrecharge = 5,	/* 5 */
-	telemetryCommandAck = 6,	/* 6 */
 	telemetryCommandCRCError = 7,	/* 7 */
 	customChangeDataFlag = 9	/* 9 */
 } telemetryCommandFlags;
+
+// global enum TWAI_STATE
+typedef enum {
+	TWAI_STATE_STOPPED = 0,	/* 0 */
+	TWAI_STATE_RUNNING = 1,	/* 1 */
+	TWAI_STATE_BUS_OFF = 2,	/* 2 */
+	TWAI_STATE_RECOVERING = 3	/* 3 */
+} TWAI_STATE;
 
 // global enum statusUpdates
 typedef enum {
 	initFlag = 0,	/* 0b00000000 */
 	canRecoveryFlag = 1,	/* 0b00000001 */
-	canRXOverunFlag = 2,	/* 0b00000010 */
-	prechargeOn_Charging = 5,	/* 0b00000101 */
-	prechargeOn_FinishedCharging = 6,	/* 0b00000110 */
-	prechargeOff = 7	/* 0b00000111 */
+	canRXOverunFlag = 2	/* 0b00000010 */
 } statusUpdates;
 
-// global enum telem_twai_state
+// global enum prechargeStatusUpdates
 typedef enum {
-	TELEM_TWAI_STATE_STOPPED = 0,	/* 0 */
-	TELEM_TWAI_STATE_RUNNING = 1,	/* 1 */
-	TELEM_TWAI_STATE_BUS_OFF = 2,	/* 2 */
-	TELEM_TWAI_STATE_RECOVERING = 3	/* 3 */
-} telem_twai_state;
+	On_Charging = 5,	/* 0b00000101 */
+	On_FinishedCharging = 6,	/* 0b00000110 */
+	Off = 7	/* 0b00000111 */
+} prechargeStatusUpdates;
+
+// global enum TWAI_State
+typedef enum {
+	TWAI_Stopped = 0,	/* 0 */
+	TWAI_Running = 1,	/* 1 */
+	TWAI_BusOff = 2,	/* 2 */
+	TWAI_Recovering = 3	/* 3 */
+} TWAI_State;
+
+// global enum extrapolationTrigger
+typedef enum {
+	extrap10 = 0,	/* 0 */
+	extrap5 = 1,	/* 1 */
+	doubleCritical = 2	/* 2 */
+} extrapolationTrigger;
 
 #endif

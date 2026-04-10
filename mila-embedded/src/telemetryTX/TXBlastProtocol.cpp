@@ -22,14 +22,15 @@ uint32_t packetTimeOnAir_us = 1; //computed in initProtocol
 
 //we will first send with ackParity = false
 bool ackParity = false; //parity bit to track acks. Ensure we know if we got old ack
+bool firstBurst = true;
 
 //queue for incomming packets
 #define queueSize 3
 QueueHandle_t recvQueue = NULL;
 StaticQueue_t xQueueBuffer;
 //how much data for protocol packets
-#define recvMsgDataSize (sizeof(driverPacket) - TXHeaderSize);
-uint8_t ucQueueStorage[ queueSize * sizeof(driverPacket)];
+#define recvMsgDataSize (sizeof(driverSendPacket) - TXHeaderSize);
+uint8_t ucQueueStorage[ queueSize * sizeof(driverSendPacket)];
 //
 
 ProtocolState state = unstarted;   //track where we are at in the protocol. Mainly for handling timeouts and crashes
@@ -44,6 +45,11 @@ int16_t runProtocol(const RadioConfig* config, char*& errorMsg){
             case unstarted:
                 initProtocol(config);
                 state = idle;
+                break;
+            case idle:
+                // This state can be used to wait for a trigger. For now, go straight to sending.
+                // prepareNewBurst() will block until data is available in the queue.
+                state = startNewBurst;
                 break;
             case startNewBurst:
                 //will block until a data is ready if none
@@ -72,26 +78,31 @@ void initProtocol(const RadioConfig* config){
     ESP_LOGI(TAG, "called Init");
     if(recvQueue == NULL){
         recvQueue = xQueueCreateStatic( queueSize, // The number of items the queue can hold.
-                        sizeof(driverPacket),     // The size of each item in the queue
+                        sizeof(driverRecvPacket),     // The size of each item in the queue
                         ucQueueStorage, // The buffer that will hold the items in the queue.
                         &xQueueBuffer );
     }
     LoraDriverInit(config); //start driver
 
     //initialize things in other files. 
-    initQueue();    //init and re-init are the same for these
     initErr();
-
-    ackParity = !ackParity;
+    firstBurst = true;
+    ackParity = !ackParity; // Toggle parity on each restart to help RX resets its burst tracking
     packetTimeOnAir_us = LoraGetTimeOnAir(); //compute time on air for max size packet
 
     return ;
 }
 
+TXQueue queue;
 //false if protocol not running 
 bool protocolTransmit(uint8_t* data, uint8_t dataLen){
-    addFrameToQueue(data, dataLen);
-    return true;
+    if(state == crashed  || state == unstarted) return false;
+    return queue.addFrameToQueue(data, dataLen);
+}
+
+void getBitmap(uint16_t& bitmap, uint8_t& burstSize){
+    bitmap = 0;
+    burstSize = 0;
 }
 
 //not implementing for now

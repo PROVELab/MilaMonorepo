@@ -3,6 +3,8 @@ from parseFile import parse_config, globalDefines
 from genSensors import createSensors
 from genVitals import createVitals
 from genTelemetry import createTelemetry 
+from genPacketSend import createPacketSendFiles
+
 import json
 def pretty_print_vitals(vitals_nodes):  #useful for debugging
     print("Vitals Nodes:")
@@ -25,7 +27,8 @@ if __name__ == "__main__":
     # Get the directory of the current script
     script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    fileName = input("\nEnter the name of the file (ex: sensors.def, or simpleTest.def)\n")
+    # fileName = input("\nEnter the name of the file (ex: sensors.def, or simpleTest.def)\n")
+    fileName = "simpleTest.def"
     # Build absolute path to the input file (assumed to be in same dir as this script)
     file_path = os.path.join(script_dir, fileName)
 
@@ -36,7 +39,7 @@ if __name__ == "__main__":
 
     # Parse configuration file
     (vitalsNodes, nodeNames, boardTypes, dataNames, numData, nodeIds,
-     startingNodeID, missingIDs, nodeCount, frameCount) = parse_config(file_path)
+     startingNodeID, missingIDs, nodeCount, frameCount, maxFrameCnt, maxDataCnt) = parse_config(file_path)
 
     print("Starting Node ID:", startingNodeID)
     print("Missimsing IDs:", missingIDs)
@@ -51,3 +54,9 @@ if __name__ == "__main__":
     createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, generated_code_dir, globalDefines)
 
     createTelemetry(vitalsNodes, "telemetryDashboard.csv", generated_code_dir, nodeNames, dataNames)
+
+    # --- Generate Packet Send Files ---
+
+    print("Generating Packet Send LUTs...")
+    createPacketSendFiles(generated_code_dir, nodeCount, maxFrameCnt, maxDataCnt)
+    print("Done.")

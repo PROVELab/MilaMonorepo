@@ -9,14 +9,22 @@
     #define FN_CONSTEXPR
 #endif
 
-struct __attribute__((packed)) driverPacket{
+struct __attribute__((packed)) driverRecvPacket{
     size_t dataSize;
     uint8_t data[maxLoraPacketSize];
-    //unused by driver on TX: 
+
+    //packet metadata when recving
     float RSSI; 
     float SNR; 
     size_t irqFlags;  //set on interrupt, protocol can decide what to do with it
+    //
 };
+
+struct __attribute__((packed)) driverSendPacket{
+    size_t dataSize;
+    uint8_t data[maxLoraPacketSize];
+};
+
 
 // Definitions for input choices
 enum class BoardType {
@@ -51,8 +59,8 @@ FN_CONSTEXPR RadioConfig getStandardConfig(const BoardType board, const TestMode
 
     // 1. Apply Fixed Defaults
     cfg.Freq_MHz = 915.0f;  //Lora Frequency
-    cfg.BW_KHz = 250.0f;    //BW and SF for ~270ms to transmit 255 byte packets, with -121dBm sensitivity on SX1262
-    cfg.SpreadingFactor = 7;
+    cfg.BW_KHz = 500.0f;    //BW and SF for ~270ms to transmit 255 byte packets, with -120dBm sensitivity on SX1262
+    cfg.SpreadingFactor = 8;
     cfg.codingRate = 7;     //gives 1 bit of FEC for every 7 bits transmitted
     cfg.syncWord = 18;      //For public use
     cfg.preambleLength = 8; //standard preamble length
@@ -76,8 +84,6 @@ FN_CONSTEXPR RadioConfig getStandardConfig(const BoardType board, const TestMode
             //need >17 feet distance
             cfg.pa_duty = 4;
             cfg.hp_max = 7;
-            cfg.pa_duty = 2;
-            cfg.hp_max = 3;
             cfg.regulator_target_power = 22;
         } else {    
             // Wio need >4 feet distance for 5dbi<->5dbi

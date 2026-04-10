@@ -12,7 +12,6 @@ public class RecordFactory {
                                      Function<String, String> getter,
                                      Map<String, Object> injectedValues) {
         try {
-            // Cache metadata for performance
             RecordComponent[] components = componentCache.computeIfAbsent(
                 recordClass, Class::getRecordComponents
             );

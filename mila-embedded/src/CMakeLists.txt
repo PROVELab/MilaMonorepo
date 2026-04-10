@@ -68,6 +68,8 @@ if(CMAKE_TELEM_TX)
         "telemetryTX/*.cpp"
         "LoraCommon/*.c"
         "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
     )
     set(SRC_FILES
         ${TX_LORA_SRC}
@@ -145,6 +147,16 @@ if(CMAKE_HUMID_SENSE)
     )
     set(SRC_FILES
         ${BMS_SRC}
+    )
+endif()
+
+if(CMAKE_COOLANT_PWM)
+    file(GLOB COOLANT_SRC
+        "coolantPWM/*.cpp"
+        "coolantPWM/*.c"
+    )
+    set(SRC_FILES
+        ${COOLANT_SRC}
     )
 endif()
 

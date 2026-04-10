@@ -13,124 +13,171 @@
 #include "../LoraCommon/LoraErrLog.hpp"
 #include "../LoraCommon/Driver/Driver.hpp"
 #include "../LoraCommon/LoraProtocol.hpp"
+#include "../LoraCommon/safeDriverUtil.hpp"
 
 static const char* TAG = "Blast_Protocol_Helper";
 
 static uint8_t  currentBurstIndex = 0;
-static uint8_t burstBuffer[maxPacketGroupSize][maxLoraPacketSize];
-static uint8_t burstBufferLens[maxPacketGroupSize];  //how many bytes in each burst buffer? (includes header)
+static driverSendPacket burstBuffer[maxPacketGroupSize];
 static uint8_t burstBufferCount = 0;
+static uint8_t originalBurstBufferCount = 0;
 
 static uint64_t transmitGiveUpTime = 0;
 
+ProtocolState handleTXTimeout(){
+    ESP_LOGE(TAG, "transmission queue timed out waiting for clear channel");
+    if(currentBurstIndex == 0){
+        vTaskDelay(pdMS_TO_TICKS(30));
+        return sendingData;
+    }else{
+        // Some packets were sent, so try to get an ACK for them.
+        return awaitingAck;
+    }
+}
 ProtocolState sendData() {
-    // 1. Check bounds first
-    if(burstBufferCount < currentBurstIndex){
-        ESP_LOGE(TAG, "attempted to transmit out of bounds frame");
-        return awaitingAck;
-    }
-    TXProtocolPacket* responsePacket = (TXProtocolPacket*) burstBuffer[currentBurstIndex];
-    responsePacket->dataSize = burstBufferLens[currentBurstIndex];
-    responsePacket->protocolID = protocolUniqueID;
-    responsePacket->frameNum = (currentBurstIndex << 4) | ((burstBufferCount - 1) & 0x0F);
-    if(ackParity){
-        responsePacket->flags |= txFlagMasks::ackParityMask;
-    }
-
-    if((LoraTransmit((driverPacket*) responsePacket, transmitGiveUpTime)) != RADIOLIB_ERR_NONE){
-        ESP_LOGE(TAG, "transmission queue timed out");
-        if(currentBurstIndex == 0){
-            //if we didnt send anything, no point in trying to wait for ack
-            return sendingData;
-        }else{
-            return awaitingAck;
-        }
-    }
-
     if(currentBurstIndex >= burstBufferCount){
-        ESP_LOGI(TAG, "All packets in burst sent, listening for ACK");
+        ESP_LOGI(TAG, "All packets in burst sent, transitioning to await ACK");
         return awaitingAck;
     }
-    //increment the burst index
+    result res = safeLoraTx(&burstBuffer[currentBurstIndex], transmitGiveUpTime);
+    switch(res){
+        case Crashed:
+            ESP_LOGE(TAG, "Driver crashed while trying to resend packet %d/%d.", currentBurstIndex + 1, originalBurstBufferCount);
+            return crashed;
+        case Timeout:
+            return handleTXTimeout();
+        case Success:
+            break; // continue with normal flow
+        default:
+            ESP_LOGW(TAG, "Unknown result from safeLoraTx while resending last packet.");
+            return awaitingAck;
+    }
+
+    ESP_LOGI(TAG, "Packet %d/%d sent successfully.", currentBurstIndex + 1, originalBurstBufferCount);
     currentBurstIndex++;
-    return 
+    if (currentBurstIndex >= burstBufferCount) {
+        return awaitingAck; // This was the last packet, now wait for ACK
+    }
+    return sendingData; // More packets to send
 }
 
 ProtocolState resendLastPacketInBurst(){
+    ESP_LOGI(TAG, "Resending last packet to prompt for ACK.");
     transmitGiveUpTime = INT64_MAX;     //no timeout on this one
-    if(LoraTransmit((driverPacket*) (burstBuffer[burstBufferCount-1]), transmitGiveUpTime)){
-        return crashed;
+
+    if (originalBurstBufferCount == 0) {
+        ESP_LOGE(TAG, "Cannot resend last packet, no burst was ever prepared.");
+        return startNewBurst;
     }
-    return awaitingAck;
+
+    uint8_t lastPacketIndex = originalBurstBufferCount - 1;
+    driverSendPacket packet_to_send = burstBuffer[lastPacketIndex]; // Make a copy
+
+    result res = safeLoraTx(&packet_to_send, transmitGiveUpTime); // We want to log any errors that happen during this resend attempt
+    switch(res){
+        case Crashed:
+            ESP_LOGE(TAG, "Driver crashed while trying to resend last packet.");
+            return crashed;
+        case Timeout:
+            ESP_LOGE(TAG, "Timed out trying to resend last packet.");
+            return awaitingAck;
+        case Success:
+            ESP_LOGI(TAG, "Last packet resent successfully.");
+            return awaitingAck;
+        default:
+            ESP_LOGW(TAG, "Unknown result from safeLoraTx while resending last packet.");
+            return awaitingAck;
+    }
 }
 
-//will block until a data is ready if none
+// moves packets from queue into burst Buffer. Slides un-acked 
+//will block until a data is ready if none in burstBuffer or queue
 ProtocolState prepareNewBurst(){
-    //slot new stuff into burstBuffer
-    refreshBurstBuffer(burstBuffer, burstBufferLens, burstBufferCount);
+    // Fills the rest of the burst buffer with new packets from the queue.
+    // If burstBufferCount is 0, this fills a completely new burst.
+    // If burstBufferCount > 0, this appends to the existing un-acked packets.
+    
+    // The `refreshBurstBuffer` function needs to know where to start filling.
+    burstBufferCount = queue.refreshBurstBuffer(burstBuffer, burstBufferCount);
+    originalBurstBufferCount = burstBufferCount;
+
+    // Re-header all packets in the newly formed burst to ensure consistency
+    for (uint8_t i = 0; i < originalBurstBufferCount; i++) {
+        TXProtocolPacket* header = (TXProtocolPacket*)burstBuffer[i].data;
+        header->protocolID = protocolUniqueID;
+        header->frameNum = 0; // Zero out before setting
+        FrameTrack::set_burstSize(header->frameNum, originalBurstBufferCount - 1);
+        FrameTrack::set_frameNum(header->frameNum, i);
+        header->flags &= txFlagMasks::priorityPacketMask; //clear everything but the priority mask
+        header->flags |= (ackParity ? txFlagMasks::ackParityMask : 0) | (firstBurst ? txFlagMasks::firstBurstMask : 0);
+    }
     currentBurstIndex = 0;
-    transmitGiveUpTime = (esp_timer_get_time()) + (packetTimeOnAir_us * burstBufferCount + 1);  //allow how long we expect + 1 packet time on air
+    transmitGiveUpTime = (esp_timer_get_time()) + (packetTimeOnAir_us * (burstBufferCount + 1));  //allow how long we expect + 1 packet time on air
     return sendingData;
 }
 
-ProtocolState processAck(driverInfo* info);
+ProtocolState processAck(driverRecvPacket* driverPacket);
 
 ProtocolState awaitAck(){
-    uint64_t startTime = esp_timer_get_time();
-    uint32_t timeout_duration_us = (packetTimeOnAir_us * (1)); //give duration of one message to hear ack
-    uint64_t timerExpireTime_us;
-    do{
-        timerExpireTime_us = startTime + timeout_duration_us;
-        driverInfo* info = safeWaitForRecv(timerExpireTime_us);
-        if(info == NULL){   //timed out
-            enterStandBy(); //stop driver. want clean state when we switch to sending ack
-            return resendLastData;   //timed out waiting for the packet
-        }
-        if(info->state == off){   //driver crashed, forward error to the user.
-            return crashed;
-        }
+    const uint64_t startTime = esp_timer_get_time();
+    const uint32_t timeout_duration_us = (packetTimeOnAir_us * (8)); //give duration of three messages to hear ack
+    uint64_t timerExpireTime_us = startTime + timeout_duration_us;
 
-        if(!info->recvPacketReady){
-            //unexpected interupt just triggered.
-            enterStandBy(); //stop driver. want clean state. try again
-            continue;
-        }
-        
-        if(!validatePacketHeader(&(info->recvPacket))){
+    do{
+        ESP_LOGI(TAG, "waiting for ack");
+        // (const char* TAG, result& result, const driverPacket* packet, const uint64_t timerExpireTime_us)
+        driverRecvPacket* packet;
+        result res = safeWaitForRecv(packet, timerExpireTime_us);
+        switch (res){
+            case Crashed:
+                return crashed;
+            case Timeout:
+                ESP_LOGI(TAG, "ack wait timed out");
+                return resendLastData;   //timed out waiting for the packet
+            case Unknown:
+                continue;
+            case Success:
+                break;  //keep going and process this packet!
+        }        
+        if(!validatePacketHeader(packet, RXHeaderSize)){
+            ESP_LOGW(TAG, "invalid packet header");
             //invalid packet. keep trying to listen to burst
             continue;
         }
-        processAck(info);
-        return sendingData;
+        // processAck determines the next state based on the bitmap
+        return processAck(packet);
         //otherwise, keep trying to listen
     } while(esp_timer_get_time() < timerExpireTime_us);
-    //do not move to next burst
-    return sendingData;
+    // Timed out waiting for a valid ACK packet, resend last packet to prompt another ACK
+    ESP_LOGI(TAG, "ack wait timed out");
+    return resendLastData;
 }
 
-ProtocolState processAck(driverInfo* info) {
-    RXProtocolPacket* packet = (RXProtocolPacket*) info;
+ProtocolState processAck(driverRecvPacket* driverPacket) {
+    // Cast the data buffer, not the whole driver packet
+    RXProtocolPacket* packet = (RXProtocolPacket*) driverPacket->data;
     if((packet->flags & rxFlagMasks::ackParityMask) != ackParity){ 
         ESP_LOGE(TAG, "received outdated ack");
-        logErr(recvOutdatedAck);
+        logErr(TAG, recvOutdatedAck);
         return resendLastData;
     }
     uint8_t writeIdx = 0;
     rx_bitmap_t bitmap = packet->bitmap;
-    //slide packets in the burst Buffer over. 
-    for (uint8_t readIdx = 0; readIdx < burstBufferCount; readIdx++) {
-        if (!((bitmap >> readIdx) & 0x01)) {
-            if (writeIdx != readIdx) memcpy(burstBuffer[writeIdx], burstBuffer[readIdx], sizeof(burstBuffer[0]));
+    // Slide un-acked packets to the front of the buffer for retransmission.
+    // CRITICAL: The loop must iterate over the size of the burst that was *originally sent*,
+    // which is stored in originalBurstBufferCount. Using burstBufferCount here can lead to state
+    // corruption if a delayed ACK for a different-sized burst is received.
+    for (uint8_t readIdx = 0; readIdx < originalBurstBufferCount; readIdx++) {
+        if (!((bitmap >> readIdx) & 0x01)) { // If this packet was NOT acknowledged...
+            if (writeIdx != readIdx) {
+                burstBuffer[writeIdx] = burstBuffer[readIdx];
+            }
             writeIdx++;
         }
     }
     burstBufferCount = writeIdx;
-    if(burstBufferCount == 0){
-        //we recv all acks for packets in this burst
-        return startNewBurst;
-    }else{
-        //we did not recv all packets, start again
-        currentBurstIndex = 0;  //start from spot 0
-        return sendingData;
-    }
+
+    ackParity = !ackParity; //toggle parity to indicate we got the ack
+    firstBurst = false;
+    return startNewBurst;
 }

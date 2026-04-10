@@ -24,28 +24,16 @@ global enum: functionCodes = {
     HBPong                  = 0b0110,
 
     transmitData            = 0b0111,
-    HBRespUpdate            = 0b1000,
-    busStatusUpdate         = 0b1001,
-
-    vitalsErr               = 0b1010,
-    CAN_Open_Err_Cntrl      = 0b1110
 }
+
+# mark for "pecan packet" is not set
+
+
 
 # #warningCode flags # # 
 global: nonCriticalWarning= 0b010 
 global: CriticalWarning = 0b100 
 global: warningTypeMask = 0b111
-
-global enum: warningFlags = {
-    missingFrameFlag = 0b1 << 4,
-    frameTimerSetFail = 0b1 << 5, 
-    dataToHigh = 0b1 << 6,
-    dataToLow = 0b1 << 7,
-# three possible triggers for too high/low. two values in that range, or extrapolated point from linear best fit line of past 5 or 10 points was out of bounds 
-    doubleCritical = 0b1 << 8,
-    extrapolate5 = 0b1 << 9,
-    extrap10 = 0b1 << 10
-}
 
 #the above flags takes up the first 11 bits:
 global: warningNodeFlagIndex = 11
@@ -58,17 +46,24 @@ global: warningDataFlagIndex=21
 global: maxDataInFrameBits=3
 # #    # #
 
-
+#Should move telemetry command ack to be a status update from vitals
+#telemetryCommandAck   = 6,
 global enum: telemetryCommandFlags = {
     # Telemetry Command flags. to be used as first byte of data for TelemetryCommands.
     # To force precharge on/off. Should override any previous or future precharge commands from vitalsNode
     enablePrecharge       = 4,
     disablePrecharge      = 5,
-    telemetryCommandAck   = 6,
     telemetryCommandCRCError = 7,
     # for debugging/testing. Not intended as final flags:
     # APSensorESP updates what value it reads when recv this. Updates the value to the int32_t following the flag.
     customChangeDataFlag  = 9
+}
+
+global enum: TWAI_STATE = {
+    TWAI_STATE_STOPPED    = 0,            
+    TWAI_STATE_RUNNING    = 1,             
+    TWAI_STATE_BUS_OFF    = 2,             
+    TWAI_STATE_RECOVERING = 3
 }
 
 #flags for status Updates. The data sent will just be this flag
@@ -77,20 +72,28 @@ global enum: statusUpdates = {
     canRecoveryFlag =               0b00000001,
     # ATM, only ESP's indicate RX Overruns, Arduino's do not.
     canRXOverunFlag =               0b00000010,
-
-    #prechargeStatus indicates telem to interpret any 8>status>=4 as precharge updates
-    prechargeOn_Charging =          0b00000101,
-    prechargeOn_FinishedCharging =  0b00000110,
-    prechargeOff =                  0b00000111,
+}
+#TODO: update this to be in python file, and be a struct for matching any nodeID onto custom status update only for that node
+#if ID = precharge, this enum should be checked for possible messages
+global enum: prechargeStatusUpdates = {
+    On_Charging =          0b00000101,
+    On_FinishedCharging =  0b00000110,
+    Off =                  0b00000111,
 }
 #
 
 #state reported in Vitals' busStatusUpdate
-global enum: telem_twai_state = {
-    TELEM_TWAI_STATE_STOPPED    = 0,            
-    TELEM_TWAI_STATE_RUNNING    = 1,             
-    TELEM_TWAI_STATE_BUS_OFF    = 2,             
-    TELEM_TWAI_STATE_RECOVERING = 3
+global enum: TWAI_State = {
+    TWAI_Stopped    = 0,            
+    TWAI_Running    = 1,             
+    TWAI_BusOff     = 2,             
+    TWAI_Recovering = 3
+}
+
+global enum: extrapolationTrigger = {
+    extrap10 = 0,
+    extrap5 = 1,
+    doubleCritical = 2
 }
 
 # # For HBRespUpdate # #
@@ -113,39 +116,10 @@ global: frame0FillerBits = 11
 # #   # #
 #warningCode
 
-#node Definitions
-node: id=8, name=pedalSensor, board=esp
-CANFrame: frequency=100, dataTimeout=1000
-pedalPowerReadingmV: bitLength=16, min=-30000, max=35000, minWarning=4900, maxWarning=7100, minCritical=4500, maxCritical=7500, startingValue=6000
-pedalReadingOne: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
-pedalReadingTwo: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
-
-#m =meters. mmpss = milimeters per second^2
-#IMU units for pos are in 
-node: id=9, name=IMU, board=esp
-CANFrame: frequency=100, dataTimeout=1000
-posX_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
-posY_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
-posZ_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
-
-CANFrame: 
-accelX_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
-
-CANFrame: frequency=100, dataTimeout=1000
-accelY_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
-accelZ_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
-gyroX_deg_p_s: 
-gryoY_deg_p_s:
-gyroZ_deg_p_s:
 
 #can add magnotometer at some point later if wanted
 
 node: id=10, name=APSensorArduino, board=arduino
-CANFrame: frequency=700, dataTimeout=1500
-airPressure: bitLength=32, min=-2147483648, max=2147483647, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=50
-#airPressure: bitLength=32, min=-2147483648, max=2147483647, startingValue=2147483647
-
-node: id=11, name=APSensorESP, board=esp
 CANFrame: frequency=700, dataTimeout=1500
 airPressure: bitLength=32, min=-2147483648, max=2147483647, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=50
 #airPressure: bitLength=32, min=-2147483648, max=2147483647, startingValue=2147483647

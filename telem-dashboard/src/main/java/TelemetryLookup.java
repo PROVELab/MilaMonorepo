@@ -12,7 +12,6 @@ public class TelemetryLookup {
 
     /* ======================= Records ======================= */
 
-    // Node as defined by CSV
     public record Node(
         int nodeID,     // CAN node ID. Primary key
         String nodeName     

@@ -1,0 +1,1 @@
+pio run -e telemRX -t upload -t monitor | tee scripts/telemetry_benchmark/raw_data.txt

@@ -14,13 +14,8 @@
 static const char* TAG = "Blast_Common";
 
 // Print irq flags for debugging.
-void printRecvStatus(driverPacket* info) {
+void printRecvStatus(driverRecvPacket* info) {
      ESP_LOGI(TAG, "IRQ Flags (0x%04" PRIX32 "): [", info->irqFlags);
-    for (int i = 31; i >= 0; i--) {
-         ESP_LOGI(TAG, "%u", (unsigned int) ((info->irqFlags >> i) & 0x01));
-        if (i % 4 == 0 && i != 0) printf(" ");
-    }
-     ESP_LOGI(TAG, "]\n");
 
     //log the strength of incomming packet
     ESP_LOGI(TAG, "Packet Recv - RSSI: %.2f dBm, SNR: %.2f dB", 
@@ -29,20 +24,17 @@ void printRecvStatus(driverPacket* info) {
 }
 
 //returns true if this is a valid packet
-bool validatePacketHeader(driverPacket* driverPacket) {
-    RXProtocolPacket* protocolPacket = (RXProtocolPacket*) driverPacket->data;
-    //Error checking
-    //basic length cheks
-    if(offsetof(RXProtocolPacket, protocolID) + sizeof(protocolID_t) > RXHeaderSize){
-        logErr(invalidRXLength);
+bool validatePacketHeader(driverRecvPacket* driverPacket, size_t expectedHeaderLength) {
+    // The protocolID is at the start of both TX and RX packets.
+    protocolID_t* p_id = (protocolID_t*) driverPacket->data;
+    if(*p_id != protocolUniqueID) {
+        logErr(TAG, incorrectProtocolId);
         return false;
     }
-    if(protocolPacket->protocolID != protocolUniqueID) {
-        logErr(incorrectProtocolId);
-        return false;
-    }
-    if (driverPacket->dataSize < RXHeaderSize) {   //basic length check
-        logErr(invalidRXLength);
+
+    // The smallest valid packet is a header with no payload.
+    if (driverPacket->dataSize < expectedHeaderLength) {
+        logErr(TAG, invalidRXLength);
         return false;
     }
 

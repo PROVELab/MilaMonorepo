@@ -152,7 +152,6 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
                         .setNumberFormatOverride(NumberFormat.getNumberInstance());
 
                 // Threshold markers from DataInfo
-                //TODO: test that these work.
                 var plot = chart.getXYPlot();
                 applyThresholdMarkers(chart, key);
 

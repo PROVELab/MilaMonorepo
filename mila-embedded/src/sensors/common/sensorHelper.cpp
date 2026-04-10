@@ -76,8 +76,7 @@ void sendFrame(int8_t frameNum) {
             return; //skip sending this frame
         }
         dataPoint info = myframes[frameNum].dataInfo[i];
-        uint32_t unsignedConstrained =
-            formatValue(data, info.min, info.max); // constraining and subtracting min forces this value to be positive
+        uint32_t unsignedConstrained = formatValue(data, info.min, info.max); 
         copyValueToData(&unsignedConstrained, tempData, currBit, info.bitLength);
         currBit += info.bitLength;
     }

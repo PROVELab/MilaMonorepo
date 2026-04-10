@@ -14,11 +14,14 @@ int16_t runProtocol(const RadioConfig* config, char*& errorMsg);
 
 //custom per protocol
 bool protocolTransmit(uint8_t* data, uint8_t dataLen);
-bool protocolRecv(driverPacket* msg);
+bool protocolRecv(driverRecvPacket* msg);
 //
 
+//only usable for RX side. get the latest bitmap to see what percentage are coming through on each burst
+void getBitmap(uint16_t& bitmap, uint8_t& burstSize);
+
 //for internal use (in protocol common):
-bool validatePacketHeader(driverPacket* driverPacket);
-void printRecvStatus(driverPacket* info);
+bool validatePacketHeader(driverRecvPacket* driverPacket, size_t expectedHeaderLength);
+void printRecvStatus(driverRecvPacket* info);
 
 #endif

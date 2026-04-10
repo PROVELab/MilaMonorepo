@@ -7,9 +7,47 @@
 
 // static const char* TAG = "LORA_FORMAT";
 
+//max data size for Lora "Can" packet is 127 bytes
 
+//telem should know expected DLC of all CAN and non-can packets, so specifying it is not necessary.
+
+//Format for Vitals -> telem
+//1 bit Can-bus packet.
+    //if yes: 11 bit ID. 4 bits DLC. 1 bit extended ID? 
+    //next byte: 7 bits extended ID bits. 1 bit: extended ID continues?
+//else
+    //(not Can-bus packet)
+    //8 bit: message ID code
+        //telem will have a table for length of all message ID codes.
+
+//alternative: if 1 bit Can-bus packet = false. interpret 11 bit ID
+//
+//or not pecan packet
+
+//Note: Assumes no such thing as RTR. In general for Mila, DLC = 0 <-> the msg is a request (ie RTR).
+//Note: Any packet with DLC > 15 will be marked as extended, so cant differ between DLC = 16 & extended ID < 2^11, and DLC = 16 with non-extended ID
 // //**** Packet Formatting **** /
-// // 11 bit ID, 4 bit Datalength, 21 bit ext id, 
+//packets with DLC = 0
+//**byte 0 & 1
+// // 11 bit ID, 4 bit DataLength, 1 bit: extended ID? 
+                //0 to 15
+//if extended ID?: 
+    //byte 2: 3 bits extra DLC. 4 bits extended ID start. 1 bit: extID continue in next byte?
+    //if 1 bit extendedID continue:
+        //byte 3: 7 bits ext ID. extended ID continue?
+            //byte 4: 8 bits ext ID.
+    // 
+//**byte 2
+// // if extended header: 3 bits: extra DLC. 1 bit RTR?
+// // If 0 for extra DLC and RTR: assumed extended: first 3 bits of extended ID. (1 bit: extID in next byte?) 
+            //1 byte ext ID. End with 
+// else:
+// // If not 0 for extra DLC or RTR: 1 bit extended? 2 bits of extended ID. 1 bit: extID in next two bytes?
+//byte 3 and 4: extended ID (if applicable)
+// rationale: non-extended packets limited to 2 byte header.
+// everything else: will be three byte header, so long as ext id uses < 2 bits, which is common for sensors.
+//
+// // If non-standard specified: 5 bits: extra datalength. = 0 for no dataLength. 1 bit RTR. 2 bit extended bytes (0=not ext. 1=1byte. 2=2=byte. 3= +3 bits), 4 bit Datalength, 21 bit ext id, 
 // //              ^<optionall>, bytes as a LL. 1 bit minimum to indicate end of LL
 // #define maxCanHeaderSize 5 //11 bit std-id + 21 bit ext-id + 4 bit dataLen = 36, ciel(36/8) = 5 bytes
 // #define maxCanToLoraData 15

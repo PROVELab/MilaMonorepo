@@ -5,6 +5,18 @@ press enter twice to view all data (or enter specific time stamps)
 
 BMS Module test timestamps and Amps:
 
+For super long one:
+Note: Temp2 is the flex one
+Temp1 is the stick one (one the batteries terminals)
+BMS temp should be inside BMS (it was high at start due to balancing)
+25 and 25.6 on the thermal couple one (the manual one) at the start
+At 13000 seconds: bryan tightened the connections with alen wrench (and cell 2 restored!)
+
+at end (14210):
+ambient is 38 degrees celcius, manual measured 42.8 C
+
+15A at 780. went to 60 closely after
+
 Note: the measured pack amps in the graph for this test
 is not accurate, we dont have they shunt resistors yet, so left 
 the current sensor disconnected

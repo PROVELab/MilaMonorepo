@@ -50,6 +50,7 @@ static StaticSemaphore_t DIO1_Binary_Buffer;
 inline bool driverGrab(){
     while(xSemaphoreTake(Driver_Mutex, portMAX_DELAY) != pdTRUE);
     if(driver_info.state == off){   
+        ESP_LOGW(TAG, "failed to grab driver, currently crashed!");
         xSemaphoreGive(Driver_Mutex);
         return false;   //driver not started, should exit!
     }
@@ -91,6 +92,7 @@ int16_t driverCheck(Func action, const char* msg) {
 
 //driver Mutex should be grabbed if this is called
 static bool resetState(){
+    ESP_LOGI(TAG, "resetting driver state per user request");
     driver_info.state = standby;
     DRIVER_CHECK_BOOL(radio.standby(), "enter standby");
     
@@ -119,28 +121,38 @@ void enterStandBy(){
 
 //used internally when LoraStartRecv or LoraTransmit are called
 static void exitStandBy(){
-    driver_info.state = running;
+    if(driver_info.state == standby){
+        driver_info.state = running;
+    }
 }
 
 //the driver mutex should be held any time this is called
 static void driverCrash(int16_t error, const char* msg){
+    if(xSemaphoreGetMutexHolder(Driver_Mutex) != xTaskGetCurrentTaskHandle()){
+        driverGrab();
+    }
     ESP_LOGE(TAG, "raising driver crash from %s with error %d", msg, error);
     //try to put chip in standby mode. ok if fails, reboot will restart it
     radio.standby();
     uint32_t irq = 0;
     radio.getIrqFlagsSafe(irq);
     radio.clearIrqFlags(irq);
+    mod.term();  //terminate radio hardware
     //
-
     driver_info.state = off;
     driver_info.crashError = error;
     strncpy(driver_info.crashMsg, msg, crashMsgSize);
     driver_info.crashMsg[crashMsgSize - 1] = 0; //force null termination
-    xSemaphoreGive(driver_info_binary);    //notify protocol of crash
+    xSemaphoreGive(driver_info_binary); //notify protocol we crashed
     //drop the driver mutex if we hold it.
-     if(xSemaphoreGetMutexHolder(Driver_Mutex) == xTaskGetCurrentTaskHandle()){
-        xSemaphoreGive(Driver_Mutex);
-    }
+    xSemaphoreGive(Driver_Mutex);
+}
+
+//allow the protocol to raise a crash
+void raiseDriverCrash(int16_t error, const char* msg){
+    driverGrab();
+    driverCrash(error, msg);
+    driverYield();
 }
 //************** driver crash handling END **************//
 
@@ -148,6 +160,10 @@ static void driverCrash(int16_t error, const char* msg){
 
 // Initialize Lora Driver with selected config. May be called again at any time to re-start the driver
 void LoraDriverInit(const RadioConfig* config){
+    if(driver_info.state != off){
+        ESP_LOGE(TAG, "Error, attempt to start driver when driver is not in off state");
+        return;
+    }
     ESP_LOGI(TAG, "Initializing LoRa Driver...");
     //Create driver mutex
     if(Driver_Mutex == NULL){
@@ -255,9 +271,11 @@ static void loraInterruptTask(void *pvParameters) {
             }
             driver_info.recvPacketReady = true;
         } 
-        
+
         driver_info.recvPacket.irqFlags = irq;   //store irq flags for protocol to read when it gets the driver mutex
-        xSemaphoreGive(driver_info_binary); //notify of state change
+        if(irq != 0){
+            xSemaphoreGive(driver_info_binary); //notify of state change
+        }
         driverYield();
     }
 }
@@ -267,6 +285,11 @@ static void loraInterruptTask(void *pvParameters) {
 
 //returns true if packet looks good. false otherwise
 static bool handleRXInterrupt(uint32_t irq){
+    // First, check the IRQ flags for errors. If the header or CRC is bad, there's no point proceeding.
+    if(!validRXIRQ(irq)){
+        return false;
+    }
+
     int16_t state; 
     // 1. Capture Length
     driver_info.recvPacket.dataSize = radio.getPacketLength();    //stored internally, I dont think error is possible
@@ -290,8 +313,7 @@ static bool handleRXInterrupt(uint32_t irq){
         return false;
         
     }
-    //check if chip computed CRC errors, or if the header is corrupt some other way
-    return validRXIRQ(irq);
+    return true;
 }
 
 static bool validRXIRQ(uint32_t irq){
@@ -342,7 +364,7 @@ uint32_t LoraGetTimeOnAir(){
 //may also raise error to driver
 //This will keep trying to start a transmission until timeout, or an error
 //If we reach the process of transmiting, this will not terminate due to timeout.
-int16_t LoraTransmit(const driverPacket* packet, const uint64_t timerExpireTime_us) {
+int16_t LoraTransmit(const driverSendPacket* packet, const uint64_t timerExpireTime_us) {
     if(!driverGrab()){
         return RADIOLIB_ERR_INVALID_MODE; //indicate driver not started
     }
@@ -350,28 +372,27 @@ int16_t LoraTransmit(const driverPacket* packet, const uint64_t timerExpireTime_
     int16_t state = RADIOLIB_LORA_DETECTED; //indicate timeout by default
 
     while(esp_timer_get_time() < timerExpireTime_us){ 
-        //check if we are currently receiving:
-        if( (state = waitIfReceiving(timerExpireTime_us)) == RADIOLIB_ERR_NONE){
-            //Thorough scan of all activity, interrupts TX/RX
-            if(driverCheck([&]{ state = radio.scanChannel(); //only throw if not FREE or LORA_DETECTED
-                return (state == RADIOLIB_LORA_DETECTED || state == RADIOLIB_CHANNEL_FREE) ? RADIOLIB_ERR_NONE : state;
-            }, "scanChannelTX")){
-                return state;
-            }
-
-            if(state == RADIOLIB_CHANNEL_FREE) {  
-                //ok to transmit:
-                ESP_LOGI(TAG, "driver start transmit");
-                if(driverCheck([&]{return state = radio.startTransmit(packet->data, packet->dataSize);}, "LoraTransmitStart")){
-                    return state;
-                }
-                //successfully queued for transmit
-                driverYield();
-                return state;
-            }
+        //Thorough scan of all activity, interrupts TX/RX
+        if(driverCheck([&]{ state = radio.scanChannel(); //only throw if not FREE or LORA_DETECTED
+            return (state == RADIOLIB_LORA_DETECTED || state == RADIOLIB_CHANNEL_FREE) ? RADIOLIB_ERR_NONE : state;
+        }, "scanChannelTX")){
+            return state;
         }
+
+        if(state == RADIOLIB_CHANNEL_FREE) {
+            //ok to transmit:
+            ESP_LOGI(TAG, "driver start transmit");
+            if(driverCheck([&]{return state = radio.startTransmit(packet->data, packet->dataSize);}, "LoraTransmitStart")){
+                return state;
+            }
+            //successfully queued for transmit
+            driverYield();
+            return state;
+        }
+
         if(state != RADIOLIB_ERR_NONE && state != RADIOLIB_LORA_DETECTED){
             //waitIfReceiving had an issue:
+            ESP_LOGW(TAG, "unxepected state");
             return state;
         }
         DRIVER_DELAY(20);
@@ -384,6 +405,9 @@ int16_t LoraTransmit(const driverPacket* packet, const uint64_t timerExpireTime_
 }
 
 int16_t waitIfReceiving(uint64_t timerExpireTime_us) {
+    if(driver_info.state == off) {
+        return RADIOLIB_ERR_INVALID_MODE; //indicate driver not started
+    }
     uint32_t irq;
     while(esp_timer_get_time() < timerExpireTime_us){
         //get irq flags to check if we know we are already mid-reception
@@ -400,11 +424,14 @@ int16_t waitIfReceiving(uint64_t timerExpireTime_us) {
         }
         DRIVER_DELAY(20); //wait a bit before polling again
     }
-    return RADIOLIB_LORA_DETECTED;    //couldnt get clear
+    return RADIOLIB_LORA_DETECTED;
 }
 
 //return NULL on timeout, or driverInfo if action happened
 driverInfo* waitForDriverAction(uint32_t timeout_us){
+    if(driver_info.state == off) {
+        return NULL;    //driver not started
+    }
     if(xSemaphoreTake(driver_info_binary, pdMS_TO_TICKS(timeout_us / 1000)) == pdTRUE){
         return &driver_info;
     }
@@ -417,27 +444,67 @@ driverInfo* getDriverInfo(){
     return &driver_info;
 }
 
-driverInfo* safeWaitForRecv(uint64_t timerExpireTime_us){
+driverInfo* waitForRecv(uint64_t timerExpireTime_us){
+    if(driver_info.state == off) {
+        return NULL;
+    }
     uint64_t currTime = esp_timer_get_time();
 
     uint32_t timeOutDuration_us = currTime >= timerExpireTime_us ? 0    //avoid overflow
         : ( (timerExpireTime_us - currTime)); //absolute -> relative timeout time
-    LoraStartRecv();
+    // LoraStartRecv();
 
     driverInfo* info = waitForDriverAction(timeOutDuration_us);
     if(info == NULL){
-        ESP_LOGW(TAG, "Timeout waiting for driver action");
-        if(waitIfReceiving(timerExpireTime_us) == RADIOLIB_ERR_NONE){ 
-            //not currently recieving! check on last time:
-            info = waitForDriverAction(0);
-            if(info == NULL){                     //give up trying to listen for last packet, likely missed it.
-                return NULL;
-            }
-        }else{
-            //this is blocking longer than it ever should. we may have missed the down interval. if otherside or som1 else is spamming
-            ESP_LOGW(TAG, "air not clearing up!");
-            return NULL; 
+        ESP_LOGW(TAG, "Timeout waiting for driver action on recv");
+        //perform one last check on waitIfReceiving
+        if(waitIfReceiving(timerExpireTime_us) != RADIOLIB_ERR_NONE){ 
+            enterStandBy();
+            return NULL;
         }
+        //not currently recieving! check one last time:
+        info = waitForDriverAction(0);
+        if(info == NULL){                     //give up trying to listen for last packet, likely missed it.
+            enterStandBy();
+            return NULL;
+        }
+    }
+    if(info->state == off){//tell user driver is off
+        ESP_LOGW(TAG, "call to waitForRecv with crashed driver. protocol should hanlde crash");
     }
     return info;
 }
+
+bool waitForTXDone(uint8_t numPacketTimes) {
+    if(driver_info.state == off) {
+        return false;
+    }
+    uint64_t current_time = esp_timer_get_time();
+    uint64_t wait_expire_time_us = current_time + (LoraGetTimeOnAir() * numPacketTimes);
+
+    while (current_time < wait_expire_time_us) {
+        uint32_t remaining_wait_us = wait_expire_time_us - current_time;
+        driverInfo* info = waitForDriverAction(remaining_wait_us);
+        if(info == NULL){   //check for timeout
+            ESP_LOGE(TAG, "Timed out waiting for TX_DONE.");
+            return false; // Timeout
+        }
+        if(info->state == off){//check for crash
+            ESP_LOGW(TAG, "call to waitForTXDone with crashed driver. protocol should hanlde crash");
+            return false;
+        }
+        if (info != NULL && (info->recvPacket.irqFlags & RADIOLIB_SX126X_IRQ_TX_DONE)) {
+            ESP_LOGI(TAG, "TX_DONE received.");
+            return true; // Success
+        }
+        if (info != NULL) {
+            //this happens like basically every time an interrupt is triggered
+            //the IO pin seems to go high before the irq is ready
+            ESP_LOGD(TAG, "Woke up for non-TX_DONE IRQ: 0x%04lX while waiting for TX to complete.", info->recvPacket.irqFlags);
+        }
+        current_time = esp_timer_get_time();
+    }
+    ESP_LOGE(TAG, "Timed out waiting for TX_DONE.");
+    return false; // Timeout
+}
+

@@ -141,10 +141,7 @@ static void checkHB(void* pvParameters) {
                 // sendFrame
                 CANPacket message = {0};
                 message.id = combinedID(HBRespUpdate, vitalsID);
-                writeData(
-                    &message, (int8_t*) &data,
-                    sizeof(
-                        data)); // relies on esp32 being little endian (since interpretting uint64_t as array of bytes)
+                writeData(&message, (int8_t*) &data, sizeof(data));
                 sendPacket(&message);
 
                 // reset data for next frame
@@ -153,8 +150,8 @@ static void checkHB(void* pvParameters) {
                 HBStatusWriteMask = startingMask;
             }
 
-            if (VitalsFlagsGet(i) &
-                HBFlag) { // this is only place where HB flag gets cleared, so ok to check flag, then get time.
+            if (VitalsFlagsGet(i) & HBFlag) { 
+                // this is only place where HB flag gets cleared, so ok to check flag, then get time.
                 data |= HBStatusWriteMask;  // indicate we recv this HB
                 VitalsFlagClear(i, HBFlag); // reset HB bit
                 int16_t responseTime = HBTimeGet(i);

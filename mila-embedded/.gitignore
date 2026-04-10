@@ -12,6 +12,9 @@ scripts/Gen_For_sensors/
 scripts/Gen_For_simpleTest/
 rust/
 
+*.out
+venv/*
+venv/
 BMS-commands/*
 build/
 sdkconfig.*
