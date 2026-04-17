@@ -1,5 +1,6 @@
 
 # list(APPEND EXTRA_COMPONENT_DIRS icm20948)
+list(APPEND EXTRA_COMPONENT_DIRS icm20948)
 
 if(CMAKE_VITALS_ESP_BUILD)
     set(SRC_FILES 
@@ -59,6 +60,7 @@ if(CMAKE_MCU_ESP_BUILD)
 endif()
 
 if(CMAKE_TELEM_TX)
+
     file(GLOB TX_LORA_SRC
         #Need pecan
         "sensors/${SENS_DIR}/*.c"

@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 
 #include "../LoraCommon/LoraProtocol.hpp"
+#include "lz4.h"
 
 static const char* TAG= "main";
 

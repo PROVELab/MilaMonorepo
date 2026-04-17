@@ -1,0 +1,8 @@
+MEMORY
+{
+  /* STM32F405RG has 1MB of Flash */
+  FLASH : ORIGIN = 0x08000000, LENGTH = 1024K
+  
+  /* STM32F405RG has 128KB of main SRAM */
+  RAM   : ORIGIN = 0x20000000, LENGTH = 128K
+}
