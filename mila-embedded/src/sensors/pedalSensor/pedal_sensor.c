@@ -14,7 +14,7 @@
 #include "myDefines.hpp"                         //contains #define statements specific to this node like myId.
 
 #include "../../mcu/motor_h300/h300.h"
-#include "../../mcu/vsr.h"
+#include "../../mcu/vsr/vsr_state.h"
 #include "../powerSensor/powerSensor.h"
 #include "pedalInterpolation.h"
 #include "pedal_sensor.h"
@@ -120,20 +120,20 @@ int32_t collect_pedalReadingTwo() {
     }
 
     // Send the speed (if necessary)
-    vehicle_status_reg_s* vsr = &vehicle_status_register; // easier to type
+    volatile vehicle_status_reg_t* vsr = &vsr_global; // easier to type
     bool use_pedal = false;
-    ACQ_REL_VSRSEM_W(pedal, {
-        vsr->pedal.pedal_position_pct = (float) a;
-        vsr->pedal.pedal_raw_1 = (float) ADC_Readings[reading1_Index];
-        vsr->pedal.pedal_raw_2 = (float) ADC_Readings[reading2_Index];
-        vsr->pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
+    ACQ_REL_VSRSEM_W(vsr, pedal, {
+        VSR_DATA.pedal.pedal_position_pct = (float) a;
+        VSR_DATA.pedal.pedal_raw_1 = (float) ADC_Readings[reading1_Index];
+        VSR_DATA.pedal.pedal_raw_2 = (float) ADC_Readings[reading2_Index];
+        VSR_DATA.pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
 
-        vsr->pedal.tx_value = b;
-        use_pedal = vsr->pedal.use_pedal;
+        VSR_DATA.pedal.tx_value = b;
+        use_pedal = VSR_DATA.pedal.use_pedal;
     });
 
     if (use_pedal) {
-        ACQ_REL_VSRSEM_W(motor_control, { vsr->motor_control.current_reference = (int32_t) b; });
+        ACQ_REL_VSRSEM_W(vsr, motor_control, { VSR_DATA.motor_control.current_reference = (int32_t) b; });
     }
 
     return ADC_Readings[reading2_Index];

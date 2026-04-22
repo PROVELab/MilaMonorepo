@@ -1,0 +1,18 @@
+alias = "motor_mspeed_status"
+desc = "Medium Speed motor status output"
+
+[measured_dc_voltage_v]
+type = "f32"
+unit = "V"
+desc = "DC Bus Voltage"
+
+[calculated_dc_current_a]
+type = "f32"
+unit = "A"
+desc = "Calculated DC Current"
+
+[motor_current_limit_arms]
+type = "f32"
+unit = "A"
+desc = "Motor Current Limit"
+

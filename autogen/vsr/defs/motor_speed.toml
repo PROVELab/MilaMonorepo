@@ -1,0 +1,17 @@
+alias = "motor_highspeed_status"
+desc = "High speed (200 Hz) motor data"
+
+[quadrature_current]
+type = "f32"
+unit = "Arms"
+desc = "Quadrature Current"
+
+[direct_current]
+type = "f32"
+unit = "Arms"
+desc = "Direct Current"
+
+[motor_speed]
+type = "i16"
+unit = "RPM"
+desc = "Motor Speed"

@@ -12,7 +12,7 @@
 #ifndef TASKS_H
 #define TASKS_H
 
-#include "../vsr.h" // vehicle status register, holds all the information about the vehicle
+#include "../vsr/vsr_state.h" // vehicle status register, holds all the information about the vehicle
 #include "driver/twai.h"
 
 #include "freertos/FreeRTOS.h"
@@ -30,9 +30,5 @@ void start_send_motor_task();
 // read/write from console (uart)
 #define CONSOLE_TASK_PRIO 11 // Mostly low priority but
 void start_console_task();
-
-// Logging
-#define LOGGING_TASK_PRIO 11 // Similar priority to ~console
-void start_logging_task();
 
 #endif

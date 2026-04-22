@@ -9,29 +9,27 @@ vehicle (except for embedded code, for now). It includes:
 
 Essentially all code that is necessary for Mila will eventually end up in this repository.
 
+## Justfile
+The justfile provides handy tools/commands to build, run, and generate. 
+For example, just `generate_cc_db` allows you to generate compile_commands.json
+so that your LSP gets the requisite symbols. `build_embedded` will build all our 
+embedded targets. Feel free to use `just --choose` to see and choose targets.
+
 ## Structure
 ```
 /
     /.github
-    /tools
-        /plot
+    /autogen
     /dashboard
+    /mila-embedded
+        /src/mcu
+        /src/vitals
     /reverse-camera
-    /telem
-    /doc
-        /memos
-        /rfc
-        /test_result/
-    /experiments
-        /bms
+    /telem-dashboard
 ```
 
 Future:
 ```
-    /embedded
-        /mcu
-        /vitals
-        /imu... etc
     /autonomy
 ```
 
@@ -49,13 +47,23 @@ and devs
 # Dependencies
 To use the items in this monorepo, it's recommended that you have:
 - [Python](https://www.python.org/)
-- [uv](https://docs.astral.sh/uv/)
+  - [uv](https://docs.astral.sh/uv/)
+  - Platformio (can be pip installed)
 - [NodeJS](https://nodejs.org/en/download)
 - [Rust](https://rust-lang.org/tools/install/)
 - [Just](https://just.systems/man/en/)
 - Java JDK (Please look at your package manager on how to do this)
 - Gradle
+- [Protocol Buffers compiler (`protoc`)](https://protobuf.dev/installation/)
+  - Python packages for nanopb codegen: `nanopb`, `protobuf`
 
 To manage build/setup, we use Justfile which is a slightly simpler Makefile.
 
 We recommend using [sdkman](https://sdkman.io/) to install the jdk and gradle.
+
+### VSR Autogen Requirements
+For `just autogen` (VSR v2), make sure nanopb tooling is installed for your Python environment:
+
+```bash
+pip3 install --user nanopb protobuf
+```
