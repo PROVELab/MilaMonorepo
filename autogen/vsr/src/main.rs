@@ -1,15 +1,11 @@
 use std::path::PathBuf;
 
-use crate::{
+use clap::Parser;
+use vsr::{
     c_gen::write_vsr_state_files, construct_vsr::load_all_vsr_substructs,
     proto_gen::write_proto_file,
 };
-use clap::Parser;
 
-pub mod c_gen;
-pub mod construct_vsr;
-pub mod proto_gen;
-pub mod schema;
 use anyhow::Result;
 
 #[derive(Parser, Debug)]

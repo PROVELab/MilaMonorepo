@@ -1,11 +1,5 @@
 export type DriveMode = "P" | "D" | "R";
 
-export interface ImuReading {
-  pitch: number; // degrees
-  roll: number; // degrees
-  yaw: number; // degrees
-}
-
 export interface VehicleField {
   label: string;
   value: string;
@@ -19,7 +13,7 @@ export interface VehicleSection {
 }
 
 export interface MetricWindow {
-  label: string; // e.g. 5m, 10m, 30m
+  label: string;
   value: string;
 }
 
@@ -36,8 +30,6 @@ export interface VehicleSnapshot {
   torqueRatio: number; // 0 - 1
   batteryPct: number;
   driveMode: DriveMode;
-  imu: ImuReading;
   sections: VehicleSection[];
   liveTextLogs: string[];
-  derivedMetrics: DerivedMetric[];
 }

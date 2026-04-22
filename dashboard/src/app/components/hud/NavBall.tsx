@@ -1,4 +1,8 @@
-import type { ImuReading } from "../../types/telemetry";
+interface ImuReading {
+  pitch: number;
+  roll: number;
+  yaw: number;
+}
 
 interface Props {
   imu: ImuReading;
