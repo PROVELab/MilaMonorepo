@@ -5,9 +5,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "../espBase/debug_esp.h"
 #include "../pecan/pecan.h" //helper code for CAN stuff
 
 #include "esp_log.h"
@@ -36,7 +38,18 @@ void setup_motor_controller_params(PCANListenParamsCollection* plpc) {
     addParam(plpc, process_motor_fxn_code2);
 }
 
+static int null_vprintf(const char* fmt, va_list ap) {
+    (void) fmt;
+    (void) ap;
+    return 0;
+}
+
 void app_main() {
+    // Stream-only mode for USB serial: no text logging on UART0.
+    setMutexPrintEnabled(false);
+    esp_log_level_set("*", ESP_LOG_NONE);
+    esp_log_set_vprintf(&null_vprintf);
+
     ESP_LOGI(__func__, "Hello, minimal app starting");
 
     // Initialize the global VSR
@@ -62,5 +75,6 @@ void app_main() {
 
     // Send data to the motor task
     start_send_motor_task();
+    start_vsr_stream_task();
     ESP_LOGI(__func__, "Started motor tasks");
 }

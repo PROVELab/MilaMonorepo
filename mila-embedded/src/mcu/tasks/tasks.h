@@ -31,4 +31,8 @@ void start_send_motor_task();
 #define CONSOLE_TASK_PRIO 11 // Mostly low priority but
 void start_console_task();
 
+// VSR stream over USB serial (UART0) at 10 Hz
+#define VSR_STREAM_TASK_PRIO 12
+void start_vsr_stream_task();
+
 #endif

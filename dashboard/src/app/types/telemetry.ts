@@ -1,12 +1,7 @@
 export type DriveMode = "P" | "D" | "R";
 
-export interface ImuReading {
-  pitch: number; // degrees
-  roll: number; // degrees
-  yaw: number; // degrees
-}
-
 export interface VehicleField {
+  key: string;
   label: string;
   value: string;
   unit?: string;
@@ -18,26 +13,34 @@ export interface VehicleSection {
   fields: VehicleField[];
 }
 
-export interface MetricWindow {
-  label: string; // e.g. 5m, 10m, 30m
-  value: string;
-}
-
-export interface DerivedMetric {
-  label: string;
-  unit: string;
-  current: string;
-  windows: MetricWindow[];
-  sparkline: number[];
-}
-
 export interface VehicleSnapshot {
   speedMph: number;
+  pedalPct: number; // 0 - 100
   torqueRatio: number; // 0 - 1
   batteryPct: number;
   driveMode: DriveMode;
-  imu: ImuReading;
   sections: VehicleSection[];
   liveTextLogs: string[];
-  derivedMetrics: DerivedMetric[];
+}
+
+export interface FieldTrendPoint {
+  minutesFromNow: number;
+  value: number;
+  source: string;
+}
+
+export interface FieldPrediction {
+  horizonMinutes: number;
+  value: number;
+}
+
+export interface FieldTrendResponse {
+  sectionId: string;
+  fieldKey: string;
+  label: string;
+  unit?: string;
+  fitDegree: number;
+  rawPoints: FieldTrendPoint[];
+  fitPoints: FieldTrendPoint[];
+  predictions: FieldPrediction[];
 }

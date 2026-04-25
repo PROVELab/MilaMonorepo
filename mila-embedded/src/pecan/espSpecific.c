@@ -83,17 +83,17 @@ void pecan_CanInit(pecanInit config) {
     twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
     // Install TWAI driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-        printf("Driver installed\n");
+        ESP_LOGI(__func__, "Driver installed");
     } else {
-        printf("Failed to install driver in pecan_CanInit\n");
+        ESP_LOGE(__func__, "Failed to install driver in pecan_CanInit");
         exit(1);
     }
 
     // Start TWAI driver
     if (twai_start() == ESP_OK) {
-        printf("Driver started\n");
+        ESP_LOGI(__func__, "Driver started");
     } else {
-        printf("Failed to start TWAI driver in pecan_CanInit\n");
+        ESP_LOGE(__func__, "Failed to start TWAI driver in pecan_CanInit");
         exit(1);
     }
 

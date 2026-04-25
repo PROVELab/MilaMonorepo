@@ -1,35 +1,31 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DriveMode, ImuReading } from "../types/telemetry";
+import type { DriveMode } from "../types/telemetry";
 import { VehicleScene } from "./VehicleScene";
 import { Tachometer } from "./hud/Tachometer";
-import { NavBall } from "./hud/NavBall";
 import { DriveModeSelector } from "./hud/DriveModeSelector";
 import { EmergencyStopButton } from "./hud/EmergencyStopButton";
 import { VehicleStatePanel } from "./panels/VehicleStatePanel";
 import { ReverseCameraPanel } from "./panels/ReverseCameraPanel";
-import { DerivedMetricsPanel } from "./panels/DerivedMetricsPanel";
 import { useVehicleTelemetry } from "../hooks/useVehicleTelemetry";
 
-type ViewId = "drive" | "vsr" | "reverse" | "metrics";
+type ViewId = "drive" | "vsr" | "reverse";
 
 interface DriveViewProps {
   batteryPct: number;
   driveMode: DriveMode;
   changeDriveMode: (mode: DriveMode) => void;
   speedMph: number;
-  torqueRatio: number;
-  imu: ImuReading;
+  pedalPct: number;
 }
 
-function DriveView({ batteryPct, driveMode, changeDriveMode, speedMph, torqueRatio, imu }: DriveViewProps) {
+function DriveView({ batteryPct, driveMode, changeDriveMode, speedMph, pedalPct }: DriveViewProps) {
   return (
     <div className="drive-view">
       <VehicleScene speed={speedMph} driveMode={driveMode} />
       <div className="drive-view__overlay drive-view__overlay--top">
-        <Tachometer speed={speedMph} torqueRatio={torqueRatio} />
-        <NavBall imu={imu} />
+        <Tachometer speed={speedMph} pedalPct={pedalPct} />
       </div>
       <div className="drive-view__overlay drive-view__overlay--bottom">
         <DriveModeSelector value={driveMode} onChange={changeDriveMode} />
@@ -58,8 +54,7 @@ export function VehicleDashboard() {
             driveMode={driveMode}
             changeDriveMode={changeDriveMode}
             speedMph={snapshot.speedMph}
-            torqueRatio={snapshot.torqueRatio}
-            imu={snapshot.imu}
+            pedalPct={snapshot.pedalPct}
           />
         ),
       },
@@ -69,11 +64,6 @@ export function VehicleDashboard() {
         element: <VehicleStatePanel sections={snapshot.sections} logs={snapshot.liveTextLogs} />,
       },
       { id: "reverse" as const, label: "Reverse Camera", element: <ReverseCameraPanel /> },
-      {
-        id: "metrics" as const,
-        label: "Derived Metrics",
-        element: <DerivedMetricsPanel metrics={snapshot.derivedMetrics} />,
-      },
     ],
     [snapshot, driveMode, changeDriveMode],
   );

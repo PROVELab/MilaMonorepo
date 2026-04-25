@@ -4,7 +4,7 @@ desc = ""
 [command]
 type = "enum"
 unit = ""
-desc = "Which Mode are we in"
+desc = "Motor Command Mode"
 
   [command.variants.idle]
     value = 0
