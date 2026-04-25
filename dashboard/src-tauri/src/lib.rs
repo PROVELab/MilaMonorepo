@@ -1,25 +1,30 @@
-use prost::Message;
+use prost_reflect::{
+    DescriptorPool, DynamicMessage, Kind, MapKey, MessageDescriptor, ReflectMessage, Value,
+};
 use serde::{Deserialize, Serialize};
-use serialport::{SerialPortInfo, SerialPortType};
+use serialport::{ClearBuffer, SerialPortInfo, SerialPortType};
 use std::collections::VecDeque;
 use std::env;
-use std::io;
+use std::io::{self, Read};
+use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-
-mod vsr_proto {
-    include!(concat!(env!("OUT_DIR"), "/vsr.rs"));
-}
-
-use vsr_proto::VehicleStatusRegister;
+use vsr::construct_vsr::load_all_vsr_substructs;
+use vsr::schema::VsrSubstruct;
 
 const VSR_SERIAL_BAUD: u32 = 921_600;
 const VSR_SERIAL_TIMEOUT: Duration = Duration::from_millis(250);
 const VSR_RETRY_DELAY: Duration = Duration::from_millis(500);
-const VSR_FRAME_HEADER_LEN: usize = 2;
+const VSR_OPEN_SETTLE_DELAY: Duration = Duration::from_millis(500);
+const VSR_FRAME_MAGIC_0: u8 = 0xA5;
+const VSR_FRAME_MAGIC_1: u8 = 0x5A;
+const VSR_FRAME_HEADER_LEN: usize = 4;
+const LEGACY_VSR_FRAME_HEADER_LEN: usize = 2;
 const VSR_PAYLOAD_MAX_LEN: usize = 4096;
+const VSR_STREAM_BUFFER_MAX_LEN: usize = 8 * VSR_PAYLOAD_MAX_LEN;
 const MAX_LOG_LINES: usize = 120;
+const VSR_MESSAGE_FULL_NAME: &str = "vsr.VehicleStatusRegister";
 
 // This is only an approximate wheel-speed conversion for UI continuity.
 const MOTOR_RPM_TO_MPH: f32 = 0.04;
@@ -51,6 +56,8 @@ struct VehicleState {
 impl VehicleState {
     fn new() -> Self {
         let mut logs = VecDeque::with_capacity(MAX_LOG_LINES);
+        let (vsr_schema, schema_log) = load_vsr_schema();
+        push_log_line(&mut logs, schema_log);
         push_log_line(
             &mut logs,
             "dashboard backend online; waiting for MCU VSR stream",
@@ -59,6 +66,7 @@ impl VehicleState {
         Self {
             inner: Arc::new(Mutex::new(VehicleInternal {
                 drive_mode: DriveMode::Park,
+                vsr_schema,
                 latest_vsr: None,
                 serial_port_name: None,
                 last_frame_received_at: None,
@@ -66,6 +74,8 @@ impl VehicleState {
                 frames_received: 0,
                 decode_errors: 0,
                 io_errors: 0,
+                magic_framing_detected: false,
+                legacy_framing_detected: false,
                 live_text_logs: logs,
             })),
         }
@@ -97,13 +107,16 @@ impl VehicleState {
 
 struct VehicleInternal {
     drive_mode: DriveMode,
-    latest_vsr: Option<VehicleStatusRegister>,
+    vsr_schema: VsrSchema,
+    latest_vsr: Option<DynamicMessage>,
     serial_port_name: Option<String>,
     last_frame_received_at: Option<Instant>,
     last_frame_size_bytes: usize,
     frames_received: u64,
     decode_errors: u64,
     io_errors: u64,
+    magic_framing_detected: bool,
+    legacy_framing_detected: bool,
     live_text_logs: VecDeque<String>,
 }
 
@@ -152,6 +165,41 @@ impl VehicleSection {
     }
 }
 
+type VsrSchema = Vec<(String, VsrSubstruct)>;
+
+fn load_vsr_schema() -> (VsrSchema, String) {
+    match load_all_vsr_substructs() {
+        Ok(schema_map) => {
+            let section_count = schema_map.len();
+            let field_count = schema_map
+                .values()
+                .map(|section| section.fields.len())
+                .sum::<usize>();
+            (
+                schema_map.into_iter().collect(),
+                format!("loaded VSR schema ({section_count} sections, {field_count} fields)"),
+            )
+        }
+        Err(err) => (Vec::new(), format!("failed to load VSR schema: {err}")),
+    }
+}
+
+fn vsr_descriptor_pool() -> &'static DescriptorPool {
+    static POOL: OnceLock<DescriptorPool> = OnceLock::new();
+    POOL.get_or_init(|| {
+        DescriptorPool::decode(
+            include_bytes!(concat!(env!("OUT_DIR"), "/vsr_descriptor.bin")).as_ref(),
+        )
+        .expect("failed to decode embedded VSR descriptor set")
+    })
+}
+
+fn vehicle_status_descriptor() -> MessageDescriptor {
+    vsr_descriptor_pool()
+        .get_message_by_name(VSR_MESSAGE_FULL_NAME)
+        .expect("missing message descriptor for vsr.VehicleStatusRegister")
+}
+
 fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
     loop {
         let port_name = wait_for_serial_port_name();
@@ -183,51 +231,28 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
             }
         };
 
+        // Avoid keeping the adapter in a reset/asserted state and drop startup noise.
+        let _ = port.write_data_terminal_ready(false);
+        let _ = port.write_request_to_send(false);
+        thread::sleep(VSR_OPEN_SETTLE_DELAY);
+        let _ = port.clear(ClearBuffer::Input);
+
         {
             let mut state = shared.lock().expect("vehicle state poisoned");
             push_log_line(
                 &mut state.live_text_logs,
-                format!("MCU VSR stream connected on {port_name}"),
+                format!("MCU VSR stream connected on {port_name} (framed A5 5A + len_le)"),
             );
         }
 
-        let mut payload_buf = Vec::with_capacity(512);
-        loop {
-            match read_single_framed_payload(&mut *port, &mut payload_buf) {
-                Ok(Some(payload_len)) => {
-                    match VehicleStatusRegister::decode(payload_buf[..payload_len].as_ref()) {
-                        Ok(vsr) => {
-                            let mut state = shared.lock().expect("vehicle state poisoned");
-                            state.latest_vsr = Some(vsr);
-                            state.frames_received = state.frames_received.saturating_add(1);
-                            state.last_frame_received_at = Some(Instant::now());
-                            state.last_frame_size_bytes = payload_len;
+        let mut stream_buf = VecDeque::<u8>::with_capacity(2 * VSR_PAYLOAD_MAX_LEN);
+        let mut read_buf = [0_u8; 512];
 
-                            if state.frames_received % 100 == 0 {
-                                let received = state.frames_received;
-                                push_log_line(
-                                    &mut state.live_text_logs,
-                                    format!("MCU frames received: {received}"),
-                                );
-                            }
-                        }
-                        Err(err) => {
-                            let mut state = shared.lock().expect("vehicle state poisoned");
-                            state.decode_errors = state.decode_errors.saturating_add(1);
-                            if state.decode_errors % 10 == 1 {
-                                let decode_errors = state.decode_errors;
-                                push_log_line(
-                                    &mut state.live_text_logs,
-                                    format!(
-                                        "protobuf decode error (count={}): {err}",
-                                        decode_errors
-                                    ),
-                                );
-                            }
-                        }
-                    }
-                }
-                Ok(None) => {}
+        loop {
+            let bytes_read = match port.read(&mut read_buf) {
+                Ok(0) => continue,
+                Ok(bytes_read) => bytes_read,
+                Err(err) if err.kind() == io::ErrorKind::TimedOut => continue,
                 Err(err) => {
                     let mut state = shared.lock().expect("vehicle state poisoned");
                     state.io_errors = state.io_errors.saturating_add(1);
@@ -239,6 +264,74 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
                     drop(state);
                     thread::sleep(VSR_RETRY_DELAY);
                     break;
+                }
+            };
+
+            stream_buf.extend(read_buf[..bytes_read].iter().copied());
+            trim_stream_buffer(&mut stream_buf);
+
+            let drain_result = drain_vsr_frames(&mut stream_buf, true);
+            if !drain_result.has_activity() {
+                continue;
+            }
+
+            let mut state = shared.lock().expect("vehicle state poisoned");
+
+            if drain_result.magic_frames_decoded > 0 && !state.magic_framing_detected {
+                state.magic_framing_detected = true;
+                push_log_line(
+                    &mut state.live_text_logs,
+                    "detected framed stream format: [A5 5A][len_le][protobuf]",
+                );
+            }
+            if drain_result.legacy_frames_decoded > 0 && !state.legacy_framing_detected {
+                state.legacy_framing_detected = true;
+                push_log_line(
+                    &mut state.live_text_logs,
+                    "detected legacy stream format: [len_le][protobuf] (MCU firmware is old)",
+                );
+            }
+
+            let dropped_fragments = drain_result.invalid_len_drops + drain_result.decode_drops;
+            if dropped_fragments > 0 {
+                let previous = state.decode_errors;
+                state.decode_errors = state.decode_errors.saturating_add(dropped_fragments);
+                if state.decode_errors / 500 != previous / 500 {
+                    let total_drops = state.decode_errors;
+                    push_log_line(
+                        &mut state.live_text_logs,
+                        format!(
+                            "resync drops={}, total decode/framing drops={}",
+                            dropped_fragments, total_drops
+                        ),
+                    );
+                }
+
+                if state.frames_received == 0 && state.decode_errors / 50_000 != previous / 50_000 {
+                    push_log_line(
+                        &mut state.live_text_logs,
+                        "no valid VSR frames yet; check MCU firmware build, framing mode, and serial port selection",
+                    );
+                }
+            }
+
+            if drain_result.frames_decoded > 0 {
+                let previous_frames = state.frames_received;
+                state.frames_received = state
+                    .frames_received
+                    .saturating_add(drain_result.frames_decoded);
+                state.last_frame_received_at = Some(Instant::now());
+                state.last_frame_size_bytes = drain_result.last_payload_len;
+                if let Some(latest_vsr) = drain_result.last_vsr {
+                    state.latest_vsr = Some(latest_vsr);
+                }
+
+                if state.frames_received / 100 != previous_frames / 100 {
+                    let received = state.frames_received;
+                    push_log_line(
+                        &mut state.live_text_logs,
+                        format!("MCU frames received: {received}"),
+                    );
                 }
             }
         }
@@ -288,30 +381,169 @@ fn choose_serial_port_name(ports: &[SerialPortInfo]) -> Option<String> {
         .map(|port| port.port_name.clone())
 }
 
-fn read_single_framed_payload(
-    port: &mut dyn serialport::SerialPort,
-    payload_buf: &mut Vec<u8>,
-) -> io::Result<Option<usize>> {
-    let mut header = [0_u8; VSR_FRAME_HEADER_LEN];
-    match port.read_exact(&mut header) {
-        Ok(()) => {}
-        Err(err) if err.kind() == io::ErrorKind::TimedOut => {
-            return Ok(None);
+fn trim_stream_buffer(stream_buf: &mut VecDeque<u8>) {
+    if stream_buf.len() <= VSR_STREAM_BUFFER_MAX_LEN {
+        return;
+    }
+
+    let to_drop = stream_buf.len() - VSR_STREAM_BUFFER_MAX_LEN;
+    for _ in 0..to_drop {
+        stream_buf.pop_front();
+    }
+}
+
+#[derive(Default)]
+struct DrainResult {
+    invalid_len_drops: u64,
+    decode_drops: u64,
+    frames_decoded: u64,
+    magic_frames_decoded: u64,
+    legacy_frames_decoded: u64,
+    last_payload_len: usize,
+    last_vsr: Option<DynamicMessage>,
+}
+
+impl DrainResult {
+    fn has_activity(&self) -> bool {
+        self.invalid_len_drops > 0 || self.decode_drops > 0 || self.frames_decoded > 0
+    }
+}
+
+fn find_magic_start(stream_buf: &VecDeque<u8>) -> Option<usize> {
+    stream_buf
+        .iter()
+        .zip(stream_buf.iter().skip(1))
+        .position(|(&first, &second)| first == VSR_FRAME_MAGIC_0 && second == VSR_FRAME_MAGIC_1)
+}
+
+fn try_decode_vsr_payload(payload: &[u8]) -> Option<DynamicMessage> {
+    DynamicMessage::decode(vehicle_status_descriptor(), payload)
+        .ok()
+        .filter(vsr_has_any_data)
+}
+
+fn vsr_has_any_data(vsr: &DynamicMessage) -> bool {
+    let descriptor = vsr.descriptor();
+    let has_any = descriptor.fields().any(|field| vsr.has_field(&field));
+    has_any
+}
+
+fn drain_vsr_frames(stream_buf: &mut VecDeque<u8>, allow_legacy_framing: bool) -> DrainResult {
+    let mut result = DrainResult::default();
+
+    loop {
+        if stream_buf.len() < 2 {
+            break;
         }
-        Err(err) => return Err(err),
+
+        match find_magic_start(stream_buf) {
+            Some(0) => {}
+            Some(offset) => {
+                for _ in 0..offset {
+                    stream_buf.pop_front();
+                }
+                result.invalid_len_drops = result.invalid_len_drops.saturating_add(offset as u64);
+                continue;
+            }
+            None => {
+                if allow_legacy_framing && stream_buf.len() >= LEGACY_VSR_FRAME_HEADER_LEN {
+                    let payload_len = u16::from_le_bytes([stream_buf[0], stream_buf[1]]) as usize;
+                    if payload_len > 0 && payload_len <= VSR_PAYLOAD_MAX_LEN {
+                        let frame_len = LEGACY_VSR_FRAME_HEADER_LEN + payload_len;
+                        if stream_buf.len() < frame_len {
+                            break;
+                        }
+
+                        let mut payload = vec![0_u8; payload_len];
+                        for (dst, src) in payload.iter_mut().zip(
+                            stream_buf
+                                .iter()
+                                .skip(LEGACY_VSR_FRAME_HEADER_LEN)
+                                .take(payload_len),
+                        ) {
+                            *dst = *src;
+                        }
+
+                        if let Some(vsr) = try_decode_vsr_payload(payload.as_slice()) {
+                            for _ in 0..frame_len {
+                                stream_buf.pop_front();
+                            }
+                            result.frames_decoded = result.frames_decoded.saturating_add(1);
+                            result.legacy_frames_decoded =
+                                result.legacy_frames_decoded.saturating_add(1);
+                            result.last_payload_len = payload_len;
+                            result.last_vsr = Some(vsr);
+                            continue;
+                        }
+                    }
+
+                    // Probe legacy framing by shifting one byte at a time.
+                    stream_buf.pop_front();
+                    result.invalid_len_drops = result.invalid_len_drops.saturating_add(1);
+                    continue;
+                }
+
+                // Keep a trailing possible first magic byte for the next read chunk.
+                let keep = if stream_buf
+                    .back()
+                    .is_some_and(|byte| *byte == VSR_FRAME_MAGIC_0)
+                {
+                    1
+                } else {
+                    0
+                };
+                let to_drop = stream_buf.len().saturating_sub(keep);
+                for _ in 0..to_drop {
+                    stream_buf.pop_front();
+                }
+                result.invalid_len_drops = result.invalid_len_drops.saturating_add(to_drop as u64);
+                break;
+            }
+        }
+
+        if stream_buf.len() < VSR_FRAME_HEADER_LEN {
+            break;
+        }
+
+        let payload_len = u16::from_le_bytes([stream_buf[2], stream_buf[3]]) as usize;
+        if payload_len == 0 || payload_len > VSR_PAYLOAD_MAX_LEN {
+            // Drop one byte and continue seeking marker.
+            stream_buf.pop_front();
+            result.invalid_len_drops = result.invalid_len_drops.saturating_add(1);
+            continue;
+        }
+
+        let frame_len = VSR_FRAME_HEADER_LEN + payload_len;
+        if stream_buf.len() < frame_len {
+            break;
+        }
+
+        let mut payload = vec![0_u8; payload_len];
+        for (dst, src) in payload.iter_mut().zip(
+            stream_buf
+                .iter()
+                .skip(VSR_FRAME_HEADER_LEN)
+                .take(payload_len),
+        ) {
+            *dst = *src;
+        }
+
+        if let Some(vsr) = try_decode_vsr_payload(payload.as_slice()) {
+            for _ in 0..frame_len {
+                stream_buf.pop_front();
+            }
+            result.frames_decoded = result.frames_decoded.saturating_add(1);
+            result.magic_frames_decoded = result.magic_frames_decoded.saturating_add(1);
+            result.last_payload_len = payload_len;
+            result.last_vsr = Some(vsr);
+        } else {
+            // Keep the stream open and shift by one byte to seek the next possible boundary.
+            stream_buf.pop_front();
+            result.decode_drops = result.decode_drops.saturating_add(1);
+        }
     }
 
-    let payload_len = u16::from_le_bytes(header) as usize;
-    if payload_len == 0 || payload_len > VSR_PAYLOAD_MAX_LEN {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("invalid MCU VSR frame length: {payload_len}"),
-        ));
-    }
-
-    payload_buf.resize(payload_len, 0);
-    port.read_exact(payload_buf)?;
-    Ok(Some(payload_len))
+    result
 }
 
 fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
@@ -324,7 +556,7 @@ fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
     let mut sections = vec![build_link_section(state)];
 
     if let Some(vsr) = state.latest_vsr.as_ref() {
-        sections.extend(build_vsr_sections(vsr));
+        sections.extend(build_vsr_sections(vsr, &state.vsr_schema));
     }
 
     VehicleSnapshot {
@@ -337,41 +569,27 @@ fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
     }
 }
 
-fn derive_drive_metrics(vsr: &VehicleStatusRegister) -> (f32, f32, f32) {
-    let motor_speed_rpm = vsr
-        .motor_speed
-        .as_ref()
-        .map(|speed| speed.motor_speed as f32)
-        .unwrap_or_default();
+fn derive_drive_metrics(vsr: &DynamicMessage) -> (f32, f32, f32) {
+    let motor_speed_rpm =
+        dynamic_field_as_f32(vsr, "motor_speed", "motor_speed").unwrap_or_default();
     let speed_mph = motor_speed_rpm * MOTOR_RPM_TO_MPH;
 
-    let current_reference = vsr
-        .motor_control
-        .as_ref()
-        .map(|control| control.current_reference as f32)
+    let current_reference = dynamic_field_as_f32(vsr, "motor_control", "current_reference")
         .unwrap_or_default()
         .abs();
 
-    let current_limit = vsr
-        .motor_power
-        .as_ref()
-        .map(|power| power.motor_current_limit_arms)
+    let current_limit = dynamic_field_as_f32(vsr, "motor_power", "motor_current_limit_arms")
         .filter(|limit| *limit > 1.0)
         .or_else(|| {
-            vsr.motor_protections_1
-                .as_ref()
-                .map(|prot| prot.dc_traction_current_limit_a as f32)
+            dynamic_field_as_f32(vsr, "motor_protections_1", "dc_traction_current_limit_a")
                 .filter(|limit| *limit > 1.0)
         })
         .unwrap_or(FALLBACK_CURRENT_LIMIT_A);
 
     let torque_ratio = (current_reference / current_limit).clamp(0.0, 1.0);
 
-    let dc_bus_voltage = vsr
-        .motor_power
-        .as_ref()
-        .map(|power| power.measured_dc_voltage_v)
-        .unwrap_or_default();
+    let dc_bus_voltage =
+        dynamic_field_as_f32(vsr, "motor_power", "measured_dc_voltage_v").unwrap_or_default();
 
     let battery_pct = if dc_bus_voltage <= 0.0 {
         0.0
@@ -418,270 +636,170 @@ fn build_link_section(state: &VehicleInternal) -> VehicleSection {
     )
 }
 
-fn build_vsr_sections(vsr: &VehicleStatusRegister) -> Vec<VehicleSection> {
-    let mut sections = Vec::new();
+fn build_vsr_sections(vsr: &DynamicMessage, schema: &VsrSchema) -> Vec<VehicleSection> {
+    let mut sections = Vec::with_capacity(schema.len());
 
-    if let Some(command) = vsr.motor_command.as_ref() {
-        let (command_name, cruise_target) = decode_motor_command(command);
-        let mut fields = vec![VehicleField::new("Command", command_name, None)];
-        if let Some(target) = cruise_target {
-            fields.push(VehicleField::new(
-                "Cruise Target",
-                target.to_string(),
-                Some("rpm"),
-            ));
+    for (section_key, section_schema) in schema {
+        let section_message = match get_nested_message(vsr, section_key) {
+            Some(section_message) => section_message,
+            _ => continue,
+        };
+
+        let mut fields = Vec::with_capacity(section_schema.fields.len());
+        for (field_key, field_schema) in &section_schema.fields {
+            let label = if field_schema.desc.trim().is_empty() {
+                field_key.to_string()
+            } else {
+                field_schema.desc.trim().to_string()
+            };
+            let value = get_field_value_string(&section_message, field_key)
+                .unwrap_or_else(|| "n/a".to_string());
+            let unit = if field_schema.unit.trim().is_empty() {
+                None
+            } else {
+                Some(field_schema.unit.as_str())
+            };
+            fields.push(VehicleField::new(&label, value, unit));
         }
 
-        sections.push(VehicleSection::new(
-            "motor-command",
-            "Motor Command",
-            fields,
-        ));
-    }
-
-    if let Some(control) = vsr.motor_control.as_ref() {
-        sections.push(VehicleSection::new(
-            "motor-control",
-            "Motor Control",
-            vec![
-                VehicleField::new(
-                    "Current Reference",
-                    control.current_reference.to_string(),
-                    Some("Arms"),
-                ),
-                VehicleField::new(
-                    "Discharge Limit",
-                    control.discharge_limit_pct.to_string(),
-                    Some("%"),
-                ),
-                VehicleField::new(
-                    "Charge Limit",
-                    control.charge_limit_pct.to_string(),
-                    Some("%"),
-                ),
-            ],
-        ));
-    }
-
-    if let Some(speed) = vsr.motor_speed.as_ref() {
-        sections.push(VehicleSection::new(
-            "motor-speed",
-            "Motor Speed",
-            vec![
-                VehicleField::new("Motor Speed", speed.motor_speed.to_string(), Some("rpm")),
-                VehicleField::new(
-                    "Quadrature Current",
-                    format_float(speed.quadrature_current),
-                    Some("Arms"),
-                ),
-                VehicleField::new(
-                    "Direct Current",
-                    format_float(speed.direct_current),
-                    Some("Arms"),
-                ),
-            ],
-        ));
-    }
-
-    if let Some(power) = vsr.motor_power.as_ref() {
-        sections.push(VehicleSection::new(
-            "motor-power",
-            "Motor Power",
-            vec![
-                VehicleField::new(
-                    "Measured DC Voltage",
-                    format_float(power.measured_dc_voltage_v),
-                    Some("V"),
-                ),
-                VehicleField::new(
-                    "Calculated DC Current",
-                    format_float(power.calculated_dc_current_a),
-                    Some("A"),
-                ),
-                VehicleField::new(
-                    "Current Limit",
-                    format_float(power.motor_current_limit_arms),
-                    Some("A"),
-                ),
-            ],
-        ));
-    }
-
-    if let Some(error_state) = vsr.motor_error_state.as_ref() {
-        sections.push(VehicleSection::new(
-            "motor-error-state",
-            "Motor Error State",
-            vec![VehicleField::new(
-                "Motor State",
-                motor_state_label(error_state.motor_state),
-                None,
-            )],
-        ));
-    }
-
-    if let Some(safety) = vsr.motor_safety.as_ref() {
-        sections.push(VehicleSection::new(
-            "motor-safety",
-            "Motor Safety",
-            vec![
-                VehicleField::new("Protection Code", safety.protection_code.to_string(), None),
-                VehicleField::new(
-                    "Safety Error Code",
-                    safety.safety_error_code.to_string(),
-                    None,
-                ),
-                VehicleField::new("Motor Temp", safety.motor_temp.to_string(), Some("F")),
-                VehicleField::new(
-                    "Inverter Bridge Temp",
-                    safety.inverter_bridge_temp.to_string(),
-                    Some("F"),
-                ),
-                VehicleField::new("Bus Cap Temp", safety.bus_cap_temp.to_string(), Some("F")),
-                VehicleField::new("PWM Status", safety.pwm_status.to_string(), None),
-            ],
-        ));
-    }
-
-    if let Some(prot1) = vsr.motor_protections_1.as_ref() {
-        sections.push(VehicleSection::new(
-            "motor-protections-1",
-            "Motor Protections 1",
-            vec![
-                VehicleField::new("CAN Timeout", prot1.can_timeout_ms.to_string(), Some("ms")),
-                VehicleField::new(
-                    "DC Regen Current Limit",
-                    prot1.dc_regen_current_limit_neg_a.to_string(),
-                    Some("A"),
-                ),
-                VehicleField::new(
-                    "DC Traction Current Limit",
-                    prot1.dc_traction_current_limit_a.to_string(),
-                    Some("A"),
-                ),
-                VehicleField::new(
-                    "Overspeed Protection",
-                    prot1.overspeed_protection_speed_rpm.to_string(),
-                    Some("rpm x10"),
-                ),
-                VehicleField::new(
-                    "Stall Protection Current",
-                    prot1.stall_protection_current_a.to_string(),
-                    Some("A"),
-                ),
-                VehicleField::new(
-                    "Stall Protection Time",
-                    prot1.stall_protection_time_ms.to_string(),
-                    Some("ms"),
-                ),
-                VehicleField::new(
-                    "Stall Protection Type",
-                    prot1.stall_protection_type.to_string(),
-                    None,
-                ),
-            ],
-        ));
-    }
-
-    if let Some(prot2) = vsr.motor_protections_2.as_ref() {
-        sections.push(VehicleSection::new(
-            "motor-protections-2",
-            "Motor Protections 2",
-            vec![
-                VehicleField::new(
-                    "Max Motor Temp",
-                    prot2.max_motor_temp_c.to_string(),
-                    Some("C"),
-                ),
-                VehicleField::new(
-                    "Motor Temp High Gain",
-                    prot2.motor_temp_high_gain_a_per_c.to_string(),
-                    Some("A/C"),
-                ),
-                VehicleField::new(
-                    "Max Inverter Temp",
-                    prot2.max_inverter_temp_c.to_string(),
-                    Some("C"),
-                ),
-                VehicleField::new(
-                    "Inverter Temp High Gain",
-                    prot2.inverter_temp_high_gain_a_per_c.to_string(),
-                    Some("A/C"),
-                ),
-                VehicleField::new(
-                    "Id Overcurrent Limit",
-                    prot2.id_overcurrent_limit_a.to_string(),
-                    Some("A"),
-                ),
-                VehicleField::new(
-                    "Overvoltage Limit",
-                    prot2.overvoltage_limit_v.to_string(),
-                    Some("V"),
-                ),
-                VehicleField::new(
-                    "Shutdown Voltage Limit",
-                    prot2.shutdown_voltage_limit_v.to_string(),
-                    Some("V"),
-                ),
-            ],
-        ));
-    }
-
-    if let Some(pedal) = vsr.pedal.as_ref() {
-        sections.push(VehicleSection::new(
-            "pedal",
-            "Pedal",
-            vec![
-                VehicleField::new(
-                    "Pedal Position",
-                    format_float(pedal.pedal_position_pct),
-                    Some("%"),
-                ),
-                VehicleField::new("Pedal Raw 1", format_float(pedal.pedal_raw_1), None),
-                VehicleField::new("Pedal Raw 2", format_float(pedal.pedal_raw_2), None),
-                VehicleField::new(
-                    "Pedal Supply Voltage",
-                    format_float(pedal.pedal_supply_voltage),
-                    Some("mV"),
-                ),
-                VehicleField::new("TX Value", pedal.tx_value.to_string(), None),
-                VehicleField::new("Use Pedal", bool_to_on_off(pedal.use_pedal), None),
-            ],
-        ));
+        let section_id = section_key.clone();
+        let title = section_key.clone();
+        sections.push(VehicleSection::new(&section_id, &title, fields));
     }
 
     sections
 }
 
-fn decode_motor_command(command: &vsr_proto::MotorCommand) -> (String, Option<u32>) {
-    let kind = command
-        .command
-        .as_ref()
-        .and_then(|value| value.kind.as_ref());
+fn dynamic_field_as_f32(vsr: &DynamicMessage, section_key: &str, field_key: &str) -> Option<f32> {
+    let section = get_nested_message(vsr, section_key)?;
+    let field_descriptor = section.descriptor().get_field_by_name(field_key)?;
+    dynamic_value_as_f32(section.get_field(&field_descriptor).as_ref())
+}
 
-    match kind {
-        Some(vsr_proto::motor_command::command_value::Kind::Idle(_)) => ("idle".to_string(), None),
-        Some(vsr_proto::motor_command::command_value::Kind::Pedal(_)) => {
-            ("pedal".to_string(), None)
-        }
-        Some(vsr_proto::motor_command::command_value::Kind::Cruise(cruise)) => {
-            ("cruise".to_string(), Some(cruise.target_speed_rpm))
-        }
-        None => ("unset".to_string(), None),
+fn get_nested_message(vsr: &DynamicMessage, section_key: &str) -> Option<DynamicMessage> {
+    let section_descriptor = vsr.descriptor().get_field_by_name(section_key)?;
+    if !vsr.has_field(&section_descriptor) {
+        return None;
+    }
+    match vsr.get_field(&section_descriptor).as_ref() {
+        Value::Message(message) => Some(message.clone()),
+        _ => None,
     }
 }
 
-fn motor_state_label(raw_state: i32) -> String {
-    use vsr_proto::motor_error_state::MotorState;
+fn get_field_value_string(section_message: &DynamicMessage, field_key: &str) -> Option<String> {
+    let descriptor = section_message.descriptor();
+    let field_descriptor = descriptor
+        .get_field_by_name(field_key)
+        .or_else(|| descriptor.get_field_by_json_name(field_key))?;
 
-    match MotorState::try_from(raw_state) {
-        Ok(MotorState::MotorOk) => "MOTOR_OK".to_string(),
-        Ok(MotorState::MotorErrorStop) => "MOTOR_ERROR_STOP".to_string(),
-        Err(_) => format!("UNKNOWN({raw_state})"),
+    // For fields with true presence semantics (messages/oneof/optional),
+    // treat unset as missing. For scalar proto3 fields, use default values.
+    if field_descriptor.supports_presence() && !section_message.has_field(&field_descriptor) {
+        return None;
+    }
+    let value = section_message.get_field(&field_descriptor);
+    Some(format_dynamic_value(
+        value.as_ref(),
+        &field_descriptor.kind(),
+    ))
+}
+
+fn format_dynamic_value(value: &Value, kind: &Kind) -> String {
+    match value {
+        Value::Bool(v) => bool_to_on_off(*v).to_string(),
+        Value::I32(v) => v.to_string(),
+        Value::I64(v) => v.to_string(),
+        Value::U32(v) => v.to_string(),
+        Value::U64(v) => v.to_string(),
+        Value::F32(v) => format!("{v:.2}"),
+        Value::F64(v) => format!("{v:.2}"),
+        Value::String(text) => text.clone(),
+        Value::Bytes(bytes) => format!("{bytes:?}"),
+        Value::EnumNumber(number) => match kind {
+            Kind::Enum(enum_descriptor) => enum_descriptor
+                .get_value(*number)
+                .map(|value_descriptor| value_descriptor.name().to_string())
+                .unwrap_or_else(|| number.to_string()),
+            _ => number.to_string(),
+        },
+        Value::Message(message) => format_dynamic_message(message),
+        Value::List(values) => {
+            let rendered = values
+                .iter()
+                .map(|entry| format_dynamic_value(entry, &Kind::String))
+                .collect::<Vec<_>>();
+            format!("[{}]", rendered.join(", "))
+        }
+        Value::Map(entries) => {
+            let rendered = entries
+                .iter()
+                .map(|(entry_key, entry_value)| {
+                    format!(
+                        "{}={}",
+                        format_map_key(entry_key),
+                        format_dynamic_value(entry_value, &Kind::String)
+                    )
+                })
+                .collect::<Vec<_>>();
+            format!("{{{}}}", rendered.join(", "))
+        }
     }
 }
 
-fn format_float(value: f32) -> String {
-    format!("{value:.2}")
+fn format_dynamic_message(message: &DynamicMessage) -> String {
+    let descriptor = message.descriptor();
+    let rendered = message
+        .descriptor()
+        .fields()
+        .filter(|field| message.has_field(field))
+        .map(|field| {
+            let value = message.get_field(&field);
+            match value.as_ref() {
+                // For empty marker payloads (common for oneof/unit variants), emit just the field name.
+                Value::Message(child) if child.descriptor().fields().len() == 0 => field.name().to_string(),
+                _ => format!(
+                    "{}={}",
+                    field.name(),
+                    format_dynamic_value(value.as_ref(), &field.kind())
+                ),
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if rendered.is_empty() {
+        if descriptor.oneofs().len() > 0 {
+            "unset".to_string()
+        } else {
+            "set".to_string()
+        }
+    } else {
+        rendered.join(", ")
+    }
+}
+
+fn dynamic_value_as_f32(value: &Value) -> Option<f32> {
+    match value {
+        Value::I32(v) => Some(*v as f32),
+        Value::I64(v) => Some(*v as f32),
+        Value::U32(v) => Some(*v as f32),
+        Value::U64(v) => Some(*v as f32),
+        Value::F32(v) => Some(*v),
+        Value::F64(v) => Some(*v as f32),
+        Value::EnumNumber(v) => Some(*v as f32),
+        _ => None,
+    }
+}
+
+fn format_map_key(key: &MapKey) -> String {
+    match key {
+        MapKey::Bool(v) => v.to_string(),
+        MapKey::I32(v) => v.to_string(),
+        MapKey::I64(v) => v.to_string(),
+        MapKey::U32(v) => v.to_string(),
+        MapKey::U64(v) => v.to_string(),
+        MapKey::String(v) => v.clone(),
+    }
 }
 
 fn bool_to_on_off(value: bool) -> &'static str {

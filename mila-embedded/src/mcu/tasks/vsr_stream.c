@@ -12,7 +12,9 @@
 #define VSR_STREAM_BAUD_RATE       921600
 #define VSR_STREAM_PERIOD_MS       100 // 10 Hz
 #define VSR_STREAM_PAYLOAD_MAX_LEN vsr_VehicleStatusRegister_size
-#define VSR_STREAM_HEADER_LEN      2
+#define VSR_STREAM_MAGIC_0         0xA5u
+#define VSR_STREAM_MAGIC_1         0x5Au
+#define VSR_STREAM_HEADER_LEN      4
 #define VSR_STREAM_FRAME_MAX_LEN   (VSR_STREAM_HEADER_LEN + VSR_STREAM_PAYLOAD_MAX_LEN)
 #define VSR_STREAM_TX_BUF_LEN      (2 * VSR_STREAM_FRAME_MAX_LEN)
 
@@ -73,10 +75,12 @@ static void vsr_stream_main(void* arg) {
     while (1) {
         size_t payload_len = 0;
         if (vsr_serialize(vsr, payload_buf, sizeof(payload_buf), &payload_len) &&
-            payload_len <= VSR_STREAM_PAYLOAD_MAX_LEN) {
-            // Frame format: [u16 little-endian payload length][protobuf payload bytes].
-            frame_buf[0] = (uint8_t) (payload_len & 0xFFu);
-            frame_buf[1] = (uint8_t) ((payload_len >> 8) & 0xFFu);
+            payload_len <= VSR_STREAM_PAYLOAD_MAX_LEN && payload_len <= UINT16_MAX) {
+            // Frame format: [0xA5 0x5A][u16 little-endian payload length][protobuf payload bytes].
+            frame_buf[0] = VSR_STREAM_MAGIC_0;
+            frame_buf[1] = VSR_STREAM_MAGIC_1;
+            frame_buf[2] = (uint8_t) (payload_len & 0xFFu);
+            frame_buf[3] = (uint8_t) ((payload_len >> 8) & 0xFFu);
             memcpy(&frame_buf[VSR_STREAM_HEADER_LEN], payload_buf, payload_len);
 
             uart_write_all(frame_buf, payload_len + VSR_STREAM_HEADER_LEN);
