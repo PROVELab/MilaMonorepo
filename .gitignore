@@ -4,3 +4,5 @@ vsr.h
 vsr.c
 compile_commands.json
 .cache/
+*.mcap
+.codex
