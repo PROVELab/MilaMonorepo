@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { DriveMode, VehicleSnapshot } from "../types/telemetry";
+import { MOTOR_SPEED_RPM_TO_MPH } from "../constants/vehicle";
 
 declare global {
   interface Window {
@@ -13,6 +14,7 @@ declare global {
 
 const DEFAULT_SNAPSHOT: VehicleSnapshot = {
   speedMph: 0,
+  pedalPct: 0,
   torqueRatio: 0,
   batteryPct: 0,
   driveMode: "P",
@@ -20,9 +22,37 @@ const DEFAULT_SNAPSHOT: VehicleSnapshot = {
   liveTextLogs: ["waiting for MCU VSR stream"],
 };
 
+type BackendVehicleSnapshot = Omit<VehicleSnapshot, "pedalPct">;
+
 const runtimeIsTauri = () =>
   typeof window !== "undefined" &&
   ("__TAURI_INTERNALS__" in window || "__TAURI_IPC__" in window);
+
+function extractNumericVsrValue(
+  snapshot: Pick<VehicleSnapshot, "sections">,
+  sectionId: string,
+  fieldLabel: string,
+): number {
+  const rawValue = snapshot.sections
+    .find(section => section.id === sectionId)
+    ?.fields.find(field => field.label === fieldLabel)
+    ?.value;
+
+  const parsed = Number.parseFloat(rawValue ?? "");
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function clampPct(value: number): number {
+  return Math.min(100, Math.max(0, value));
+}
+
+function extractMotorSpeedRpm(snapshot: Pick<VehicleSnapshot, "sections">): number {
+  return extractNumericVsrValue(snapshot, "motor_speed", "Motor Speed");
+}
+
+function extractPedalPct(snapshot: Pick<VehicleSnapshot, "sections">): number {
+  return clampPct(extractNumericVsrValue(snapshot, "pedal", "Pedal Position"));
+}
 
 export function useVehicleTelemetry(pollIntervalMs = 250) {
   const [snapshot, setSnapshot] = useState<VehicleSnapshot>(DEFAULT_SNAPSHOT);
@@ -35,8 +65,14 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
   }, []);
 
   const fetchSnapshot = useCallback(async () => {
-    const payload = await invoke<VehicleSnapshot>("get_vehicle_snapshot");
-    setSnapshot(payload);
+    const payload = await invoke<BackendVehicleSnapshot>("get_vehicle_snapshot");
+    const motorSpeedRpm = extractMotorSpeedRpm(payload);
+    const pedalPct = extractPedalPct(payload);
+    setSnapshot({
+      ...payload,
+      speedMph: motorSpeedRpm * MOTOR_SPEED_RPM_TO_MPH,
+      pedalPct,
+    });
     setDriveMode(payload.driveMode);
   }, []);
 

@@ -14,6 +14,7 @@ export interface VehicleSection {
 
 export interface VehicleSnapshot {
   speedMph: number;
+  pedalPct: number; // 0 - 100
   torqueRatio: number; // 0 - 1
   batteryPct: number;
   driveMode: DriveMode;

@@ -1,11 +1,11 @@
 interface TachometerProps {
   speed: number;
-  torqueRatio: number;
+  pedalPct: number;
 }
 
 const MAX_SPEED = 160;
 
-export function Tachometer({ speed, torqueRatio }: TachometerProps) {
+export function Tachometer({ speed, pedalPct }: TachometerProps) {
   const normalizedSpeed = Math.min(Math.max(Math.abs(speed), 0), MAX_SPEED) / MAX_SPEED;
   const radius = 90;
   const circumference = 2 * Math.PI * radius;
@@ -50,11 +50,11 @@ export function Tachometer({ speed, torqueRatio }: TachometerProps) {
         <span className="tachometer__label">Speed</span>
         <span className="tachometer__value">{Math.round(speed)}</span>
         <span className="tachometer__unit">mph</span>
-      </div>
-      <div className="torque-indicator">
-        <span>Torque</span>
-        <div className="torque-indicator__bar">
-          <div style={{ width: `${Math.min(1, Math.max(0, torqueRatio)) * 100}%` }} />
+        <div className="pedal-indicator" aria-label={`Pedal position ${Math.round(pedalPct)} percent`}>
+          <span>Pedal</span>
+          <div className="pedal-indicator__bar">
+            <div style={{ width: `${pedalPct}%` }} />
+          </div>
         </div>
       </div>
     </div>

@@ -196,27 +196,29 @@ body {
   letter-spacing: 0.3em;
 }
 
-.torque-indicator {
-  width: 200px;
+.pedal-indicator {
+  width: 160px;
+  margin: 8px auto 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 12px;
-  letter-spacing: 0.15em;
+  font-size: 11px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  opacity: 0.82;
 }
 
-.torque-indicator__bar {
-  height: 4px;
+.pedal-indicator__bar {
+  height: 5px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 
-.torque-indicator__bar div {
+.pedal-indicator__bar div {
   height: 100%;
-  background: linear-gradient(90deg, #ff7e6e, #ffd56c);
-  transition: width 0.2s ease;
+  background: linear-gradient(90deg, #8ae48d, #f3df64);
+  transition: width 0.18s ease;
 }
 
 .drive-selector {

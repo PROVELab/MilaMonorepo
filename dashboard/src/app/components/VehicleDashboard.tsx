@@ -17,15 +17,15 @@ interface DriveViewProps {
   driveMode: DriveMode;
   changeDriveMode: (mode: DriveMode) => void;
   speedMph: number;
-  torqueRatio: number;
+  pedalPct: number;
 }
 
-function DriveView({ batteryPct, driveMode, changeDriveMode, speedMph, torqueRatio }: DriveViewProps) {
+function DriveView({ batteryPct, driveMode, changeDriveMode, speedMph, pedalPct }: DriveViewProps) {
   return (
     <div className="drive-view">
       <VehicleScene speed={speedMph} driveMode={driveMode} />
       <div className="drive-view__overlay drive-view__overlay--top">
-        <Tachometer speed={speedMph} torqueRatio={torqueRatio} />
+        <Tachometer speed={speedMph} pedalPct={pedalPct} />
       </div>
       <div className="drive-view__overlay drive-view__overlay--bottom">
         <DriveModeSelector value={driveMode} onChange={changeDriveMode} />
@@ -54,7 +54,7 @@ export function VehicleDashboard() {
             driveMode={driveMode}
             changeDriveMode={changeDriveMode}
             speedMph={snapshot.speedMph}
-            torqueRatio={snapshot.torqueRatio}
+            pedalPct={snapshot.pedalPct}
           />
         ),
       },
