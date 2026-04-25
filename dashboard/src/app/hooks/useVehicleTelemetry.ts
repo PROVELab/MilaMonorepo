@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { DriveMode, VehicleSnapshot } from "../types/telemetry";
 
@@ -29,8 +29,6 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
   const [driveMode, setDriveMode] = useState<DriveMode>("P");
   const [runtime, setRuntime] = useState<"unknown" | "tauri" | "sim">("unknown");
 
-  const modeRef = useRef<DriveMode>("P");
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     setRuntime(runtimeIsTauri() ? "tauri" : "sim");
@@ -40,7 +38,6 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
     const payload = await invoke<VehicleSnapshot>("get_vehicle_snapshot");
     setSnapshot(payload);
     setDriveMode(payload.driveMode);
-    modeRef.current = payload.driveMode;
   }, []);
 
   useEffect(() => {
@@ -77,7 +74,6 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
   const changeDriveMode = useCallback(
     async (nextMode: DriveMode) => {
       setDriveMode(nextMode);
-      modeRef.current = nextMode;
       setSnapshot(prev => ({ ...prev, driveMode: nextMode }));
 
       if (runtime !== "tauri") return;

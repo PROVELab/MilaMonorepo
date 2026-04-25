@@ -23,9 +23,11 @@ const VSR_OPEN_SETTLE_DELAY: Duration = Duration::from_millis(500);
 const VSR_FRAME_MAGIC_0: u8 = 0xA5;
 const VSR_FRAME_MAGIC_1: u8 = 0x5A;
 const VSR_FRAME_HEADER_LEN: usize = 4;
-const LEGACY_VSR_FRAME_HEADER_LEN: usize = 2;
 const VSR_PAYLOAD_MAX_LEN: usize = 4096;
 const VSR_STREAM_BUFFER_MAX_LEN: usize = 8 * VSR_PAYLOAD_MAX_LEN;
+const VSR_RESYNC_LOG_EVERY_DROPS: u64 = 500;
+const VSR_NO_FRAME_WARNING_EVERY_DROPS: u64 = 50_000;
+const VSR_FRAME_PROGRESS_LOG_EVERY: u64 = 100;
 const MAX_LOG_LINES: usize = 120;
 const VSR_MESSAGE_FULL_NAME: &str = "vsr.VehicleStatusRegister";
 
@@ -77,8 +79,6 @@ impl VehicleState {
                 frames_received: 0,
                 decode_errors: 0,
                 io_errors: 0,
-                magic_framing_detected: false,
-                legacy_framing_detected: false,
                 live_text_logs: logs,
             })),
         }
@@ -118,8 +118,6 @@ struct VehicleInternal {
     frames_received: u64,
     decode_errors: u64,
     io_errors: u64,
-    magic_framing_detected: bool,
-    legacy_framing_detected: bool,
     live_text_logs: VecDeque<String>,
 }
 
@@ -266,7 +264,7 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
             );
         }
 
-        let mut stream_buf = VecDeque::<u8>::with_capacity(2 * VSR_PAYLOAD_MAX_LEN);
+        let mut stream_buf = Vec::<u8>::with_capacity(2 * VSR_PAYLOAD_MAX_LEN);
         let mut read_buf = [0_u8; 512];
 
         loop {
@@ -288,10 +286,10 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
                 }
             };
 
-            stream_buf.extend(read_buf[..bytes_read].iter().copied());
+            stream_buf.extend_from_slice(&read_buf[..bytes_read]);
             trim_stream_buffer(&mut stream_buf);
 
-            let drain_result = drain_vsr_frames(&mut stream_buf, true, |payload| {
+            let drain_result = drain_vsr_frames(&mut stream_buf, |payload| {
                 if let Some(warning) = mcap_recorder.append_vsr(payload) {
                     let mut state = shared.lock().expect("vehicle state poisoned");
                     push_log_line(&mut state.live_text_logs, warning);
@@ -303,26 +301,13 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
 
             let mut state = shared.lock().expect("vehicle state poisoned");
 
-            if drain_result.magic_frames_decoded > 0 && !state.magic_framing_detected {
-                state.magic_framing_detected = true;
-                push_log_line(
-                    &mut state.live_text_logs,
-                    "detected framed stream format: [A5 5A][len_le][protobuf]",
-                );
-            }
-            if drain_result.legacy_frames_decoded > 0 && !state.legacy_framing_detected {
-                state.legacy_framing_detected = true;
-                push_log_line(
-                    &mut state.live_text_logs,
-                    "detected legacy stream format: [len_le][protobuf] (MCU firmware is old)",
-                );
-            }
-
             let dropped_fragments = drain_result.invalid_len_drops + drain_result.decode_drops;
             if dropped_fragments > 0 {
                 let previous = state.decode_errors;
                 state.decode_errors = state.decode_errors.saturating_add(dropped_fragments);
-                if state.decode_errors / 500 != previous / 500 {
+                if state.decode_errors / VSR_RESYNC_LOG_EVERY_DROPS
+                    != previous / VSR_RESYNC_LOG_EVERY_DROPS
+                {
                     let total_drops = state.decode_errors;
                     push_log_line(
                         &mut state.live_text_logs,
@@ -333,7 +318,10 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
                     );
                 }
 
-                if state.frames_received == 0 && state.decode_errors / 50_000 != previous / 50_000 {
+                if state.frames_received == 0
+                    && state.decode_errors / VSR_NO_FRAME_WARNING_EVERY_DROPS
+                        != previous / VSR_NO_FRAME_WARNING_EVERY_DROPS
+                {
                     push_log_line(
                         &mut state.live_text_logs,
                         "no valid VSR frames yet; check MCU firmware build, framing mode, and serial port selection",
@@ -352,7 +340,9 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
                     state.latest_vsr = Some(latest_vsr);
                 }
 
-                if state.frames_received / 100 != previous_frames / 100 {
+                if state.frames_received / VSR_FRAME_PROGRESS_LOG_EVERY
+                    != previous_frames / VSR_FRAME_PROGRESS_LOG_EVERY
+                {
                     let received = state.frames_received;
                     push_log_line(
                         &mut state.live_text_logs,
@@ -407,15 +397,13 @@ fn choose_serial_port_name(ports: &[SerialPortInfo]) -> Option<String> {
         .map(|port| port.port_name.clone())
 }
 
-fn trim_stream_buffer(stream_buf: &mut VecDeque<u8>) {
+fn trim_stream_buffer(stream_buf: &mut Vec<u8>) {
     if stream_buf.len() <= VSR_STREAM_BUFFER_MAX_LEN {
         return;
     }
 
     let to_drop = stream_buf.len() - VSR_STREAM_BUFFER_MAX_LEN;
-    for _ in 0..to_drop {
-        stream_buf.pop_front();
-    }
+    stream_buf.drain(..to_drop);
 }
 
 #[derive(Default)]
@@ -423,8 +411,6 @@ struct DrainResult {
     invalid_len_drops: u64,
     decode_drops: u64,
     frames_decoded: u64,
-    magic_frames_decoded: u64,
-    legacy_frames_decoded: u64,
     last_payload_len: usize,
     last_vsr: Option<DynamicMessage>,
 }
@@ -435,11 +421,10 @@ impl DrainResult {
     }
 }
 
-fn find_magic_start(stream_buf: &VecDeque<u8>) -> Option<usize> {
+fn find_magic_start(stream_buf: &[u8]) -> Option<usize> {
     stream_buf
-        .iter()
-        .zip(stream_buf.iter().skip(1))
-        .position(|(&first, &second)| first == VSR_FRAME_MAGIC_0 && second == VSR_FRAME_MAGIC_1)
+        .windows(2)
+        .position(|window| window == [VSR_FRAME_MAGIC_0, VSR_FRAME_MAGIC_1])
 }
 
 fn try_decode_vsr_payload(payload: &[u8]) -> Option<DynamicMessage> {
@@ -454,128 +439,81 @@ fn vsr_has_any_data(vsr: &DynamicMessage) -> bool {
     has_any
 }
 
-fn drain_vsr_frames<F>(
-    stream_buf: &mut VecDeque<u8>,
-    allow_legacy_framing: bool,
-    mut on_vsr_payload: F,
-) -> DrainResult
+fn drain_vsr_frames<F>(stream_buf: &mut Vec<u8>, mut on_vsr_payload: F) -> DrainResult
 where
     F: FnMut(&[u8]),
 {
     let mut result = DrainResult::default();
+    let mut cursor = 0_usize;
 
     loop {
-        if stream_buf.len() < 2 {
+        let remaining = stream_buf.len().saturating_sub(cursor);
+        if remaining < 2 {
             break;
         }
 
-        match find_magic_start(stream_buf) {
+        match find_magic_start(&stream_buf[cursor..]) {
             Some(0) => {}
             Some(offset) => {
-                for _ in 0..offset {
-                    stream_buf.pop_front();
-                }
                 result.invalid_len_drops = result.invalid_len_drops.saturating_add(offset as u64);
+                cursor = cursor.saturating_add(offset);
                 continue;
             }
             None => {
-                if allow_legacy_framing && stream_buf.len() >= LEGACY_VSR_FRAME_HEADER_LEN {
-                    let payload_len = u16::from_le_bytes([stream_buf[0], stream_buf[1]]) as usize;
-                    if payload_len > 0 && payload_len <= VSR_PAYLOAD_MAX_LEN {
-                        let frame_len = LEGACY_VSR_FRAME_HEADER_LEN + payload_len;
-                        if stream_buf.len() < frame_len {
-                            break;
-                        }
-
-                        let mut payload = vec![0_u8; payload_len];
-                        for (dst, src) in payload.iter_mut().zip(
-                            stream_buf
-                                .iter()
-                                .skip(LEGACY_VSR_FRAME_HEADER_LEN)
-                                .take(payload_len),
-                        ) {
-                            *dst = *src;
-                        }
-
-                        if let Some(vsr) = try_decode_vsr_payload(payload.as_slice()) {
-                            for _ in 0..frame_len {
-                                stream_buf.pop_front();
-                            }
-                            result.frames_decoded = result.frames_decoded.saturating_add(1);
-                            result.legacy_frames_decoded =
-                                result.legacy_frames_decoded.saturating_add(1);
-                            result.last_payload_len = payload_len;
-                            on_vsr_payload(payload.as_slice());
-                            result.last_vsr = Some(vsr);
-                            continue;
-                        }
-                    }
-
-                    // Probe legacy framing by shifting one byte at a time.
-                    stream_buf.pop_front();
-                    result.invalid_len_drops = result.invalid_len_drops.saturating_add(1);
-                    continue;
-                }
-
                 // Keep a trailing possible first magic byte for the next read chunk.
                 let keep = if stream_buf
-                    .back()
+                    .last()
                     .is_some_and(|byte| *byte == VSR_FRAME_MAGIC_0)
                 {
                     1
                 } else {
                     0
                 };
-                let to_drop = stream_buf.len().saturating_sub(keep);
-                for _ in 0..to_drop {
-                    stream_buf.pop_front();
-                }
+                let to_drop = stream_buf.len().saturating_sub(cursor).saturating_sub(keep);
                 result.invalid_len_drops = result.invalid_len_drops.saturating_add(to_drop as u64);
+                cursor = stream_buf.len().saturating_sub(keep);
                 break;
             }
         }
 
-        if stream_buf.len() < VSR_FRAME_HEADER_LEN {
+        let remaining = stream_buf.len().saturating_sub(cursor);
+        if remaining < VSR_FRAME_HEADER_LEN {
             break;
         }
 
-        let payload_len = u16::from_le_bytes([stream_buf[2], stream_buf[3]]) as usize;
+        let payload_len =
+            u16::from_le_bytes([stream_buf[cursor + 2], stream_buf[cursor + 3]]) as usize;
         if payload_len == 0 || payload_len > VSR_PAYLOAD_MAX_LEN {
             // Drop one byte and continue seeking marker.
-            stream_buf.pop_front();
+            cursor = cursor.saturating_add(1);
             result.invalid_len_drops = result.invalid_len_drops.saturating_add(1);
             continue;
         }
 
         let frame_len = VSR_FRAME_HEADER_LEN + payload_len;
-        if stream_buf.len() < frame_len {
+        if remaining < frame_len {
             break;
         }
 
-        let mut payload = vec![0_u8; payload_len];
-        for (dst, src) in payload.iter_mut().zip(
-            stream_buf
-                .iter()
-                .skip(VSR_FRAME_HEADER_LEN)
-                .take(payload_len),
-        ) {
-            *dst = *src;
-        }
+        let payload_start = cursor + VSR_FRAME_HEADER_LEN;
+        let payload_end = payload_start + payload_len;
+        let payload = &stream_buf[payload_start..payload_end];
 
-        if let Some(vsr) = try_decode_vsr_payload(payload.as_slice()) {
-            for _ in 0..frame_len {
-                stream_buf.pop_front();
-            }
+        if let Some(vsr) = try_decode_vsr_payload(payload) {
             result.frames_decoded = result.frames_decoded.saturating_add(1);
-            result.magic_frames_decoded = result.magic_frames_decoded.saturating_add(1);
             result.last_payload_len = payload_len;
-            on_vsr_payload(payload.as_slice());
+            on_vsr_payload(payload);
             result.last_vsr = Some(vsr);
+            cursor = payload_end;
         } else {
             // Keep the stream open and shift by one byte to seek the next possible boundary.
-            stream_buf.pop_front();
+            cursor = cursor.saturating_add(1);
             result.decode_drops = result.decode_drops.saturating_add(1);
         }
+    }
+
+    if cursor > 0 {
+        stream_buf.drain(..cursor);
     }
 
     result

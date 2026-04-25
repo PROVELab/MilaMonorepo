@@ -12,19 +12,6 @@ export interface VehicleSection {
   fields: VehicleField[];
 }
 
-export interface MetricWindow {
-  label: string;
-  value: string;
-}
-
-export interface DerivedMetric {
-  label: string;
-  unit: string;
-  current: string;
-  windows: MetricWindow[];
-  sparkline: number[];
-}
-
 export interface VehicleSnapshot {
   speedMph: number;
   torqueRatio: number; // 0 - 1
