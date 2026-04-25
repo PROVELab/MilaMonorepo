@@ -20,6 +20,7 @@ tauri-build = { version = "2.2.0", features = [] }
 vsr = { path = "../../autogen/vsr" }
 
 [dependencies]
+mcap = { version = "0.24.0", default-features = false, features = ["zstd"] }
 prost-reflect = "0.14.7"
 serialport = "4.8.1"
 serde = { version = "1.0", features = ["derive"] }

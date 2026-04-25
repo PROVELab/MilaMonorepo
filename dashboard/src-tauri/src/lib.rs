@@ -1,3 +1,6 @@
+mod mcap_recorder;
+
+use mcap_recorder::McapRecorder;
 use prost_reflect::{
     DescriptorPool, DynamicMessage, Kind, MapKey, MessageDescriptor, ReflectMessage, Value,
 };
@@ -187,11 +190,13 @@ fn load_vsr_schema() -> (VsrSchema, String) {
 fn vsr_descriptor_pool() -> &'static DescriptorPool {
     static POOL: OnceLock<DescriptorPool> = OnceLock::new();
     POOL.get_or_init(|| {
-        DescriptorPool::decode(
-            include_bytes!(concat!(env!("OUT_DIR"), "/vsr_descriptor.bin")).as_ref(),
-        )
-        .expect("failed to decode embedded VSR descriptor set")
+        DescriptorPool::decode(vsr_descriptor_bytes())
+            .expect("failed to decode embedded VSR descriptor set")
     })
+}
+
+fn vsr_descriptor_bytes() -> &'static [u8] {
+    include_bytes!(concat!(env!("OUT_DIR"), "/vsr_descriptor.bin")).as_ref()
 }
 
 fn vehicle_status_descriptor() -> MessageDescriptor {
@@ -201,6 +206,22 @@ fn vehicle_status_descriptor() -> MessageDescriptor {
 }
 
 fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
+    let mut mcap_recorder = McapRecorder::new(VSR_MESSAGE_FULL_NAME, vsr_descriptor_bytes());
+    {
+        let mut state = shared.lock().expect("vehicle state poisoned");
+        if let Some(warning) = mcap_recorder.take_startup_warning() {
+            push_log_line(&mut state.live_text_logs, warning);
+        } else {
+            push_log_line(
+                &mut state.live_text_logs,
+                format!(
+                    "recording incoming VSR stream to {}",
+                    mcap_recorder.output_path().display()
+                ),
+            );
+        }
+    }
+
     loop {
         let port_name = wait_for_serial_port_name();
 
@@ -270,7 +291,12 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
             stream_buf.extend(read_buf[..bytes_read].iter().copied());
             trim_stream_buffer(&mut stream_buf);
 
-            let drain_result = drain_vsr_frames(&mut stream_buf, true);
+            let drain_result = drain_vsr_frames(&mut stream_buf, true, |payload| {
+                if let Some(warning) = mcap_recorder.append_vsr(payload) {
+                    let mut state = shared.lock().expect("vehicle state poisoned");
+                    push_log_line(&mut state.live_text_logs, warning);
+                }
+            });
             if !drain_result.has_activity() {
                 continue;
             }
@@ -428,7 +454,14 @@ fn vsr_has_any_data(vsr: &DynamicMessage) -> bool {
     has_any
 }
 
-fn drain_vsr_frames(stream_buf: &mut VecDeque<u8>, allow_legacy_framing: bool) -> DrainResult {
+fn drain_vsr_frames<F>(
+    stream_buf: &mut VecDeque<u8>,
+    allow_legacy_framing: bool,
+    mut on_vsr_payload: F,
+) -> DrainResult
+where
+    F: FnMut(&[u8]),
+{
     let mut result = DrainResult::default();
 
     loop {
@@ -472,6 +505,7 @@ fn drain_vsr_frames(stream_buf: &mut VecDeque<u8>, allow_legacy_framing: bool) -
                             result.legacy_frames_decoded =
                                 result.legacy_frames_decoded.saturating_add(1);
                             result.last_payload_len = payload_len;
+                            on_vsr_payload(payload.as_slice());
                             result.last_vsr = Some(vsr);
                             continue;
                         }
@@ -535,6 +569,7 @@ fn drain_vsr_frames(stream_buf: &mut VecDeque<u8>, allow_legacy_framing: bool) -
             result.frames_decoded = result.frames_decoded.saturating_add(1);
             result.magic_frames_decoded = result.magic_frames_decoded.saturating_add(1);
             result.last_payload_len = payload_len;
+            on_vsr_payload(payload.as_slice());
             result.last_vsr = Some(vsr);
         } else {
             // Keep the stream open and shift by one byte to seek the next possible boundary.
@@ -757,7 +792,9 @@ fn format_dynamic_message(message: &DynamicMessage) -> String {
             let value = message.get_field(&field);
             match value.as_ref() {
                 // For empty marker payloads (common for oneof/unit variants), emit just the field name.
-                Value::Message(child) if child.descriptor().fields().len() == 0 => field.name().to_string(),
+                Value::Message(child) if child.descriptor().fields().len() == 0 => {
+                    field.name().to_string()
+                }
                 _ => format!(
                     "{}={}",
                     field.name(),
