@@ -30,13 +30,9 @@ static bool init_vsr_stream_uart(void) {
 
     // UART0 may already have a driver installed by IDF startup code.
     esp_err_t err = uart_driver_install(VSR_STREAM_UART_NUM, VSR_STREAM_TX_BUF_LEN, 0, 0, NULL, 0);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
-        return false;
-    }
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) { return false; }
 
-    if (uart_param_config(VSR_STREAM_UART_NUM, &uart_config) != ESP_OK) {
-        return false;
-    }
+    if (uart_param_config(VSR_STREAM_UART_NUM, &uart_config) != ESP_OK) { return false; }
 
     if (uart_set_pin(VSR_STREAM_UART_NUM, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE,
                      UART_PIN_NO_CHANGE) != ESP_OK) {
@@ -50,9 +46,7 @@ static void uart_write_all(const uint8_t* data, size_t len) {
     size_t offset = 0;
     while (offset < len) {
         int written = uart_write_bytes(VSR_STREAM_UART_NUM, (const char*) data + offset, len - offset);
-        if (written <= 0) {
-            break;
-        }
+        if (written <= 0) { break; }
         offset += (size_t) written;
     }
 }
