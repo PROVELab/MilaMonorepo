@@ -31,11 +31,11 @@ const runtimeIsTauri = () =>
 function extractNumericVsrValue(
   snapshot: Pick<VehicleSnapshot, "sections">,
   sectionId: string,
-  fieldLabel: string,
+  fieldKey: string,
 ): number {
   const rawValue = snapshot.sections
     .find(section => section.id === sectionId)
-    ?.fields.find(field => field.label === fieldLabel)
+    ?.fields.find(field => field.key === fieldKey)
     ?.value;
 
   const parsed = Number.parseFloat(rawValue ?? "");
@@ -47,11 +47,11 @@ function clampPct(value: number): number {
 }
 
 function extractMotorSpeedRpm(snapshot: Pick<VehicleSnapshot, "sections">): number {
-  return extractNumericVsrValue(snapshot, "motor_speed", "Motor Speed");
+  return extractNumericVsrValue(snapshot, "motor_speed", "motor_speed");
 }
 
 function extractPedalPct(snapshot: Pick<VehicleSnapshot, "sections">): number {
-  return clampPct(extractNumericVsrValue(snapshot, "pedal", "Pedal Position"));
+  return clampPct(extractNumericVsrValue(snapshot, "pedal", "pedal_position"));
 }
 
 export function useVehicleTelemetry(pollIntervalMs = 250) {

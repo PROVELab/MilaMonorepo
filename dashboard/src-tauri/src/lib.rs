@@ -1,5 +1,8 @@
+mod field_trend;
 mod mcap_recorder;
 
+use enumset::enum_set;
+use field_trend::{build_field_trend, FieldSample, FieldTrendResponse, SampleSource};
 use mcap_recorder::McapRecorder;
 use prost_reflect::{
     DescriptorPool, DynamicMessage, Kind, MapKey, MessageDescriptor, ReflectMessage, Value,
@@ -8,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serialport::{ClearBuffer, SerialPortInfo, SerialPortType};
 use std::collections::VecDeque;
 use std::env;
+use std::fs;
 use std::io::{self, Read};
 use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
@@ -30,6 +34,7 @@ const VSR_NO_FRAME_WARNING_EVERY_DROPS: u64 = 50_000;
 const VSR_FRAME_PROGRESS_LOG_EVERY: u64 = 100;
 const MAX_LOG_LINES: usize = 120;
 const VSR_MESSAGE_FULL_NAME: &str = "vsr.VehicleStatusRegister";
+const MCAP_VSR_TOPIC: &str = "/vsr";
 
 // This is only an approximate wheel-speed conversion for UI continuity.
 const MOTOR_RPM_TO_MPH: f32 = 0.04;
@@ -73,6 +78,7 @@ impl VehicleState {
                 drive_mode: DriveMode::Park,
                 vsr_schema,
                 latest_vsr: None,
+                mcap_output_path: None,
                 serial_port_name: None,
                 last_frame_received_at: None,
                 last_frame_size_bytes: 0,
@@ -112,6 +118,7 @@ struct VehicleInternal {
     drive_mode: DriveMode,
     vsr_schema: VsrSchema,
     latest_vsr: Option<DynamicMessage>,
+    mcap_output_path: Option<String>,
     serial_port_name: Option<String>,
     last_frame_received_at: Option<Instant>,
     last_frame_size_bytes: usize,
@@ -134,14 +141,16 @@ pub struct VehicleSnapshot {
 
 #[derive(Serialize)]
 pub struct VehicleField {
+    key: String,
     label: String,
     value: String,
     unit: Option<String>,
 }
 
 impl VehicleField {
-    fn new(label: &str, value: impl Into<String>, unit: Option<&str>) -> Self {
+    fn new(key: &str, label: &str, value: impl Into<String>, unit: Option<&str>) -> Self {
         Self {
+            key: key.to_string(),
             label: label.to_string(),
             value: value.into(),
             unit: unit.map(ToOwned::to_owned),
@@ -208,8 +217,10 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
     {
         let mut state = shared.lock().expect("vehicle state poisoned");
         if let Some(warning) = mcap_recorder.take_startup_warning() {
+            state.mcap_output_path = None;
             push_log_line(&mut state.live_text_logs, warning);
         } else {
+            state.mcap_output_path = Some(mcap_recorder.output_path().display().to_string());
             push_log_line(
                 &mut state.live_text_logs,
                 format!(
@@ -591,20 +602,32 @@ fn build_link_section(state: &VehicleInternal) -> VehicleSection {
         "MCU Link",
         vec![
             VehicleField::new(
+                "serial_port",
                 "Serial Port",
                 state.serial_port_name.as_deref().unwrap_or("not selected"),
                 None,
             ),
-            VehicleField::new("Status", link_status, None),
-            VehicleField::new("Frames RX", state.frames_received.to_string(), None),
+            VehicleField::new("status", "Status", link_status, None),
             VehicleField::new(
+                "frames_rx",
+                "Frames RX",
+                state.frames_received.to_string(),
+                None,
+            ),
+            VehicleField::new(
+                "last_frame_size",
                 "Last Frame Size",
                 state.last_frame_size_bytes.to_string(),
                 Some("B"),
             ),
-            VehicleField::new("Last Frame Age", frame_age_ms, Some("ms")),
-            VehicleField::new("Decode Errors", state.decode_errors.to_string(), None),
-            VehicleField::new("I/O Errors", state.io_errors.to_string(), None),
+            VehicleField::new("last_frame_age", "Last Frame Age", frame_age_ms, Some("ms")),
+            VehicleField::new(
+                "decode_errors",
+                "Decode Errors",
+                state.decode_errors.to_string(),
+                None,
+            ),
+            VehicleField::new("io_errors", "I/O Errors", state.io_errors.to_string(), None),
         ],
     )
 }
@@ -632,7 +655,7 @@ fn build_vsr_sections(vsr: &DynamicMessage, schema: &VsrSchema) -> Vec<VehicleSe
             } else {
                 Some(field_schema.unit.as_str())
             };
-            fields.push(VehicleField::new(&label, value, unit));
+            fields.push(VehicleField::new(field_key, &label, value, unit));
         }
 
         let section_id = section_key.clone();
@@ -647,6 +670,12 @@ fn dynamic_field_as_f32(vsr: &DynamicMessage, section_key: &str, field_key: &str
     let section = get_nested_message(vsr, section_key)?;
     let field_descriptor = section.descriptor().get_field_by_name(field_key)?;
     dynamic_value_as_f32(section.get_field(&field_descriptor).as_ref())
+}
+
+fn dynamic_field_as_f64(vsr: &DynamicMessage, section_key: &str, field_key: &str) -> Option<f64> {
+    let section = get_nested_message(vsr, section_key)?;
+    let field_descriptor = section.descriptor().get_field_by_name(field_key)?;
+    dynamic_value_as_f64(section.get_field(&field_descriptor).as_ref())
 }
 
 fn get_nested_message(vsr: &DynamicMessage, section_key: &str) -> Option<DynamicMessage> {
@@ -766,6 +795,19 @@ fn dynamic_value_as_f32(value: &Value) -> Option<f32> {
     }
 }
 
+fn dynamic_value_as_f64(value: &Value) -> Option<f64> {
+    match value {
+        Value::I32(v) => Some(*v as f64),
+        Value::I64(v) => Some(*v as f64),
+        Value::U32(v) => Some(*v as f64),
+        Value::U64(v) => Some(*v as f64),
+        Value::F32(v) => Some(*v as f64),
+        Value::F64(v) => Some(*v),
+        Value::EnumNumber(v) => Some(*v as f64),
+        _ => None,
+    }
+}
+
 fn format_map_key(key: &MapKey) -> String {
     match key {
         MapKey::Bool(v) => v.to_string(),
@@ -783,6 +825,90 @@ fn bool_to_on_off(value: bool) -> &'static str {
     } else {
         "Off"
     }
+}
+
+fn lookup_field_meta(
+    schema: &VsrSchema,
+    section_id: &str,
+    field_key: &str,
+) -> (String, Option<String>) {
+    let section = schema.iter().find_map(|(id, section)| {
+        if id == section_id {
+            Some(section)
+        } else {
+            None
+        }
+    });
+
+    let Some(section) = section else {
+        return (field_key.to_string(), None);
+    };
+
+    let field = section.fields.get(field_key);
+    let Some(field) = field else {
+        return (field_key.to_string(), None);
+    };
+
+    let label = if field.desc.trim().is_empty() {
+        field_key.to_string()
+    } else {
+        field.desc.trim().to_string()
+    };
+    let unit = if field.unit.trim().is_empty() {
+        None
+    } else {
+        Some(field.unit.trim().to_string())
+    };
+
+    (label, unit)
+}
+
+fn collect_field_samples_from_mcap(
+    mcap_path: &str,
+    section_id: &str,
+    field_key: &str,
+) -> Result<Vec<FieldSample>, String> {
+    let file_bytes =
+        fs::read(mcap_path).map_err(|err| format!("failed reading {mcap_path}: {err}"))?;
+    let stream = mcap::MessageStream::new_with_options(
+        file_bytes.as_slice(),
+        enum_set!(mcap::read::Options::IgnoreEndMagic),
+    )
+    .map_err(|err| format!("failed opening mcap stream {mcap_path}: {err}"))?;
+
+    let mut samples = Vec::new();
+    for message in stream {
+        let message = match message {
+            Ok(message) => message,
+            Err(_tail_err) => break,
+        };
+        if message.channel.topic != MCAP_VSR_TOPIC {
+            continue;
+        }
+
+        let Some(vsr) = try_decode_vsr_payload(message.data.as_ref()) else {
+            continue;
+        };
+        let Some(value) = dynamic_field_as_f64(&vsr, section_id, field_key) else {
+            continue;
+        };
+
+        samples.push(FieldSample {
+            timestamp_ns: message.log_time,
+            value,
+            source: SampleSource::Mcap,
+        });
+    }
+
+    Ok(samples)
+}
+
+fn epoch_nanos() -> u64 {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    u64::try_from(nanos).unwrap_or(u64::MAX)
 }
 
 fn push_log_line(logs: &mut VecDeque<String>, message: impl AsRef<str>) {
@@ -816,6 +942,45 @@ fn set_drive_mode(mode: DriveMode, state: tauri::State<VehicleState>) -> DriveMo
     state.set_drive_mode(mode)
 }
 
+#[tauri::command]
+async fn get_vsr_field_analysis(
+    section_id: String,
+    field_key: String,
+    state: tauri::State<'_, VehicleState>,
+) -> Result<FieldTrendResponse, String> {
+    let (mcap_path, latest_vsr, label, unit) = {
+        let guard = state.inner.lock().expect("vehicle state poisoned");
+        let (label, unit) = lookup_field_meta(&guard.vsr_schema, &section_id, &field_key);
+        (
+            guard.mcap_output_path.clone(),
+            guard.latest_vsr.clone(),
+            label,
+            unit,
+        )
+    };
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let mcap_path = mcap_path.ok_or_else(|| {
+            "MCAP stream logging is unavailable; no active .mcap recording path".to_string()
+        })?;
+
+        let mut samples = collect_field_samples_from_mcap(&mcap_path, &section_id, &field_key)?;
+        if let Some(vsr) = latest_vsr.as_ref() {
+            if let Some(value) = dynamic_field_as_f64(vsr, &section_id, &field_key) {
+                samples.push(FieldSample {
+                    timestamp_ns: epoch_nanos(),
+                    value,
+                    source: SampleSource::Live,
+                });
+            }
+        }
+
+        build_field_trend(section_id, field_key, label, unit, samples)
+    })
+    .await
+    .map_err(|err| format!("field analysis task failed: {err}"))?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let vehicle_state = VehicleState::new();
@@ -825,7 +990,8 @@ pub fn run() {
         .manage(vehicle_state)
         .invoke_handler(tauri::generate_handler![
             get_vehicle_snapshot,
-            set_drive_mode
+            set_drive_mode,
+            get_vsr_field_analysis
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {
