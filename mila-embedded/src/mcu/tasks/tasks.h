@@ -35,4 +35,8 @@ void start_console_task();
 #define VSR_STREAM_TASK_PRIO 12
 void start_vsr_stream_task();
 
+// Dashboard motor-command stream over USB serial (UART0)
+#define MOTOR_COMMAND_RX_TASK_PRIO 12
+void start_motor_command_rx_task();
+
 #endif

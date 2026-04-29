@@ -1,60 +1,19 @@
 #include "tasks.h"
+#include "vsr_uart_shared.h"
 
-#include "driver/uart.h"
-#include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 #include <stdint.h>
-#include <string.h>
 
-#define VSR_STREAM_UART_NUM        UART_NUM_0 // USB
-#define VSR_STREAM_BAUD_RATE       921600
 #define VSR_STREAM_PERIOD_MS       100 // 10 Hz
 #define VSR_STREAM_PAYLOAD_MAX_LEN vsr_VehicleStatusRegister_size
-#define VSR_STREAM_MAGIC_0         0xA5u
-#define VSR_STREAM_MAGIC_1         0x5Au
-#define VSR_STREAM_HEADER_LEN      4
-#define VSR_STREAM_FRAME_MAX_LEN   (VSR_STREAM_HEADER_LEN + VSR_STREAM_PAYLOAD_MAX_LEN)
-#define VSR_STREAM_TX_BUF_LEN      (2 * VSR_STREAM_FRAME_MAX_LEN)
-
-static bool init_vsr_stream_uart(void) {
-    const uart_config_t uart_config = {
-        .baud_rate = VSR_STREAM_BAUD_RATE,
-        .data_bits = UART_DATA_8_BITS,
-        .parity = UART_PARITY_DISABLE,
-        .stop_bits = UART_STOP_BITS_1,
-        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-        .source_clk = UART_SCLK_APB,
-    };
-
-    // UART0 may already have a driver installed by IDF startup code.
-    esp_err_t err = uart_driver_install(VSR_STREAM_UART_NUM, VSR_STREAM_TX_BUF_LEN, 0, 0, NULL, 0);
-    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) { return false; }
-
-    if (uart_param_config(VSR_STREAM_UART_NUM, &uart_config) != ESP_OK) { return false; }
-
-    if (uart_set_pin(VSR_STREAM_UART_NUM, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE,
-                     UART_PIN_NO_CHANGE) != ESP_OK) {
-        return false;
-    }
-
-    return true;
-}
-
-static void uart_write_all(const uint8_t* data, size_t len) {
-    size_t offset = 0;
-    while (offset < len) {
-        int written = uart_write_bytes(VSR_STREAM_UART_NUM, (const char*) data + offset, len - offset);
-        if (written <= 0) { break; }
-        offset += (size_t) written;
-    }
-}
+#define VSR_STREAM_FRAME_MAX_LEN   (VSR_UART_FRAME_HEADER_LEN + VSR_STREAM_PAYLOAD_MAX_LEN)
 
 static void vsr_stream_main(void* arg) {
     (void) arg;
 
-    if (!init_vsr_stream_uart()) {
+    if (!vsr_uart_init()) {
         vTaskDelete(NULL);
         return;
     }
@@ -68,16 +27,11 @@ static void vsr_stream_main(void* arg) {
 
     while (1) {
         size_t payload_len = 0;
-        if (vsr_serialize(vsr, payload_buf, sizeof(payload_buf), &payload_len) &&
-            payload_len <= VSR_STREAM_PAYLOAD_MAX_LEN && payload_len <= UINT16_MAX) {
-            // Frame format: [0xA5 0x5A][u16 little-endian payload length][protobuf payload bytes].
-            frame_buf[0] = VSR_STREAM_MAGIC_0;
-            frame_buf[1] = VSR_STREAM_MAGIC_1;
-            frame_buf[2] = (uint8_t) (payload_len & 0xFFu);
-            frame_buf[3] = (uint8_t) ((payload_len >> 8) & 0xFFu);
-            memcpy(&frame_buf[VSR_STREAM_HEADER_LEN], payload_buf, payload_len);
+        size_t frame_len = 0;
 
-            uart_write_all(frame_buf, payload_len + VSR_STREAM_HEADER_LEN);
+        if (vsr_serialize(vsr, payload_buf, sizeof(payload_buf), &payload_len) &&
+            vsr_build_framed_packet(payload_buf, payload_len, frame_buf, sizeof(frame_buf), &frame_len)) {
+            vsr_uart_write_all(frame_buf, frame_len);
         }
 
         xTaskDelayUntil(&last_wake_time, period);

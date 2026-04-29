@@ -76,5 +76,6 @@ void app_main() {
     // Send data to the motor task
     start_send_motor_task();
     start_vsr_stream_task();
+    start_motor_command_rx_task();
     ESP_LOGI(__func__, "Started motor tasks");
 }
