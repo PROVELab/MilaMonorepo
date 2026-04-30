@@ -60,10 +60,10 @@ global enum: telemetryCommandFlags = {
 }
 
 global enum: TWAI_STATE = {
-    TWAI_STATE_STOPPED    = 0,            
-    TWAI_STATE_RUNNING    = 1,             
-    TWAI_STATE_BUS_OFF    = 2,             
-    TWAI_STATE_RECOVERING = 3
+    TWAI_PECAN_STOPPED    = 0,            
+    TWAI_PECAN_RUNNING    = 1,             
+    TWAI_PECAN_BUS_OFF    = 2,             
+    TWAI_PECAN_RECOVERING = 3
 }
 
 #flags for status Updates. The data sent will just be this flag
@@ -81,15 +81,6 @@ global enum: prechargeStatusUpdates = {
     Off =                  0b00000111,
 }
 #
-
-#state reported in Vitals' busStatusUpdate
-global enum: TWAI_State = {
-    TWAI_Stopped    = 0,            
-    TWAI_Running    = 1,             
-    TWAI_BusOff     = 2,             
-    TWAI_Recovering = 3
-}
-
 global enum: extrapolationTrigger = {
     extrap10 = 0,
     extrap5 = 1,

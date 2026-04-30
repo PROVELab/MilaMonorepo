@@ -140,7 +140,7 @@ static void checkHB(void* pvParameters) {
             if (!HBStatusWriteMask) { // we have filled up this frame, lets send it!
                 // sendFrame
                 CANPacket message = {0};
-                message.id = combinedID(HBRespUpdate, vitalsID);
+                // message.id = combinedID(HBRespUpdate, vitalsID);
                 writeData(&message, (int8_t*) &data, sizeof(data));
                 sendPacket(&message);
 
@@ -164,7 +164,7 @@ static void checkHB(void* pvParameters) {
         // send last Status Frame:
         if (HBStatusWriteMask != startingMask) { // send the last frame (if we carried into it)
             CANPacket message = {0};
-            message.id = combinedID(HBRespUpdate, vitalsID);
+            // message.id = combinedID(HBRespUpdate, vitalsID);
             writeData(
                 &message, (int8_t*) &data,
                 sizeof(data)); // relies on esp32 being little endian (since interpretting uint64_t as array of bytes)
@@ -192,7 +192,7 @@ static void checkHB(void* pvParameters) {
 
         // send timing frame:
         CANPacket timingMessage = {0};
-        timingMessage.id = combinedID(HBRespUpdate, vitalsID);
+        // timingMessage.id = combinedID(HBRespUpdate, vitalsID);
         writeData(&timingMessage, (int8_t*) &data,
                   sizeof(data)); // relies on esp32 being little endian (since interpretting uint64_t as array of bytes)
         sendPacket(&timingMessage);

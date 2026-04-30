@@ -56,10 +56,10 @@ typedef enum {
 
 // global enum TWAI_STATE
 typedef enum {
-	TWAI_STATE_STOPPED = 0,	/* 0 */
-	TWAI_STATE_RUNNING = 1,	/* 1 */
-	TWAI_STATE_BUS_OFF = 2,	/* 2 */
-	TWAI_STATE_RECOVERING = 3	/* 3 */
+	TWAI_PECAN_STOPPED = 0,	/* 0 */
+	TWAI_PECAN_RUNNING = 1,	/* 1 */
+	TWAI_PECAN_BUS_OFF = 2,	/* 2 */
+	TWAI_PECAN_RECOVERING = 3	/* 3 */
 } TWAI_STATE;
 
 // global enum statusUpdates
@@ -75,14 +75,6 @@ typedef enum {
 	On_FinishedCharging = 6,	/* 0b00000110 */
 	Off = 7	/* 0b00000111 */
 } prechargeStatusUpdates;
-
-// global enum TWAI_State
-typedef enum {
-	TWAI_Stopped = 0,	/* 0 */
-	TWAI_Running = 1,	/* 1 */
-	TWAI_BusOff = 2,	/* 2 */
-	TWAI_Recovering = 3	/* 3 */
-} TWAI_State;
 
 // global enum extrapolationTrigger
 typedef enum {

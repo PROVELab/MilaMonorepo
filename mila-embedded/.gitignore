@@ -10,8 +10,8 @@ build/
 scripts/Gen*/
 scripts/Gen_For_sensors/
 scripts/Gen_For_simpleTest/
-rust/*/target/*
-rust/*/Cargo.lock
+**/target/*
+**/Cargo.lock
 *./d
 
 *.out

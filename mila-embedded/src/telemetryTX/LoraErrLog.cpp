@@ -17,12 +17,13 @@ static Error_Type ErrBuffer[maxErrorCount] = {0}; //stores raw error codes from 
 static uint8_t ErrCount = 0; //number of RadioLib errors currently stored
 
 static SemaphoreHandle_t ErrMutex = NULL; //mutex to take or add to msg queue.
+static StaticSemaphore_t errMutexBuffer;
 //
 
 //may be called again on restart. Guaranteed not to have other Err functions running when called.
 void initErr(){ 
     if (ErrMutex == NULL){
-        ErrMutex = xSemaphoreCreateMutex();
+        ErrMutex = xSemaphoreCreateMutexStatic(&errMutexBuffer);
     }
     xSemaphoreTake(ErrMutex, portMAX_DELAY);
     ErrCount = 0;

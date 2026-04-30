@@ -60,10 +60,10 @@ public final class Constants {
 	// global enum TWAI_STATE
 	public static final class TWAI_STATE {
 		private TWAI_STATE() {}
-		public static final int TWAI_STATE_STOPPED = 0;	// 0
-		public static final int TWAI_STATE_RUNNING = 1;	// 1
-		public static final int TWAI_STATE_BUS_OFF = 2;	// 2
-		public static final int TWAI_STATE_RECOVERING = 3;	// 3
+		public static final int TWAI_PECAN_STOPPED = 0;	// 0
+		public static final int TWAI_PECAN_RUNNING = 1;	// 1
+		public static final int TWAI_PECAN_BUS_OFF = 2;	// 2
+		public static final int TWAI_PECAN_RECOVERING = 3;	// 3
 	}
 
 	// global enum statusUpdates
@@ -80,15 +80,6 @@ public final class Constants {
 		public static final int On_Charging = 5;	// 0b00000101
 		public static final int On_FinishedCharging = 6;	// 0b00000110
 		public static final int Off = 7;	// 0b00000111
-	}
-
-	// global enum TWAI_State
-	public static final class TWAI_State {
-		private TWAI_State() {}
-		public static final int TWAI_Stopped = 0;	// 0
-		public static final int TWAI_Running = 1;	// 1
-		public static final int TWAI_BusOff = 2;	// 2
-		public static final int TWAI_Recovering = 3;	// 3
 	}
 
 	// global enum extrapolationTrigger

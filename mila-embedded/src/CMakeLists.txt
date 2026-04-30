@@ -16,6 +16,15 @@ if(CMAKE_VITALS_ESP_BUILD)
     # message(SEND_ERROR "SRC_FILES for VITALS_BUILD: ${SRC_FILES}")
 endif()
 
+if(CMAKE_HB_ONLY_BUILD)
+    set(SRC_FILES 
+        "HB_Only_Test/main.c"
+        "pecan/common.cpp"
+        "pecan/espSpecific.c"
+        "espBase/debug_esp.c"
+    )
+endif()
+
 if(CMAKE_SENSOR_ESP_BUILD)  #CMAKE_SENSOR_ESP_BUILD <- Assumed
     # message(SEND_ERROR "Path is set to: ${DECPath}")
 
