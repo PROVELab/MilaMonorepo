@@ -102,15 +102,13 @@ pub fn build_field_trend(
         relative.clone()
     };
 
-    let fit_degree = fit_input.len().saturating_sub(1).min(2);
-    let coeffs = fit_polynomial(
+    let fit = fit_linear(
         &fit_input
             .iter()
             .map(|sample| (sample.minutes_from_now, sample.value))
             .collect::<Vec<_>>(),
-        fit_degree,
     )
-    .ok_or_else(|| format!("polynomial curve fit failed for {section_id}.{field_key}"))?;
+    .ok_or_else(|| format!("linear trend fit failed for {section_id}.{field_key}"))?;
 
     let raw_points = downsample_relative(&relative, PLOT_MAX_POINTS)
         .into_iter()
@@ -136,7 +134,7 @@ pub fn build_field_trend(
         .into_iter()
         .map(|minutes_from_now| FieldTrendPoint {
             minutes_from_now,
-            value: eval_polynomial(&coeffs, minutes_from_now),
+            value: eval_linear(fit, minutes_from_now),
             source: "fit".to_string(),
         })
         .collect::<Vec<_>>();
@@ -146,7 +144,7 @@ pub fn build_field_trend(
         .copied()
         .map(|horizon_minutes| FieldPrediction {
             horizon_minutes,
-            value: eval_polynomial(&coeffs, f64::from(horizon_minutes)),
+            value: eval_linear(fit, f64::from(horizon_minutes)),
         })
         .collect::<Vec<_>>();
 
@@ -155,11 +153,38 @@ pub fn build_field_trend(
         field_key,
         label,
         unit,
-        fit_degree,
+        fit_degree: 1,
         raw_points,
         fit_points,
         predictions,
     })
+}
+
+fn fit_linear(points: &[(f64, f64)]) -> Option<(f64, f64)> {
+    if points.is_empty() {
+        return None;
+    }
+    if points.len() == 1 {
+        return Some((points[0].1, 0.0));
+    }
+
+    let n = points.len() as f64;
+    let sum_x = points.iter().map(|(x, _)| *x).sum::<f64>();
+    let sum_y = points.iter().map(|(_, y)| *y).sum::<f64>();
+    let sum_xx = points.iter().map(|(x, _)| x * x).sum::<f64>();
+    let sum_xy = points.iter().map(|(x, y)| x * y).sum::<f64>();
+    let denom = n * sum_xx - sum_x * sum_x;
+    if denom.abs() < 1e-12 {
+        return Some((sum_y / n, 0.0));
+    }
+
+    let slope = (n * sum_xy - sum_x * sum_y) / denom;
+    let intercept = (sum_y - slope * sum_x) / n;
+    Some((intercept, slope))
+}
+
+fn eval_linear((intercept, slope): (f64, f64), x: f64) -> f64 {
+    intercept + slope * x
 }
 
 fn downsample_relative(samples: &[RelativeSample], max_points: usize) -> Vec<RelativeSample> {
@@ -192,81 +217,4 @@ fn evenly_spaced(start: f64, end: f64, n: usize) -> Vec<f64> {
 
     let step = (end - start) / (n - 1) as f64;
     (0..n).map(|i| start + i as f64 * step).collect()
-}
-
-fn fit_polynomial(points: &[(f64, f64)], degree: usize) -> Option<Vec<f64>> {
-    if points.is_empty() {
-        return None;
-    }
-
-    let n = degree + 1;
-    let mut ata = vec![vec![0.0_f64; n]; n];
-    let mut atb = vec![0.0_f64; n];
-
-    for (x, y) in points {
-        let mut powers = vec![1.0_f64; n * 2];
-        for idx in 1..powers.len() {
-            powers[idx] = powers[idx - 1] * *x;
-        }
-
-        for row in 0..n {
-            atb[row] += powers[row] * *y;
-            for col in 0..n {
-                ata[row][col] += powers[row + col];
-            }
-        }
-    }
-
-    solve_linear_system(ata, atb)
-}
-
-fn solve_linear_system(mut a: Vec<Vec<f64>>, mut b: Vec<f64>) -> Option<Vec<f64>> {
-    let n = b.len();
-
-    for pivot in 0..n {
-        let mut best = pivot;
-        for row in (pivot + 1)..n {
-            if a[row][pivot].abs() > a[best][pivot].abs() {
-                best = row;
-            }
-        }
-
-        if a[best][pivot].abs() < 1e-12 {
-            return None;
-        }
-
-        if best != pivot {
-            a.swap(best, pivot);
-            b.swap(best, pivot);
-        }
-
-        let pivot_value = a[pivot][pivot];
-        for col in pivot..n {
-            a[pivot][col] /= pivot_value;
-        }
-        b[pivot] /= pivot_value;
-
-        for row in 0..n {
-            if row == pivot {
-                continue;
-            }
-            let factor = a[row][pivot];
-            if factor.abs() < 1e-12 {
-                continue;
-            }
-            for col in pivot..n {
-                a[row][col] -= factor * a[pivot][col];
-            }
-            b[row] -= factor * b[pivot];
-        }
-    }
-
-    Some(b)
-}
-
-fn eval_polynomial(coeffs: &[f64], x: f64) -> f64 {
-    coeffs
-        .iter()
-        .rev()
-        .fold(0.0_f64, |acc, coeff| acc * x + coeff)
 }

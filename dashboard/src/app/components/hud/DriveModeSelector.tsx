@@ -21,7 +21,7 @@ export function DriveModeSelector({ value, onChange }: Props) {
       ] satisfies ReadonlyArray<{ value: DriveMode; label: string }>,
     [],
   );
-  const activeIndex = modes.findIndex(mode => mode.value === value);
+  const activeIndex = Math.max(0, modes.findIndex(mode => mode.value === value));
 
   const commitChange = (nextIndex: number) => {
     if (!onChange) return;
@@ -52,7 +52,7 @@ export function DriveModeSelector({ value, onChange }: Props) {
 
   return (
     <div className="drive-selector" onPointerDown={handlePointerDown} onPointerUp={handlePointerUp}>
-      <div className="drive-selector__indicator" style={{ transform: `translateY(${activeIndex * 60}px)` }} />
+      <div className="drive-selector__indicator" style={{ transform: `translateY(${activeIndex * 56}px)` }} />
       {modes.map(mode => (
         <button
           key={mode.value}

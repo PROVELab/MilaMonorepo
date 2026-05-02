@@ -693,7 +693,7 @@ button {
 
 .signature-text {
   font-family: 'Alex Brush', cursive;
-  font-size: clamp(120px, 25vw, 240px);
+  font-size: clamp(80px, 15vw, 160px);
   line-height: 1;
   color: #fff;
   position: relative;

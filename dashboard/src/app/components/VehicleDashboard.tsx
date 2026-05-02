@@ -1,198 +1,134 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DriveMode } from "../types/telemetry";
-import { VehicleScene } from "./VehicleScene";
-import { Tachometer } from "./hud/Tachometer";
-import { DriveModeSelector } from "./hud/DriveModeSelector";
-import { CruiseControlPanel } from "./hud/CruiseControlPanel";
-import { EmergencyStopButton } from "./hud/EmergencyStopButton";
+import { useEffect, useMemo, useState } from "react";
+import { DriveView } from "./dashboard/DriveView";
+import { ToastStack } from "./dashboard/ToastStack";
+import { DashboardViewId, ViewNav } from "./dashboard/ViewNav";
 import { VehicleStatePanel } from "./panels/VehicleStatePanel";
 import { ReverseCameraPanel } from "./panels/ReverseCameraPanel";
+import { EmergencyStopButton } from "./hud/EmergencyStopButton";
+import { useLogToasts } from "../hooks/useLogToasts";
 import { useVehicleTelemetry } from "../hooks/useVehicleTelemetry";
-
-type ViewId = "drive" | "vsr" | "reverse";
-const TOAST_LIMIT = 5;
-const TOAST_DURATION_MS = 4200;
-
-interface LogToast {
-  id: number;
-  message: string;
-}
-
-interface DriveViewProps {
-  batteryPct: number;
-  driveMode: DriveMode;
-  changeDriveMode: (mode: DriveMode) => void;
-  cruiseTargetMph: number | null;
-  nudgeCruiseDown: () => void;
-  nudgeCruiseUp: () => void;
-  engageEmergencyStop: () => void;
-  speedMph: number;
-  pedalPct: number;
-}
-
-function DriveView({
-  batteryPct,
-  driveMode,
-  changeDriveMode,
-  cruiseTargetMph,
-  nudgeCruiseDown,
-  nudgeCruiseUp,
-  engageEmergencyStop,
-  speedMph,
-  pedalPct,
-}: DriveViewProps) {
-  return (
-    <div className="drive-view">
-      <VehicleScene speed={speedMph} driveMode={driveMode} />
-      <div className="drive-view__overlay drive-view__overlay--top">
-        <Tachometer speed={speedMph} pedalPct={pedalPct} />
-      </div>
-      <div className="drive-view__overlay drive-view__overlay--bottom">
-        <DriveModeSelector value={driveMode} onChange={changeDriveMode} />
-        <CruiseControlPanel
-          active={driveMode === "Cruise Control"}
-          targetMph={cruiseTargetMph}
-          onMinus={nudgeCruiseDown}
-          onPlus={nudgeCruiseUp}
-        />
-        <div className="cluster__status">
-          <span>Battery</span>
-          <strong>{batteryPct.toFixed(1)}%</strong>
-        </div>
-        <EmergencyStopButton onEngage={engageEmergencyStop} />
-      </div>
-    </div>
-  );
-}
+import { LoadingScreen } from "./dashboard/LoadingScreen";
 
 export function VehicleDashboard() {
   const {
     snapshot,
     driveMode,
-    cruiseTargetMph,
+    cruiseTargetRpm,
+    isSerialReady,
     changeDriveMode,
     nudgeCruiseUp,
     nudgeCruiseDown,
     engageEmergencyStop,
   } = useVehicleTelemetry(180);
-  const [activeView, setActiveView] = useState<ViewId>("drive");
-  const [toasts, setToasts] = useState<LogToast[]>([]);
-  const seenLogsRef = useRef<Set<string>>(new Set());
-  const logsPrimedRef = useRef(false);
-  const toastSeqRef = useRef(0);
-  const toastTimeoutsRef = useRef<number[]>([]);
-
-  const enqueueToast = useCallback((message: string) => {
-    const id = toastSeqRef.current++;
-    setToasts(prev => {
-      const next = [...prev, { id, message }];
-      return next.length > TOAST_LIMIT ? next.slice(next.length - TOAST_LIMIT) : next;
-    });
-
-    const timeout = window.setTimeout(() => {
-      setToasts(prev => prev.filter(toast => toast.id !== id));
-      toastTimeoutsRef.current = toastTimeoutsRef.current.filter(handle => handle !== timeout);
-    }, TOAST_DURATION_MS);
-    toastTimeoutsRef.current.push(timeout);
-  }, []);
+  const [activeView, setActiveView] = useState<DashboardViewId>("drive");
+  const [showLoading, setShowLoading] = useState(true);
+  const [isSkipped, setIsSkipped] = useState(false);
+  const toasts = useLogToasts(snapshot.liveTextLogs);
 
   useEffect(() => {
-    const logs = snapshot.liveTextLogs.filter(line => line.trim().length > 0);
-    const seenLogs = seenLogsRef.current;
-
-    if (!logsPrimedRef.current) {
-      logs.forEach(line => seenLogs.add(line));
-      logsPrimedRef.current = true;
-      return;
+    // If serial is lost, and we weren't already showing loading, reset to loading.
+    // unless the user has manually skipped.
+    if (!isSerialReady && !showLoading && !isSkipped) {
+      setShowLoading(true);
     }
 
-    const newLogs = logs.filter(line => !seenLogs.has(line));
-    if (newLogs.length > 0) {
-      for (const line of newLogs.reverse()) {
-        enqueueToast(line);
+    if (isSerialReady && showLoading) {
+      // Extended timing for high-fidelity startup sequence (4.5s draw + 3s hold/sweep)
+      const timer = setTimeout(() => {
+        setShowLoading(false);
+      }, 7500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSerialReady, showLoading, isSkipped]);
+
+  const handleSkip = () => {
+    setIsSkipped(true);
+    setShowLoading(false);
+  };
+
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
       }
-    }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '+')) {
+        e.preventDefault();
+      }
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+    const preventGestures = (e: Event) => e.preventDefault();
 
-    seenLogs.clear();
-    logs.forEach(line => seenLogs.add(line));
-  }, [snapshot.liveTextLogs, enqueueToast]);
+    document.addEventListener('wheel', handleWheel, { passive: false });
+    document.addEventListener('keydown', handleKeyDown, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('gesturestart', preventGestures, { passive: false } as any);
+    document.addEventListener('gesturechange', preventGestures, { passive: false } as any);
+    document.addEventListener('gestureend', preventGestures, { passive: false } as any);
 
-  useEffect(() => {
     return () => {
-      for (const handle of toastTimeoutsRef.current) {
-        window.clearTimeout(handle);
-      }
-      toastTimeoutsRef.current = [];
+      document.removeEventListener('wheel', handleWheel);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('gesturestart', preventGestures as any);
+      document.removeEventListener('gesturechange', preventGestures as any);
+      document.removeEventListener('gestureend', preventGestures as any);
     };
   }, []);
 
-  const views = useMemo(
-    () => [
-      {
-        id: "drive" as const,
-        label: "Drive",
-        element: (
-          <DriveView
-            batteryPct={snapshot.batteryPct}
-            driveMode={driveMode}
-            changeDriveMode={changeDriveMode}
-            cruiseTargetMph={cruiseTargetMph}
-            nudgeCruiseDown={nudgeCruiseDown}
-            nudgeCruiseUp={nudgeCruiseUp}
-            engageEmergencyStop={engageEmergencyStop}
-            speedMph={snapshot.speedMph}
-            pedalPct={snapshot.pedalPct}
-          />
-        ),
-      },
-      {
-        id: "vsr" as const,
-        label: "VSR + Logs",
-        element: <VehicleStatePanel sections={snapshot.sections} logs={snapshot.liveTextLogs} />,
-      },
-      { id: "reverse" as const, label: "Reverse Camera", element: <ReverseCameraPanel /> },
-    ],
-    [
-      snapshot,
-      driveMode,
-      cruiseTargetMph,
-      changeDriveMode,
-      nudgeCruiseDown,
-      nudgeCruiseUp,
-      engageEmergencyStop,
-    ],
-  );
-
-  const active = views.find(view => view.id === activeView) ?? views[0];
+  const activeElement = useMemo(() => {
+    if (activeView === "vsr") {
+      return <VehicleStatePanel sections={snapshot.sections} logs={snapshot.liveTextLogs} />;
+    }
+    if (activeView === "reverse") {
+      return <ReverseCameraPanel />;
+    }
+    return (
+      <DriveView
+        driveMode={driveMode}
+        motorRpm={snapshot.motorRpm}
+        pedalPct={snapshot.pedalPct}
+        cruiseTargetRpm={cruiseTargetRpm}
+        onDriveModeChange={changeDriveMode}
+        onCruiseDown={nudgeCruiseDown}
+        onCruiseUp={nudgeCruiseUp}
+      />
+    );
+  }, [
+    activeView,
+    changeDriveMode,
+    cruiseTargetRpm,
+    driveMode,
+    nudgeCruiseDown,
+    nudgeCruiseUp,
+    snapshot.liveTextLogs,
+    snapshot.motorRpm,
+    snapshot.pedalPct,
+    snapshot.sections,
+  ]);
 
   return (
     <div className="dashboard-fullscreen">
-      <div className="toast-stack" aria-live="polite" aria-atomic="false">
-        {toasts.map(toast => (
-          <div key={toast.id} className="toast-stack__item">
-            {toast.message}
-          </div>
-        ))}
-      </div>
-      <div className="view-stage">
-        <div key={active.id} className="view-stage__scene">
-          {active.element}
+      {showLoading && <LoadingScreen onSkip={handleSkip} />}
+      <ToastStack toasts={toasts} />
+      <main className="view-stage">
+        <div key={activeView} className="view-stage__scene">
+          {activeElement}
+        </div>
+      </main>
+      <div className="global-bottom-bar">
+        <ViewNav activeView={activeView} onChange={setActiveView} />
+        <div className="global-bottom-bar__estop">
+          <EmergencyStopButton onEngage={engageEmergencyStop} />
         </div>
       </div>
-      <nav className="view-nav">
-        {views.map(view => (
-          <button
-            key={view.id}
-            type="button"
-            className={view.id === activeView ? "is-active" : ""}
-            onClick={() => setActiveView(view.id)}
-          >
-            {view.label}
-          </button>
-        ))}
-      </nav>
     </div>
   );
 }

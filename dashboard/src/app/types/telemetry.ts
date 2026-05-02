@@ -14,14 +14,13 @@ export interface VehicleSection {
 }
 
 export interface VehicleSnapshot {
-  speedMph: number;
-  pedalPct: number; // 0 - 100
-  torqueRatio: number; // 0 - 1
-  batteryPct: number;
+  motorRpm: number | null;
+  pedalPct: number | null;
   driveMode: DriveMode;
   cruiseTargetRpm?: number | null;
   sections: VehicleSection[];
   liveTextLogs: string[];
+  isSerialReady: boolean;
 }
 
 export interface FieldTrendPoint {

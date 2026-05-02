@@ -1,6 +1,6 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, OrbitControls, useGLTF } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -11,19 +11,65 @@ const MODEL_PATH = "/octane.glb";
 const TARGET_MODEL_BOUNDS = new THREE.Vector3(5.4, 2.1, 3.0);
 const GROUND_Y = -0.36;
 
+const CAMERA_POS_DRIVE = new THREE.Vector3(0, 3.8, 12.2);
+const CAMERA_POS_REVERSE = new THREE.Vector3(0, 3.8, -12.2);
+
 interface VehicleSceneProps {
-  speed: number;
+  rpm: number | null;
   driveMode: DriveMode;
 }
 
-function VehicleModel({ speed, driveMode }: VehicleSceneProps) {
+function CameraController({ controlsRef, driveMode }: { controlsRef: React.MutableRefObject<OrbitControlsImpl | null>; driveMode: DriveMode }) {
+  const { camera, gl } = useThree();
+  const interacting = useRef(false);
+  const lastInteractionTime = useRef(Date.now());
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    const onStart = () => { interacting.current = true; };
+    const onEnd = () => { interacting.current = false; lastInteractionTime.current = Date.now(); };
+    
+    controls.addEventListener('start', onStart);
+    controls.addEventListener('end', onEnd);
+
+    // Fail-safe: immediately halt camera lerp the moment a pointer hits the canvas
+    const onPointerDown = () => { interacting.current = true; };
+    const onPointerUp = () => { interacting.current = false; lastInteractionTime.current = Date.now(); };
+
+    const canvas = gl.domElement;
+    canvas.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointerup', onPointerUp);
+
+    return () => {
+      controls.removeEventListener('start', onStart);
+      controls.removeEventListener('end', onEnd);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, [controlsRef, gl]);
+
+  useFrame((_, delta) => {
+    if (interacting.current) return;
+    if (Date.now() - lastInteractionTime.current < 5000) return;
+
+    const targetPos = driveMode === "Reverse" ? CAMERA_POS_REVERSE : CAMERA_POS_DRIVE;
+    camera.position.lerp(targetPos, delta * 2.5);
+    if (controlsRef.current) controlsRef.current.update();
+  });
+
+  return null;
+}
+
+function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
   const gltf = useGLTF(MODEL_PATH);
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const rearWheelsRef = useRef<THREE.Object3D[]>([]);
   const frontWheelsRef = useRef<THREE.Object3D[]>([]);
   const steeringPivotsRef = useRef<THREE.Object3D[]>([]);
   const basePositionRef = useRef(new THREE.Vector3(0, GROUND_Y, 0));
-  const smoothSpeed = useRef(0);
+  const smoothRpm = useRef(0);
 
   useEffect(() => {
     rearWheelsRef.current = [];
@@ -77,33 +123,37 @@ function VehicleModel({ speed, driveMode }: VehicleSceneProps) {
   }, [scene]);
 
   useFrame((state, delta) => {
-    smoothSpeed.current += (speed - smoothSpeed.current) * Math.min(1, delta * 4);
-    const speedMS = smoothSpeed.current * 0.44704;
+    const targetRpm = rpm ?? 0;
+    smoothRpm.current += (targetRpm - smoothRpm.current) * Math.min(1, delta * 4);
     const wheelRadius = 0.3;
-    const spinDirection = smoothSpeed.current >= 0 ? -1 : 1;
-    const spinSpeed = (speedMS / wheelRadius) * delta * spinDirection;
+    const wheelCircumference = 2 * Math.PI * wheelRadius;
+    const wheelSurfaceMetersPerSecond = (smoothRpm.current / 60) * wheelCircumference;
+    const spinDirection = smoothRpm.current >= 0 ? -1 : 1;
+    const wheelSpinRadians = (wheelSurfaceMetersPerSecond / wheelRadius) * delta * spinDirection;
 
     const steeringAngle = THREE.MathUtils.degToRad(Math.sin(state.clock.elapsedTime * 0.5) * 4);
     steeringPivotsRef.current.forEach(pivot => (pivot.rotation.y = steeringAngle));
-    frontWheelsRef.current.forEach(wheel => (wheel.rotation.x += spinSpeed));
-    rearWheelsRef.current.forEach(wheel => (wheel.rotation.x += spinSpeed));
+    frontWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
+    rearWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
 
     scene.position.copy(basePositionRef.current);
-    scene.rotation.y = THREE.MathUtils.degToRad((smoothSpeed.current / 40) * 6);
+    scene.rotation.y = THREE.MathUtils.degToRad((smoothRpm.current / 3000) * 6);
     scene.rotation.z = THREE.MathUtils.degToRad(driveMode === "Reverse" ? 1.2 : 0);
   });
 
   return <primitive object={scene} dispose={null} />;
 }
 
-export function VehicleScene({ speed, driveMode }: VehicleSceneProps) {
+export function VehicleScene({ rpm, driveMode }: VehicleSceneProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   return (
-    <div className="vehicle-scene">
+    <div className="vehicle-scene" style={{ touchAction: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
       <Canvas
+        onContextMenu={(e) => e.preventDefault()}
+        style={{ touchAction: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
         shadows
-        camera={{ position: [8.2, 3.8, 12.2], fov: 45 }}
+        camera={{ position: [0, 3.8, 12.2], fov: 45 }}
         gl={{ toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
       >
         <color attach="background" args={["#0b111c"]} />
@@ -119,7 +169,8 @@ export function VehicleScene({ speed, driveMode }: VehicleSceneProps) {
         <spotLight position={[-8, 6, 2]} angle={0.55} penumbra={0.5} intensity={1.4} color="#9dc7ff" />
         <Environment preset="sunset" />
 
-        <VehicleModel speed={speed} driveMode={driveMode} />
+        <VehicleModel rpm={rpm} driveMode={driveMode} />
+        <CameraController controlsRef={controlsRef} driveMode={driveMode} />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.36, 0]} receiveShadow>
           <ringGeometry args={[0.25, 9.5, 64]} />
