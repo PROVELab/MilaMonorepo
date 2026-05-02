@@ -42,9 +42,16 @@ dashboard_reverse_camera: reverse_camera_recv dashboard
 ### Build Embedded stuff ###
 
 # Build one target
-build_embedded: autogen
-    @read -p "PIO target: " pio_env; \
+build_embedded target='': autogen
+    @pio_env="{{target}}"; \
+    if [ -z "$pio_env" ]; then read -p "PIO target: " pio_env; fi; \
     (cd mila-embedded && pio run -e $pio_env)
+
+# Flash one target
+flash_embedded target='': autogen
+    @pio_env="{{target}}"; \
+    if [ -z "$pio_env" ]; then read -p "PIO target: " pio_env; fi; \
+    (cd mila-embedded && pio run -t upload -e $pio_env)
 
 # Builds all pio envs in mila-embedded
 build_embedded_all: autogen

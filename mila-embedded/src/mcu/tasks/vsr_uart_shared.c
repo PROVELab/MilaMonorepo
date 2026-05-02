@@ -15,8 +15,8 @@ bool vsr_uart_init(void) {
     };
 
     // UART0 may already have a driver installed by IDF startup code.
-    esp_err_t err = uart_driver_install(VSR_UART_NUM, VSR_UART_RX_RING_BUFFER_LEN, VSR_UART_TX_RING_BUFFER_LEN, 0, NULL,
-                                        0);
+    esp_err_t err =
+        uart_driver_install(VSR_UART_NUM, VSR_UART_RX_RING_BUFFER_LEN, VSR_UART_TX_RING_BUFFER_LEN, 0, NULL, 0);
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) { return false; }
 
     if (uart_param_config(VSR_UART_NUM, &uart_config) != ESP_OK) { return false; }

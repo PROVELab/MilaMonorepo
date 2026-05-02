@@ -10,13 +10,23 @@ interface Props {
 
 export function DriveModeSelector({ value, onChange }: Props) {
   const dragRef = useRef<{ startY: number } | null>(null);
-  const modes: DriveMode[] = useMemo(() => ["R", "P", "D"], []);
-  const activeIndex = modes.indexOf(value);
+  const modes = useMemo(
+    () =>
+      [
+        { value: "Reverse" as DriveMode, label: "R" },
+        { value: "Park" as DriveMode, label: "P" },
+        { value: "Neutral" as DriveMode, label: "N" },
+        { value: "Drive" as DriveMode, label: "D" },
+        { value: "Cruise Control" as DriveMode, label: "C" },
+      ] satisfies ReadonlyArray<{ value: DriveMode; label: string }>,
+    [],
+  );
+  const activeIndex = modes.findIndex(mode => mode.value === value);
 
   const commitChange = (nextIndex: number) => {
     if (!onChange) return;
     const normalizedIndex = Math.max(0, Math.min(modes.length - 1, nextIndex));
-    onChange(modes[normalizedIndex]);
+    onChange(modes[normalizedIndex].value);
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -45,12 +55,12 @@ export function DriveModeSelector({ value, onChange }: Props) {
       <div className="drive-selector__indicator" style={{ transform: `translateY(${activeIndex * 60}px)` }} />
       {modes.map(mode => (
         <button
-          key={mode}
+          key={mode.value}
           type="button"
-          className={`drive-selector__mode ${mode === value ? "drive-selector__mode--active" : ""}`}
+          className={`drive-selector__mode ${mode.value === value ? "drive-selector__mode--active" : ""}`}
           onClick={() => commitChange(modes.indexOf(mode))}
         >
-          {mode}
+          {mode.label}
         </button>
       ))}
     </div>

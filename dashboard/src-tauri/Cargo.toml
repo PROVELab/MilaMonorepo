@@ -22,6 +22,7 @@ vsr = { path = "../../autogen/vsr" }
 [dependencies]
 enumset = "1.1.5"
 mcap = { version = "0.24.0", default-features = false, features = ["zstd"] }
+prost = "0.13.5"
 prost-reflect = "0.14.7"
 serialport = "4.8.1"
 serde = { version = "1.0", features = ["derive"] }

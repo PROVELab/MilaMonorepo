@@ -1,4 +1,4 @@
-export type DriveMode = "P" | "D" | "R";
+export type DriveMode = "Reverse" | "Park" | "Neutral" | "Drive" | "Cruise Control";
 
 export interface VehicleField {
   key: string;
@@ -19,6 +19,7 @@ export interface VehicleSnapshot {
   torqueRatio: number; // 0 - 1
   batteryPct: number;
   driveMode: DriveMode;
+  cruiseTargetRpm?: number | null;
   sections: VehicleSection[];
   liveTextLogs: string[];
 }

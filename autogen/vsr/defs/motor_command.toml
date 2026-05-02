@@ -6,15 +6,18 @@ type = "enum"
 unit = ""
 desc = "Motor Command Mode"
 
-  [command.variants.IDLE]
+  [command.variants.PARK]
     value = 0
 
   [command.variants.REVERSE]
     value = 1
 
-  [command.variants.DRIVE]
+  [command.variants.NEUTRAL]
     value = 2
 
-  [command.variants.CRUISECONTROL]
+  [command.variants.DRIVE]
     value = 3
+
+  [command.variants.CRUISE_CONTROL]
+    value = 4
     target_speed_rpm = { type = "u16" }

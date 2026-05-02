@@ -17,16 +17,24 @@ const DEFAULT_SNAPSHOT: VehicleSnapshot = {
   pedalPct: 0,
   torqueRatio: 0,
   batteryPct: 0,
-  driveMode: "P",
+  driveMode: "Park",
+  cruiseTargetRpm: null,
   sections: [],
   liveTextLogs: ["waiting for MCU VSR stream"],
 };
 
 type BackendVehicleSnapshot = Omit<VehicleSnapshot, "pedalPct">;
+type BackendMotorCommandRequest = {
+  mode: DriveMode;
+  cruiseTargetRpm?: number;
+};
 
 const runtimeIsTauri = () =>
   typeof window !== "undefined" &&
   ("__TAURI_INTERNALS__" in window || "__TAURI_IPC__" in window);
+
+const DEFAULT_CRUISE_TARGET_MPH = 10;
+const CRUISE_STEP_MPH = 5;
 
 function extractNumericVsrValue(
   snapshot: Pick<VehicleSnapshot, "sections">,
@@ -51,12 +59,19 @@ function extractMotorSpeedRpm(snapshot: Pick<VehicleSnapshot, "sections">): numb
 }
 
 function extractPedalPct(snapshot: Pick<VehicleSnapshot, "sections">): number {
-  return clampPct(extractNumericVsrValue(snapshot, "pedal", "pedal_position"));
+  return clampPct(extractNumericVsrValue(snapshot, "pedal", "pedal_position_pct"));
+}
+
+function mphToRpm(speedMph: number): number {
+  return Math.max(0, Math.round(speedMph / MOTOR_SPEED_RPM_TO_MPH));
+}
+
+function rpmToMph(speedRpm: number): number {
+  return speedRpm * MOTOR_SPEED_RPM_TO_MPH;
 }
 
 export function useVehicleTelemetry(pollIntervalMs = 250) {
   const [snapshot, setSnapshot] = useState<VehicleSnapshot>(DEFAULT_SNAPSHOT);
-  const [driveMode, setDriveMode] = useState<DriveMode>("P");
   const [runtime, setRuntime] = useState<"unknown" | "tauri" | "sim">("unknown");
 
   useEffect(() => {
@@ -73,7 +88,6 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
       speedMph: motorSpeedRpm * MOTOR_SPEED_RPM_TO_MPH,
       pedalPct,
     });
-    setDriveMode(payload.driveMode);
   }, []);
 
   useEffect(() => {
@@ -109,19 +123,72 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
 
   const changeDriveMode = useCallback(
     async (nextMode: DriveMode) => {
-      setDriveMode(nextMode);
-      setSnapshot(prev => ({ ...prev, driveMode: nextMode }));
-
       if (runtime !== "tauri") return;
+      if (snapshot.driveMode === nextMode) return;
+
+      const command: BackendMotorCommandRequest = { mode: nextMode };
+      if (nextMode === "Cruise Control") {
+        command.cruiseTargetRpm = mphToRpm(DEFAULT_CRUISE_TARGET_MPH);
+      }
 
       try {
-        await invoke("set_drive_mode", { mode: nextMode });
+        await invoke("send_motor_command", { command });
       } catch (error) {
-        console.error("failed to update drive mode", error);
+        console.error("failed to send drive mode command", error);
       }
     },
-    [runtime],
+    [runtime, snapshot.driveMode],
   );
 
-  return { snapshot, driveMode, changeDriveMode };
+  const bumpCruiseTarget = useCallback(
+    async (deltaMph: number) => {
+      if (runtime !== "tauri" || snapshot.driveMode !== "Cruise Control") return;
+
+      const currentMph = rpmToMph(snapshot.cruiseTargetRpm ?? mphToRpm(DEFAULT_CRUISE_TARGET_MPH));
+      const nextMph = Math.max(0, currentMph + deltaMph);
+
+      try {
+        await invoke("send_motor_command", {
+          command: {
+            mode: "Cruise Control",
+            cruiseTargetRpm: mphToRpm(nextMph),
+          } satisfies BackendMotorCommandRequest,
+        });
+      } catch (error) {
+        console.error("failed to update cruise-control target", error);
+      }
+    },
+    [runtime, snapshot.driveMode, snapshot.cruiseTargetRpm],
+  );
+
+  const engageEmergencyStop = useCallback(async () => {
+    if (runtime !== "tauri") return;
+
+    try {
+      await invoke("engage_emergency_stop");
+    } catch (error) {
+      console.error("failed to send emergency stop", error);
+    }
+  }, [runtime]);
+
+  const cruiseTargetMph =
+    snapshot.cruiseTargetRpm == null ? null : rpmToMph(snapshot.cruiseTargetRpm);
+
+  const nudgeCruiseUp = useCallback(() => {
+    void bumpCruiseTarget(CRUISE_STEP_MPH);
+  }, [bumpCruiseTarget]);
+
+  const nudgeCruiseDown = useCallback(() => {
+    void bumpCruiseTarget(-CRUISE_STEP_MPH);
+  }, [bumpCruiseTarget]);
+
+  return {
+    snapshot,
+    driveMode: snapshot.driveMode,
+    cruiseTargetMph,
+    changeDriveMode,
+    nudgeCruiseUp,
+    nudgeCruiseDown,
+    engageEmergencyStop,
+  };
 }

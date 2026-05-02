@@ -2,12 +2,14 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, OrbitControls, useGLTF } from "@react-three/drei";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { DriveMode } from "../types/telemetry";
 
-const MODEL_PATH = "/mitsubishi_lancer_evolution.glb";
+const MODEL_PATH = "/octane.glb";
+const TARGET_MODEL_BOUNDS = new THREE.Vector3(5.4, 2.1, 3.0);
+const GROUND_Y = -0.36;
 
 interface VehicleSceneProps {
   speed: number;
@@ -15,10 +17,12 @@ interface VehicleSceneProps {
 }
 
 function VehicleModel({ speed, driveMode }: VehicleSceneProps) {
-  const { scene } = useGLTF(MODEL_PATH);
+  const gltf = useGLTF(MODEL_PATH);
+  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const rearWheelsRef = useRef<THREE.Object3D[]>([]);
   const frontWheelsRef = useRef<THREE.Object3D[]>([]);
   const steeringPivotsRef = useRef<THREE.Object3D[]>([]);
+  const basePositionRef = useRef(new THREE.Vector3(0, GROUND_Y, 0));
   const smoothSpeed = useRef(0);
 
   useEffect(() => {
@@ -26,10 +30,17 @@ function VehicleModel({ speed, driveMode }: VehicleSceneProps) {
     frontWheelsRef.current = [];
     steeringPivotsRef.current = [];
 
+    // Reset root-level transforms so normalization always starts from source model space.
+    scene.position.set(0, 0, 0);
+    scene.rotation.set(0, 0, 0);
+    scene.scale.set(1, 1, 1);
+    scene.updateMatrixWorld(true);
+
     scene.traverse((child: any) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
+        child.frustumCulled = false;
       }
 
       if (child.name?.includes("SteeringPivot")) {
@@ -43,6 +54,26 @@ function VehicleModel({ speed, driveMode }: VehicleSceneProps) {
         rearWheelsRef.current.push(child);
       }
     });
+
+    // Normalize unknown model origins/scales so different GLBs stay framed.
+    const rawBounds = new THREE.Box3().setFromObject(scene);
+    if (!rawBounds.isEmpty()) {
+      const rawSize = rawBounds.getSize(new THREE.Vector3());
+      const epsilon = 0.001;
+      const scale = Math.min(
+        TARGET_MODEL_BOUNDS.x / Math.max(rawSize.x, epsilon),
+        TARGET_MODEL_BOUNDS.y / Math.max(rawSize.y, epsilon),
+        TARGET_MODEL_BOUNDS.z / Math.max(rawSize.z, epsilon),
+      );
+      scene.scale.setScalar(scale);
+      scene.updateMatrixWorld(true);
+
+      const scaledBounds = new THREE.Box3().setFromObject(scene);
+      const center = scaledBounds.getCenter(new THREE.Vector3());
+      const minY = scaledBounds.min.y;
+      scene.position.set(scene.position.x - center.x, scene.position.y + (GROUND_Y - minY), scene.position.z - center.z);
+      basePositionRef.current.copy(scene.position);
+    }
   }, [scene]);
 
   useFrame((state, delta) => {
@@ -57,9 +88,9 @@ function VehicleModel({ speed, driveMode }: VehicleSceneProps) {
     frontWheelsRef.current.forEach(wheel => (wheel.rotation.x += spinSpeed));
     rearWheelsRef.current.forEach(wheel => (wheel.rotation.x += spinSpeed));
 
+    scene.position.copy(basePositionRef.current);
     scene.rotation.y = THREE.MathUtils.degToRad((smoothSpeed.current / 40) * 6);
-    scene.rotation.z = THREE.MathUtils.degToRad(driveMode === "R" ? 1.2 : 0);
-    scene.position.y = -0.35;
+    scene.rotation.z = THREE.MathUtils.degToRad(driveMode === "Reverse" ? 1.2 : 0);
   });
 
   return <primitive object={scene} dispose={null} />;
@@ -72,7 +103,7 @@ export function VehicleScene({ speed, driveMode }: VehicleSceneProps) {
     <div className="vehicle-scene">
       <Canvas
         shadows
-        camera={{ position: [6, 2.8, 9.6], fov: 45 }}
+        camera={{ position: [8.2, 3.8, 12.2], fov: 45 }}
         gl={{ toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
       >
         <color attach="background" args={["#0b111c"]} />
@@ -91,7 +122,7 @@ export function VehicleScene({ speed, driveMode }: VehicleSceneProps) {
         <VehicleModel speed={speed} driveMode={driveMode} />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.36, 0]} receiveShadow>
-          <ringGeometry args={[0.2, 18, 64]} />
+          <ringGeometry args={[0.25, 9.5, 64]} />
           <meshStandardMaterial color="#1a1a1a" metalness={0.3} roughness={0.4} />
         </mesh>
 
@@ -101,9 +132,9 @@ export function VehicleScene({ speed, driveMode }: VehicleSceneProps) {
           enableZoom={false}
           enableDamping
           dampingFactor={0.08}
-          maxPolarAngle={(65 * Math.PI) / 180}
-          minPolarAngle={(55 * Math.PI) / 180}
-          target={[0, 0.4, 0]}
+          maxPolarAngle={(72 * Math.PI) / 180}
+          minPolarAngle={(48 * Math.PI) / 180}
+          target={[0, 0.7, 0]}
         />
       </Canvas>
     </div>

@@ -132,7 +132,7 @@ dependencies = [
  "enumset",
  "log",
  "mcap",
- "prost 0.14.1",
+ "prost 0.13.5",
  "prost-build",
  "prost-reflect",
  "serde",

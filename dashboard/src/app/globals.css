@@ -60,6 +60,46 @@ body {
   backdrop-filter: blur(24px);
 }
 
+.toast-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 60;
+  width: min(520px, calc(100vw - 28px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast-stack__item {
+  border-radius: 14px;
+  border: 1px solid rgba(142, 193, 255, 0.24);
+  background: rgba(6, 12, 24, 0.9);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+  color: #ebf4ff;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  padding: 11px 13px;
+  font-family: "SF Mono", "JetBrains Mono", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  backdrop-filter: blur(10px);
+  animation: toastSlideIn 0.22s ease;
+}
+
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .view-stage__scene {
   position: absolute;
   inset: 0;
@@ -259,6 +299,70 @@ body {
 .drive-selector__mode--active {
   color: #00ffd5;
   font-size: 22px;
+}
+
+.cruise-control {
+  min-width: 180px;
+  min-height: 118px;
+  padding: 14px 16px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cruise-control--active {
+  border-color: rgba(0, 255, 213, 0.45);
+  box-shadow: 0 0 24px rgba(0, 255, 213, 0.12);
+}
+
+.cruise-control__label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.68;
+}
+
+.cruise-control__target {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.cruise-control__target em {
+  font-size: 12px;
+  font-style: normal;
+  opacity: 0.66;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cruise-control__buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cruise-control__buttons button {
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.3);
+  color: #f4f7fb;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.cruise-control__buttons button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .emergency-stop {
@@ -747,6 +851,12 @@ body {
 @media (max-width: 900px) {
   .dashboard-fullscreen {
     padding: 12px;
+  }
+
+  .toast-stack {
+    top: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
   }
 
   .drive-view__overlay {

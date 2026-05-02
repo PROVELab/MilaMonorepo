@@ -4,6 +4,7 @@ mod mcap_recorder;
 use enumset::enum_set;
 use field_trend::{build_field_trend, FieldSample, FieldTrendResponse, SampleSource};
 use mcap_recorder::McapRecorder;
+use prost::Message;
 use prost_reflect::{
     DescriptorPool, DynamicMessage, Kind, MapKey, MessageDescriptor, ReflectMessage, Value,
 };
@@ -13,6 +14,7 @@ use std::collections::VecDeque;
 use std::env;
 use std::fs;
 use std::io::{self, Read};
+use std::sync::mpsc;
 use std::sync::OnceLock;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -31,10 +33,12 @@ const VSR_PAYLOAD_MAX_LEN: usize = 4096;
 const VSR_STREAM_BUFFER_MAX_LEN: usize = 8 * VSR_PAYLOAD_MAX_LEN;
 const VSR_RESYNC_LOG_EVERY_DROPS: u64 = 500;
 const VSR_NO_FRAME_WARNING_EVERY_DROPS: u64 = 50_000;
-const VSR_FRAME_PROGRESS_LOG_EVERY: u64 = 100;
+const VSR_FRAME_PROGRESS_LOG_EVERY: u64 = 2_000;
 const MAX_LOG_LINES: usize = 120;
 const VSR_MESSAGE_FULL_NAME: &str = "vsr.VehicleStatusRegister";
+const MOTOR_COMMAND_MESSAGE_FULL_NAME: &str = "vsr.MotorCommand";
 const MCAP_VSR_TOPIC: &str = "/vsr";
+const DEFAULT_CRUISE_TARGET_RPM: u32 = 250;
 
 // This is only an approximate wheel-speed conversion for UI continuity.
 const MOTOR_RPM_TO_MPH: f32 = 0.04;
@@ -44,12 +48,16 @@ const FALLBACK_CURRENT_LIMIT_A: f32 = 400.0;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub enum DriveMode {
-    #[serde(rename = "P")]
-    Park,
-    #[serde(rename = "D")]
-    Drive,
-    #[serde(rename = "R")]
+    #[serde(rename = "Reverse")]
     Reverse,
+    #[serde(rename = "Park")]
+    Park,
+    #[serde(rename = "Neutral")]
+    Neutral,
+    #[serde(rename = "Drive")]
+    Drive,
+    #[serde(rename = "Cruise Control")]
+    CruiseControl,
 }
 
 impl Default for DriveMode {
@@ -61,6 +69,26 @@ impl Default for DriveMode {
 #[derive(Clone)]
 struct VehicleState {
     inner: Arc<Mutex<VehicleInternal>>,
+    outbound_tx: mpsc::Sender<OutboundCommand>,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct RequestedMotorCommand {
+    mode: DriveMode,
+    cruise_target_rpm: Option<u32>,
+}
+
+#[derive(Debug)]
+enum OutboundCommand {
+    Motor(RequestedMotorCommand),
+    EmergencyStop,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MotorCommandRequest {
+    mode: DriveMode,
+    cruise_target_rpm: Option<u32>,
 }
 
 impl VehicleState {
@@ -72,29 +100,40 @@ impl VehicleState {
             &mut logs,
             "dashboard backend online; waiting for MCU VSR stream",
         );
+        let (outbound_tx, outbound_rx) = mpsc::channel();
 
         Self {
             inner: Arc::new(Mutex::new(VehicleInternal {
-                drive_mode: DriveMode::Park,
                 vsr_schema,
                 latest_vsr: None,
                 mcap_output_path: None,
                 serial_port_name: None,
+                serial_link_ready: false,
                 last_frame_received_at: None,
                 last_frame_size_bytes: 0,
                 frames_received: 0,
                 decode_errors: 0,
                 io_errors: 0,
+                emergency_stop_latched: false,
+                outbound_rx: Some(outbound_rx),
                 live_text_logs: logs,
             })),
+            outbound_tx,
         }
     }
 
     fn start_serial_worker(&self) {
         let shared = Arc::clone(&self.inner);
+        let outbound_rx = {
+            let mut guard = shared.lock().expect("vehicle state poisoned");
+            guard
+                .outbound_rx
+                .take()
+                .expect("serial worker already started")
+        };
         thread::Builder::new()
             .name("mcu-vsr-reader".into())
-            .spawn(move || serial_reader_main(shared))
+            .spawn(move || serial_reader_main(shared, outbound_rx))
             .expect("failed to spawn MCU VSR serial reader thread");
     }
 
@@ -103,28 +142,82 @@ impl VehicleState {
         build_snapshot(&guard)
     }
 
-    fn set_drive_mode(&self, mode: DriveMode) -> DriveMode {
+    fn send_motor_command(&self, request: MotorCommandRequest) -> Result<(), String> {
+        let command = RequestedMotorCommand {
+            mode: request.mode,
+            cruise_target_rpm: request.cruise_target_rpm,
+        };
+        if command.mode == DriveMode::CruiseControl && command.cruise_target_rpm.is_none() {
+            return Err("cruise-control commands must include cruiseTargetRpm".to_string());
+        }
+        {
+            let mut guard = self.inner.lock().expect("vehicle state poisoned");
+            if !guard.serial_link_ready {
+                push_log_line(
+                    &mut guard.live_text_logs,
+                    format!(
+                        "dropped motor command (serial link not ready): {:?}",
+                        command
+                    ),
+                );
+                return Ok(());
+            }
+        }
+
+        self.outbound_tx
+            .send(OutboundCommand::Motor(command))
+            .map_err(|err| format!("failed to queue outbound motor command: {err}"))?;
+
         let mut guard = self.inner.lock().expect("vehicle state poisoned");
-        guard.drive_mode = mode;
         push_log_line(
             &mut guard.live_text_logs,
-            format!("drive selector -> {:?}", mode),
+            format!("queued motor command: {:?}", command),
         );
-        mode
+        Ok(())
+    }
+
+    fn engage_emergency_stop(&self) -> Result<(), String> {
+        let mut guard = self.inner.lock().expect("vehicle state poisoned");
+        if guard.emergency_stop_latched {
+            push_log_line(
+                &mut guard.live_text_logs,
+                "emergency stop already latched; ignoring duplicate trigger",
+            );
+            return Ok(());
+        }
+        if !guard.serial_link_ready {
+            push_log_line(
+                &mut guard.live_text_logs,
+                "WARNING: emergency stop requested while serial link not ready; dropping command",
+            );
+            return Ok(());
+        }
+        guard.emergency_stop_latched = true;
+        push_log_line(
+            &mut guard.live_text_logs,
+            "WARNING: emergency stop requested (latched)",
+        );
+        drop(guard);
+
+        self.outbound_tx
+            .send(OutboundCommand::EmergencyStop)
+            .map_err(|err| format!("failed to queue emergency stop command: {err}"))
     }
 }
 
 struct VehicleInternal {
-    drive_mode: DriveMode,
     vsr_schema: VsrSchema,
     latest_vsr: Option<DynamicMessage>,
     mcap_output_path: Option<String>,
     serial_port_name: Option<String>,
+    serial_link_ready: bool,
     last_frame_received_at: Option<Instant>,
     last_frame_size_bytes: usize,
     frames_received: u64,
     decode_errors: u64,
     io_errors: u64,
+    emergency_stop_latched: bool,
+    outbound_rx: Option<mpsc::Receiver<OutboundCommand>>,
     live_text_logs: VecDeque<String>,
 }
 
@@ -135,6 +228,7 @@ pub struct VehicleSnapshot {
     torque_ratio: f32,
     battery_pct: f32,
     drive_mode: DriveMode,
+    cruise_target_rpm: Option<u32>,
     sections: Vec<VehicleSection>,
     live_text_logs: Vec<String>,
 }
@@ -212,7 +306,16 @@ fn vehicle_status_descriptor() -> MessageDescriptor {
         .expect("missing message descriptor for vsr.VehicleStatusRegister")
 }
 
-fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
+fn motor_command_descriptor() -> MessageDescriptor {
+    vsr_descriptor_pool()
+        .get_message_by_name(MOTOR_COMMAND_MESSAGE_FULL_NAME)
+        .expect("missing message descriptor for vsr.MotorCommand")
+}
+
+fn serial_reader_main(
+    shared: Arc<Mutex<VehicleInternal>>,
+    outbound_rx: mpsc::Receiver<OutboundCommand>,
+) {
     let mut mcap_recorder = McapRecorder::new(VSR_MESSAGE_FULL_NAME, vsr_descriptor_bytes());
     {
         let mut state = shared.lock().expect("vehicle state poisoned");
@@ -237,6 +340,7 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
         {
             let mut state = shared.lock().expect("vehicle state poisoned");
             state.serial_port_name = Some(port_name.clone());
+            state.serial_link_ready = false;
             push_log_line(
                 &mut state.live_text_logs,
                 format!("connecting to MCU VSR serial port {port_name} @ {VSR_SERIAL_BAUD} baud"),
@@ -251,6 +355,8 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
             Err(err) => {
                 let mut state = shared.lock().expect("vehicle state poisoned");
                 state.io_errors = state.io_errors.saturating_add(1);
+                state.serial_port_name = None;
+                state.serial_link_ready = false;
                 push_log_line(
                     &mut state.live_text_logs,
                     format!("failed opening {port_name}: {err}"),
@@ -269,6 +375,7 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
 
         {
             let mut state = shared.lock().expect("vehicle state poisoned");
+            state.serial_link_ready = true;
             push_log_line(
                 &mut state.live_text_logs,
                 format!("MCU VSR stream connected on {port_name} (framed A5 5A + len_le)"),
@@ -279,6 +386,12 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
         let mut read_buf = [0_u8; 512];
 
         loop {
+            if !process_outbound_commands(&shared, &outbound_rx, &mut *port) {
+                state_reset_serial_link(&shared);
+                drop_pending_outbound_commands(&shared, &outbound_rx);
+                break;
+            }
+
             let bytes_read = match port.read(&mut read_buf) {
                 Ok(0) => continue,
                 Ok(bytes_read) => bytes_read,
@@ -291,7 +404,9 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
                         format!("serial read failed on {port_name}: {err}"),
                     );
                     state.serial_port_name = None;
+                    state.serial_link_ready = false;
                     drop(state);
+                    drop_pending_outbound_commands(&shared, &outbound_rx);
                     thread::sleep(VSR_RETRY_DELAY);
                     break;
                 }
@@ -363,6 +478,196 @@ fn serial_reader_main(shared: Arc<Mutex<VehicleInternal>>) {
             }
         }
     }
+}
+
+fn state_reset_serial_link(shared: &Arc<Mutex<VehicleInternal>>) {
+    let mut state = shared.lock().expect("vehicle state poisoned");
+    state.serial_port_name = None;
+    state.serial_link_ready = false;
+}
+
+fn drop_pending_outbound_commands(
+    shared: &Arc<Mutex<VehicleInternal>>,
+    outbound_rx: &mpsc::Receiver<OutboundCommand>,
+) {
+    let mut dropped = 0_u64;
+    loop {
+        match outbound_rx.try_recv() {
+            Ok(_) => dropped = dropped.saturating_add(1),
+            Err(mpsc::TryRecvError::Empty) | Err(mpsc::TryRecvError::Disconnected) => break,
+        }
+    }
+
+    if dropped > 0 {
+        let mut state = shared.lock().expect("vehicle state poisoned");
+        push_log_line(
+            &mut state.live_text_logs,
+            format!("dropped {dropped} queued outbound command(s) after serial disconnect"),
+        );
+    }
+}
+
+fn process_outbound_commands(
+    shared: &Arc<Mutex<VehicleInternal>>,
+    outbound_rx: &mpsc::Receiver<OutboundCommand>,
+    port: &mut dyn serialport::SerialPort,
+) -> bool {
+    loop {
+        let command = match outbound_rx.try_recv() {
+            Ok(command) => command,
+            Err(mpsc::TryRecvError::Empty) => break,
+            Err(mpsc::TryRecvError::Disconnected) => break,
+        };
+
+        let payload = match encode_outbound_command_payload(&command) {
+            Ok(payload) => payload,
+            Err(err) => {
+                let mut state = shared.lock().expect("vehicle state poisoned");
+                push_log_line(
+                    &mut state.live_text_logs,
+                    format!("failed encoding outbound command: {err}"),
+                );
+                continue;
+            }
+        };
+
+        let frame = match frame_payload(&payload) {
+            Ok(frame) => frame,
+            Err(err) => {
+                let mut state = shared.lock().expect("vehicle state poisoned");
+                push_log_line(
+                    &mut state.live_text_logs,
+                    format!("failed framing outbound command: {err}"),
+                );
+                continue;
+            }
+        };
+
+        if let Err(err) = write_all_serial(port, &frame) {
+            let mut state = shared.lock().expect("vehicle state poisoned");
+            state.io_errors = state.io_errors.saturating_add(1);
+            push_log_line(
+                &mut state.live_text_logs,
+                format!("serial write failed: {err}"),
+            );
+            return false;
+        }
+
+        let mut state = shared.lock().expect("vehicle state poisoned");
+        match command {
+            OutboundCommand::Motor(command) => {
+                push_log_line(
+                    &mut state.live_text_logs,
+                    format!("sent motor command -> {:?}", command),
+                );
+            }
+            OutboundCommand::EmergencyStop => {
+                push_log_line(
+                    &mut state.live_text_logs,
+                    "sent emergency stop command (mapped to PARK for now)",
+                );
+            }
+        }
+    }
+
+    true
+}
+
+fn write_all_serial(port: &mut dyn serialport::SerialPort, data: &[u8]) -> io::Result<()> {
+    let mut offset = 0;
+    while offset < data.len() {
+        let written = port.write(&data[offset..])?;
+        if written == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "serial write returned 0 bytes",
+            ));
+        }
+        offset += written;
+    }
+    Ok(())
+}
+
+fn encode_outbound_command_payload(command: &OutboundCommand) -> Result<Vec<u8>, String> {
+    match command {
+        OutboundCommand::Motor(requested) => encode_motor_command_payload(*requested),
+        OutboundCommand::EmergencyStop => encode_motor_command_payload(RequestedMotorCommand {
+            mode: DriveMode::Park,
+            cruise_target_rpm: None,
+        }),
+    }
+}
+
+fn encode_motor_command_payload(command: RequestedMotorCommand) -> Result<Vec<u8>, String> {
+    let descriptor = motor_command_descriptor();
+    let command_field = descriptor
+        .get_field_by_name("command")
+        .ok_or_else(|| "missing motor_command.command field".to_string())?;
+    let command_kind = command_field.kind();
+    let command_value_descriptor = command_kind
+        .as_message()
+        .ok_or_else(|| "motor_command.command is not a message".to_string())?;
+    let mut command_value_message = DynamicMessage::new(command_value_descriptor.clone());
+
+    let (variant_field_name, cruise_target_rpm) = match command.mode {
+        DriveMode::Reverse => ("reverse", None),
+        DriveMode::Park => ("park", None),
+        DriveMode::Neutral => ("neutral", None),
+        DriveMode::Drive => ("drive", None),
+        DriveMode::CruiseControl => (
+            "cruise_control",
+            Some(
+                command
+                    .cruise_target_rpm
+                    .unwrap_or(DEFAULT_CRUISE_TARGET_RPM),
+            ),
+        ),
+    };
+
+    let variant_field = command_value_descriptor
+        .get_field_by_name(variant_field_name)
+        .ok_or_else(|| format!("missing motor_command.command.{variant_field_name} field"))?;
+    let variant_kind = variant_field.kind();
+    let variant_descriptor = variant_kind
+        .as_message()
+        .ok_or_else(|| format!("motor_command.command.{variant_field_name} is not a message"))?;
+    let mut variant_message = DynamicMessage::new(variant_descriptor.clone());
+    if let Some(target_speed_rpm) = cruise_target_rpm {
+        let target_field = variant_descriptor
+            .get_field_by_name("target_speed_rpm")
+            .ok_or_else(|| "missing cruise_control target_speed_rpm field".to_string())?;
+        variant_message.set_field(&target_field, Value::U32(target_speed_rpm));
+    }
+
+    command_value_message.set_field(&variant_field, Value::Message(variant_message));
+
+    let mut motor_command_message = DynamicMessage::new(descriptor);
+    motor_command_message.set_field(&command_field, Value::Message(command_value_message));
+    Ok(motor_command_message.encode_to_vec())
+}
+
+fn frame_payload(payload: &[u8]) -> Result<Vec<u8>, String> {
+    if payload.is_empty() {
+        return Err("payload must not be empty".to_string());
+    }
+    if payload.len() > VSR_PAYLOAD_MAX_LEN {
+        return Err(format!(
+            "payload too large: {} (max {})",
+            payload.len(),
+            VSR_PAYLOAD_MAX_LEN
+        ));
+    }
+    if payload.len() > u16::MAX as usize {
+        return Err("payload too large for u16 framing length".to_string());
+    }
+
+    let payload_len = payload.len() as u16;
+    let mut framed = Vec::with_capacity(VSR_FRAME_HEADER_LEN + payload.len());
+    framed.push(VSR_FRAME_MAGIC_0);
+    framed.push(VSR_FRAME_MAGIC_1);
+    framed.extend_from_slice(&payload_len.to_le_bytes());
+    framed.extend_from_slice(payload);
+    Ok(framed)
 }
 
 fn wait_for_serial_port_name() -> String {
@@ -536,6 +841,11 @@ fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
         .as_ref()
         .map(derive_drive_metrics)
         .unwrap_or((0.0, 0.0, 0.0));
+    let (drive_mode, cruise_target_rpm) = state
+        .latest_vsr
+        .as_ref()
+        .map(derive_motor_command_state)
+        .unwrap_or((DriveMode::Park, None));
 
     let mut sections = vec![build_link_section(state)];
 
@@ -547,7 +857,8 @@ fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
         speed_mph,
         torque_ratio,
         battery_pct,
-        drive_mode: state.drive_mode,
+        drive_mode,
+        cruise_target_rpm,
         sections,
         live_text_logs: state.live_text_logs.iter().cloned().collect(),
     }
@@ -583,6 +894,60 @@ fn derive_drive_metrics(vsr: &DynamicMessage) -> (f32, f32, f32) {
     };
 
     (speed_mph, torque_ratio, battery_pct)
+}
+
+fn derive_motor_command_state(vsr: &DynamicMessage) -> (DriveMode, Option<u32>) {
+    let Some(motor_command) = get_nested_message(vsr, "motor_command") else {
+        return (DriveMode::Park, None);
+    };
+
+    let Some(command_field) = motor_command.descriptor().get_field_by_name("command") else {
+        return (DriveMode::Park, None);
+    };
+    let command_value_binding = motor_command.get_field(&command_field);
+    let Value::Message(command_value) = command_value_binding.as_ref() else {
+        return (DriveMode::Park, None);
+    };
+
+    let has_variant = |field_name: &str| {
+        command_value
+            .descriptor()
+            .get_field_by_name(field_name)
+            .is_some_and(|field| command_value.has_field(&field))
+    };
+
+    if has_variant("reverse") {
+        return (DriveMode::Reverse, None);
+    }
+    if has_variant("park") {
+        return (DriveMode::Park, None);
+    }
+    if has_variant("neutral") {
+        return (DriveMode::Neutral, None);
+    }
+    if has_variant("drive") {
+        return (DriveMode::Drive, None);
+    }
+    if let Some(cruise_field) = command_value
+        .descriptor()
+        .get_field_by_name("cruise_control")
+    {
+        if command_value.has_field(&cruise_field) {
+            let target_speed_rpm = match command_value.get_field(&cruise_field).as_ref() {
+                Value::Message(cruise_control) => cruise_control
+                    .descriptor()
+                    .get_field_by_name("target_speed_rpm")
+                    .and_then(|field| match cruise_control.get_field(&field).as_ref() {
+                        Value::U32(value) => Some(*value),
+                        _ => None,
+                    }),
+                _ => None,
+            };
+            return (DriveMode::CruiseControl, target_speed_rpm);
+        }
+    }
+
+    (DriveMode::Park, None)
 }
 
 fn build_link_section(state: &VehicleInternal) -> VehicleSection {
@@ -938,8 +1303,16 @@ fn get_vehicle_snapshot(state: tauri::State<VehicleState>) -> VehicleSnapshot {
 }
 
 #[tauri::command]
-fn set_drive_mode(mode: DriveMode, state: tauri::State<VehicleState>) -> DriveMode {
-    state.set_drive_mode(mode)
+fn send_motor_command(
+    command: MotorCommandRequest,
+    state: tauri::State<VehicleState>,
+) -> Result<(), String> {
+    state.send_motor_command(command)
+}
+
+#[tauri::command]
+fn engage_emergency_stop(state: tauri::State<VehicleState>) -> Result<(), String> {
+    state.engage_emergency_stop()
 }
 
 #[tauri::command]
@@ -990,7 +1363,8 @@ pub fn run() {
         .manage(vehicle_state)
         .invoke_handler(tauri::generate_handler![
             get_vehicle_snapshot,
-            set_drive_mode,
+            send_motor_command,
+            engage_emergency_stop,
             get_vsr_field_analysis
         ])
         .setup(|app| {

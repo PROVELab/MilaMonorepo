@@ -8,19 +8,20 @@
 #include <stdint.h>
 #include <string.h>
 
-#define MOTOR_COMMAND_PAYLOAD_MAX_LEN      vsr_MotorCommand_size
-#define MOTOR_COMMAND_STREAM_CHUNK_LEN     128
-#define MOTOR_COMMAND_STREAM_BUFFER_LEN    (8 * (VSR_UART_FRAME_HEADER_LEN + MOTOR_COMMAND_PAYLOAD_MAX_LEN))
-#define MOTOR_COMMAND_RX_POLL_TIMEOUT_MS   2
+#define MOTOR_COMMAND_PAYLOAD_MAX_LEN    vsr_MotorCommand_size
+#define MOTOR_COMMAND_STREAM_CHUNK_LEN   128
+#define MOTOR_COMMAND_STREAM_BUFFER_LEN  (8 * (VSR_UART_FRAME_HEADER_LEN + MOTOR_COMMAND_PAYLOAD_MAX_LEN))
+#define MOTOR_COMMAND_RX_POLL_TIMEOUT_MS 2
 
 static bool motor_command_has_valid_mode(const vsr_MotorCommand* command) {
     if (command == NULL || !command->has_command) { return false; }
 
     switch (command->command.which_kind) {
-        case vsr_MotorCommand_CommandValue_idle_tag:
+        case vsr_MotorCommand_CommandValue_park_tag:
         case vsr_MotorCommand_CommandValue_reverse_tag:
+        case vsr_MotorCommand_CommandValue_neutral_tag:
         case vsr_MotorCommand_CommandValue_drive_tag:
-        case vsr_MotorCommand_CommandValue_cruisecontrol_tag: return true;
+        case vsr_MotorCommand_CommandValue_cruise_control_tag: return true;
         default: return false;
     }
 }
@@ -94,8 +95,8 @@ static void motor_command_rx_main(void* arg) {
     size_t stream_len = 0;
 
     while (1) {
-        int bytes_read = uart_read_bytes(VSR_UART_NUM, rx_chunk, sizeof(rx_chunk),
-                                         pdMS_TO_TICKS(MOTOR_COMMAND_RX_POLL_TIMEOUT_MS));
+        int bytes_read =
+            uart_read_bytes(VSR_UART_NUM, rx_chunk, sizeof(rx_chunk), pdMS_TO_TICKS(MOTOR_COMMAND_RX_POLL_TIMEOUT_MS));
         if (bytes_read <= 0) { continue; }
 
         vsr_append_stream_bytes(stream_buf, &stream_len, sizeof(stream_buf), rx_chunk, (size_t) bytes_read);

@@ -21,9 +21,9 @@ int vsr_init(vehicle_status_reg_t* vsr) {
         const vsr_VehicleStatusRegister zero = vsr_VehicleStatusRegister_init_zero;
         vsr->wire = zero;
     }
-    // Default motor command oneof to idle at startup.
+    // Default motor command oneof to park at startup.
     vsr->wire.motor_command.has_command = true;
-    vsr->wire.motor_command.command.which_kind = vsr_MotorCommand_CommandValue_idle_tag;
+    vsr->wire.motor_command.command.which_kind = vsr_MotorCommand_CommandValue_park_tag;
 {% for slot in slots %}
     vsr->{{ slot.name }}_mutex = xSemaphoreCreateMutex();
     vsr->{{ slot.name }}_updated_at_us = 0;
