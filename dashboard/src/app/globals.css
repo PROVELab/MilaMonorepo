@@ -689,15 +689,38 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 20px;
+  overflow: visible;
+  transform: translateY(120px);
+}
+
+.loading-screen__brand {
+  margin-bottom: 30px;
+  opacity: 0;
+  animation: fadeInBrand 2s ease-out 0.5s forwards;
+  z-index: 10;
+}
+
+.loading-screen__brand img {
+  height: 120px; /* 2.5x increase */
+  width: auto;
+  /* Invert luminance (black to white) but rotate hue back 180 degrees to recover original colors */
+  filter: invert(1) hue-rotate(180deg); 
+}
+
+@keyframes fadeInBrand {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 0.9; transform: translateY(0); }
 }
 
 .signature-text {
   font-family: 'Alex Brush', cursive;
-  font-size: clamp(120px, 25vw, 240px);
-  line-height: 1;
+  font-size: clamp(140px, 30vw, 420px); /* Slightly smaller max size to fit branding */
+  line-height: 1.2; /* Tighter line height to save vertical space */
   color: #fff;
   position: relative;
   white-space: nowrap;
+  overflow: visible;
 }
 
 /* Base text that "writes" itself */
@@ -710,10 +733,13 @@ button {
 /* Bolding highlight that sweeps through */
 .signature-text--bold {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   color: #fff;
-  font-weight: bold;
-  text-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+  -webkit-text-stroke: 2.5px #fff;
+  text-shadow: 0 0 25px rgba(255, 255, 255, 0.6);
   -webkit-mask-image: linear-gradient(
     110deg, 
     transparent var(--bold-start), 
@@ -766,13 +792,18 @@ button {
 }
 
 .signature-reflection {
-  margin-top: 5px;
-  transform: scaleY(-1);
-  opacity: 0.12;
-  filter: blur(4px);
-  mask-image: linear-gradient(to bottom, black 0%, transparent 80%);
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 80%);
+  margin-top: -40px;
+  transform: scaleY(-0.8) skewX(-2deg);
+  opacity: 0.35;
+  color: #93c5fd;
+  filter: blur(8px) brightness(1.2) drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+  mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
   transform-origin: top center;
+}
+
+.signature-reflection .signature-text--bold {
+  -webkit-text-stroke: 2.5px #93c5fd;
 }
 
 .loading-screen__status {

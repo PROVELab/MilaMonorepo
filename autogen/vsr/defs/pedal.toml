@@ -1,5 +1,5 @@
 alias = "pedal"
-desc = ""
+desc = "Acceleration Pedal"
 
 [pedal_supply_voltage]
 type = "f32"
@@ -9,7 +9,7 @@ desc = "Pedal Supply Voltage"
 [pedal_position_pct]
 type = "f32"
 unit = "%"
-desc = "Pedal Position"
+desc = "Pedal Position as a percentage [TODO]"
 
 [pedal_raw_1]
 type = "f32"

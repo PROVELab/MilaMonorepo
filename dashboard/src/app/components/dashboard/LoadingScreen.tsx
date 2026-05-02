@@ -20,20 +20,30 @@ export function LoadingScreen({ onSkip }: Props) {
   return (
     <div className="loading-screen" onClick={onSkip} style={{ cursor: 'pointer' }}>
       <div className="signature-group">
-        {/* Main "Mila" Text */}
-        <div className="signature-text signature-text--base">
-          Mila
+        {/* Prove Logo Branding */}
+        <div className="loading-screen__brand">
+          <img src="/prove_logo.png" alt="Prove Logo" />
         </div>
-        
-        {/* Animated Bolding Layer */}
-        <div className={`signature-text signature-text--bold ${isDrawn ? 'is-visible' : ''}`}>
-          Mila
-        </div>
-        
-        {/* High-Fidelity Reflection */}
-        <div className="signature-reflection">
-           <div className="signature-text">
+
+        {/* Main "Mila" Text Group */}
+        <div className="signature-layer-main" style={{ position: 'relative' }}>
+          <div className="signature-text signature-text--base">
             Mila
+          </div>
+          <div className={`signature-text signature-text--bold ${isDrawn ? 'is-visible' : ''}`}>
+            Mila
+          </div>
+        </div>
+        
+        {/* Synchronized Reflection Group */}
+        <div className="signature-reflection">
+           <div style={{ position: 'relative' }}>
+            <div className="signature-text signature-text--base">
+              Mila
+            </div>
+            <div className={`signature-text signature-text--bold ${isDrawn ? 'is-visible' : ''}`}>
+              Mila
+            </div>
           </div>
         </div>
       </div>

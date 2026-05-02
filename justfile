@@ -77,3 +77,6 @@ check_format:
 ### Telem Dashboard Stuff ###
 telem_dashboard:
     (cd telem-dashboard && gradle run)
+
+clean:
+    git clean -fdX
