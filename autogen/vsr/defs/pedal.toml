@@ -20,13 +20,3 @@ desc = "Pedal Raw ADC 1"
 type = "f32"
 unit = ""
 desc = "Pedal Raw ADC 2"
-
-[tx_value]
-type = "i32"
-unit = ""
-desc = "Transmit Value (CAN)"
-
-[use_pedal]
-type = "bool"
-unit = ""
-desc = "Use Pedal Flag"
