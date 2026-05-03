@@ -143,13 +143,6 @@ impl DashboardState {
         self.outbound_tx
             .send(OutboundCommand::Motor(command))
             .map_err(|err| format!("failed to queue outbound motor command: {err}"))?;
-
-        if let Ok(mut guard) = self.inner.lock() {
-            push_log_line(
-                &mut guard.live_text_logs,
-                format!("queued motor command for serial write: {:?}", command),
-            );
-        }
         Ok(())
     }
 

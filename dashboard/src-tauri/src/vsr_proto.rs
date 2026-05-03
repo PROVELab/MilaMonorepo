@@ -102,6 +102,30 @@ pub fn get_nested_message(vsr: &DynamicMessage, section_key: &str) -> Option<Dyn
     }
 }
 
+pub fn get_repeated_string_field(
+    vsr: &DynamicMessage,
+    section_key: &str,
+    field_key: &str,
+) -> Vec<String> {
+    let Some(section) = get_nested_message(vsr, section_key) else {
+        return Vec::new();
+    };
+    let Some(field_descriptor) = section.descriptor().get_field_by_name(field_key) else {
+        return Vec::new();
+    };
+
+    match section.get_field(&field_descriptor).as_ref() {
+        Value::List(values) => values
+            .iter()
+            .filter_map(|value| match value {
+                Value::String(text) if !text.trim().is_empty() => Some(text.clone()),
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 pub fn dynamic_field_as_f32(
     vsr: &DynamicMessage,
     section_key: &str,

@@ -13,14 +13,14 @@ static bool mutexPrintEnabled = true;
 void setMutexPrintEnabled(bool enabled) { mutexPrintEnabled = enabled; }
 
 void mutexPrint(const char* str) {
-    if (!mutexPrintEnabled || str == NULL || printfMutex == NULL) { return; }
+    // if (!mutexPrintEnabled || str == NULL || printfMutex == NULL) { return; }
 
-    if (xSemaphoreTake(printfMutex, portMAX_DELAY)) {
-        printf("%s\n", str);         // Call the non-reentrant function safely.
-        xSemaphoreGive(printfMutex); // Release the mutex.
-    } else {
-        printf("cant print, in deadlock!\n");
-    }
+    // if (xSemaphoreTake(printfMutex, portMAX_DELAY)) {
+    //     printf("%s\n", str);         // Call the non-reentrant function safely.
+    //     xSemaphoreGive(printfMutex); // Release the mutex.
+    // } else {
+    //     printf("cant print, in deadlock!\n");
+    // }
 }
 
 #define WARN_ALLOC (1u << 0)

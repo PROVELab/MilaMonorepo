@@ -23,13 +23,9 @@
 StaticTask_t recieveMSG_Buffer;
 StackType_t recieveMSG_Stack[STACK_SIZE]; // buffer that the task will use as its stack
 
-#define numADCChannels 3
+#define numADCChannels 4
 
-typedef enum {
-    pedalPower_Index = 0,
-    reading1_Index = 1,
-    reading2_Index = 2,
-} ADC_Indices;
+typedef enum { pedalPower_Index = 0, reading1_Index = 1, reading2_Index = 2, brake_Index = 3 } ADC_Indices;
 
 int32_t ADC_Readings[numADCChannels];
 selfPowerStatus_t ADC_ReadingStatuses[numADCChannels];
@@ -85,6 +81,15 @@ int32_t collect_pedalReadingTwo() {
     // char buffer[64];
     // sprintf(buffer, "collecting pedalReadingTwo: %ld\n", ADC_Readings[reading2_Index]);
     // mutexPrint(buffer);
+    if (ADC_ReadingStatuses[brake_Index] != READ_SUCCESS) {
+        // we should not be driving if we cant read something
+        ADC_Readings[brake_Index] = -1;
+        // mutexPrint("invalid pedal reading 2\n");
+    } else {
+        // transform pedal power reading mV to pedal reading percentage
+        // ADC_Readings[brake_Index] =
+        //     transformPedalReading(ADC_Readings[brake_Index], ADC_Readings[pedalPower_Index], fallingPedalIndex);
+    }
 
     // speed stuff
     int a = (ADC_Readings[reading1_Index] < ADC_Readings[reading2_Index]) ? ADC_Readings[reading1_Index]
@@ -97,6 +102,12 @@ int32_t collect_pedalReadingTwo() {
         VSR_DATA.pedal.pedal_raw_1 = (float) ADC_Readings[reading1_Index];
         VSR_DATA.pedal.pedal_raw_2 = (float) ADC_Readings[reading2_Index];
         VSR_DATA.pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
+    });
+
+    ACQ_REL_VSRSEM_W(vsr, brake, {
+        VSR_DATA.brake.brake_raw_1 = (float) ADC_Readings[brake_Index];
+        VSR_DATA.brake.brake_position_pct = 200.0f * (float) ADC_Readings[brake_Index] / 1000.0f - 90;
+        VSR_DATA.brake.brake_supply_voltage = (float) ADC_Readings[pedalPower_Index];
     });
 
     return ADC_Readings[reading2_Index];
@@ -124,11 +135,10 @@ void pedal_main(PCANListenParamsCollection* plpc) {
     pecan_CanInit(config); // initialize CAN
 
     // 1) Build your per-channel configs (order matters)
-    selfPowerConfig channels[numADCChannels] = {
-        {.ADCPin = VP_Pin, .R1 = 114000, .R2 = 57000},  //
-        {.ADCPin = VN_Pin, .R1 = 300000, .R2 = 150000}, // rising (white wire)
-        {.ADCPin = 35, .R1 = 303000, .R2 = 198000},     // falling (red wire)
-    };
+    selfPowerConfig channels[numADCChannels] = {{.ADCPin = VP_Pin, .R1 = 114000, .R2 = 57000},  //
+                                                {.ADCPin = VN_Pin, .R1 = 300000, .R2 = 150000}, // rising (white wire)
+                                                {.ADCPin = 35, .R1 = 303000, .R2 = 198000},     // falling (red wire)
+                                                {.ADCPin = 34, .R1 = 1, .R2 = 3000000}};
 
     // 2) Initialize; get per-channel init statuses
     const int ADCUnit = 1; // continous is only valid for ADC Unit 1 (not 2)

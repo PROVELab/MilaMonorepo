@@ -96,6 +96,12 @@ pub enum FieldType {
     #[serde(rename = "f32")]
     F32,
 
+    #[serde(rename = "string")]
+    String,
+
+    #[serde(rename = "string_array")]
+    StringArray,
+
     #[serde(rename = "enum")]
     Enum {
         variants: IndexMap<String, EnumVariantPayload>,
@@ -116,6 +122,8 @@ impl FieldType {
             FieldType::U16 => "uint16_t",
             FieldType::U32 => "uint32_t",
             FieldType::F32 => "float",
+            FieldType::String => "char*",
+            FieldType::StringArray => "char**",
             FieldType::Enum { .. } => "/* enum */ int",
         }
     }

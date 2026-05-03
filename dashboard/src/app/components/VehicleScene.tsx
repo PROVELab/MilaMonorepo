@@ -11,8 +11,8 @@ const MODEL_PATH = "/octane.glb";
 const TARGET_MODEL_BOUNDS = new THREE.Vector3(5.4, 2.1, 3.0);
 const GROUND_Y = -0.36;
 
-const CAMERA_POS_DRIVE = new THREE.Vector3(0, 3.8, 12.2);
-const CAMERA_POS_REVERSE = new THREE.Vector3(0, 3.8, -12.2);
+const CAMERA_POS_DRIVE = new THREE.Vector3(-12.2, 3.8, 0);
+const CAMERA_POS_REVERSE = new THREE.Vector3(12.2, 3.8, 0);
 
 interface VehicleSceneProps {
   rpm: number | null;
@@ -23,6 +23,9 @@ function CameraController({ controlsRef, driveMode }: { controlsRef: React.Mutab
   const { camera, gl } = useThree();
   const interacting = useRef(false);
   const lastInteractionTime = useRef(Date.now());
+  const shouldAutoRecenter =
+    driveMode === "Drive" || driveMode === "Cruise Control" || driveMode === "Reverse";
+  const targetPos = driveMode === "Reverse" ? CAMERA_POS_REVERSE : CAMERA_POS_DRIVE;
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -50,11 +53,19 @@ function CameraController({ controlsRef, driveMode }: { controlsRef: React.Mutab
     };
   }, [controlsRef, gl]);
 
+  useEffect(() => {
+    if (!shouldAutoRecenter) return;
+    camera.position.copy(targetPos);
+    if (controlsRef.current) controlsRef.current.update();
+    interacting.current = false;
+    lastInteractionTime.current = Date.now();
+  }, [camera, controlsRef, shouldAutoRecenter, targetPos]);
+
   useFrame((_, delta) => {
     if (interacting.current) return;
     if (Date.now() - lastInteractionTime.current < 5000) return;
+    if (!shouldAutoRecenter) return;
 
-    const targetPos = driveMode === "Reverse" ? CAMERA_POS_REVERSE : CAMERA_POS_DRIVE;
     camera.position.lerp(targetPos, delta * 2.5);
     if (controlsRef.current) controlsRef.current.update();
   });
@@ -82,14 +93,14 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
     scene.scale.set(1, 1, 1);
     scene.updateMatrixWorld(true);
 
-    scene.traverse((child: any) => {
-      if (child.isMesh) {
+    scene.traverse((child: THREE.Object3D) => {
+      if (child instanceof THREE.Mesh) {
         child.castShadow = true;
         child.receiveShadow = true;
         child.frustumCulled = false;
       }
 
-      if (child.name?.includes("SteeringPivot")) {
+      if (child.name.includes("SteeringPivot")) {
         steeringPivotsRef.current.push(child);
         if (child.children[0]) {
           frontWheelsRef.current.push(child.children[0]);
@@ -153,7 +164,7 @@ export function VehicleScene({ rpm, driveMode }: VehicleSceneProps) {
         onContextMenu={(e) => e.preventDefault()}
         style={{ touchAction: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
         shadows
-        camera={{ position: [0, 3.8, 12.2], fov: 45 }}
+        camera={{ position: [-12.2, 3.8, 0], fov: 45 }}
         gl={{ toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
       >
         <color attach="background" args={["#0b111c"]} />

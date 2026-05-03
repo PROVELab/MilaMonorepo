@@ -4,10 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const TOAST_LIMIT = 5;
 const TOAST_DURATION_MS = 4200;
+const TOAST_DURATION_ALERT_MS = 9800;
+
+type ToastTone = "info" | "warn" | "error";
 
 export interface LogToast {
   id: number;
   message: string;
+  tone: ToastTone;
 }
 
 export function useLogToasts(logs: string[]) {
@@ -17,17 +21,17 @@ export function useLogToasts(logs: string[]) {
   const toastSeqRef = useRef(0);
   const toastTimeoutsRef = useRef<number[]>([]);
 
-  const enqueueToast = useCallback((message: string) => {
+  const enqueueToast = useCallback((toast: Omit<LogToast, "id">, durationMs: number) => {
     const id = toastSeqRef.current++;
     setToasts(prev => {
-      const next = [...prev, { id, message }];
+      const next = [...prev, { id, ...toast }];
       return next.length > TOAST_LIMIT ? next.slice(next.length - TOAST_LIMIT) : next;
     });
 
     const timeout = window.setTimeout(() => {
       setToasts(prev => prev.filter(toast => toast.id !== id));
       toastTimeoutsRef.current = toastTimeoutsRef.current.filter(handle => handle !== timeout);
-    }, TOAST_DURATION_MS);
+    }, durationMs);
     toastTimeoutsRef.current.push(timeout);
   }, []);
 
@@ -43,7 +47,21 @@ export function useLogToasts(logs: string[]) {
 
     const newLogs = activeLogs.filter(line => !seenLogs.has(line));
     for (const line of newLogs.reverse()) {
-      enqueueToast(line);
+      const parsedMcu = line.match(
+        /^(?:\[\d{2}:\d{2}:\d{2}\]\s*)?MCU:\s+([IWE])\s+\(\d+\)\s+[^:]+:\s*(.*)$/,
+      );
+
+      if (parsedMcu) {
+        const severity = parsedMcu[1];
+        const cleanedMessage = parsedMcu[2].trim();
+        const tone: ToastTone =
+          severity === "E" ? "error" : severity === "W" ? "warn" : "info";
+        const durationMs = tone === "info" ? TOAST_DURATION_MS : TOAST_DURATION_ALERT_MS;
+        enqueueToast({ message: cleanedMessage, tone }, durationMs);
+        continue;
+      }
+
+      enqueueToast({ message: line, tone: "info" }, TOAST_DURATION_MS);
     }
 
     seenLogs.clear();

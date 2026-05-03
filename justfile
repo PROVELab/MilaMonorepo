@@ -11,6 +11,7 @@ autogen:
     (cd autogen/vsr && cargo run -- ../../mila-embedded/src/mcu/vsr)
     (cd autogen/vsr && protoc -I ../../mila-embedded/src/mcu/vsr --plugin=protoc-gen-nanopb=${PROTOC_GEN_NANOPB:-$(command -v protoc-gen-nanopb)} --nanopb_out=../../mila-embedded/src/mcu/vsr ../../mila-embedded/src/mcu/vsr/vsr.proto)
 
+
 ### Dashboard Stuff ###
 setup_dashboard:
     (cd dashboard && npm install)

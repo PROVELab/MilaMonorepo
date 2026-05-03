@@ -15,11 +15,14 @@ declare global {
 const DEFAULT_SNAPSHOT: VehicleSnapshot = {
   motorRpm: null,
   pedalPct: null,
+  brakePct: null,
   driveMode: "Park",
   cruiseTargetRpm: null,
   sections: [],
   liveTextLogs: ["waiting for MCU VSR stream"],
   isSerialReady: false,
+  framesReceived: 0,
+  lastFrameAgeSeconds: null,
 };
 
 type BackendMotorCommandRequest = {
@@ -130,6 +133,8 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
       driveMode: snapshot.driveMode,
       cruiseTargetRpm: snapshot.cruiseTargetRpm ?? null,
       isSerialReady: snapshot.isSerialReady,
+      framesReceived: snapshot.framesReceived,
+      lastFrameAgeSeconds: snapshot.lastFrameAgeSeconds ?? null,
       changeDriveMode,
       nudgeCruiseUp: () => adjustCruiseRpm(CRUISE_STEP_RPM),
       nudgeCruiseDown: () => adjustCruiseRpm(-CRUISE_STEP_RPM),

@@ -61,7 +61,11 @@ export function VehicleStatePanel({ sections, logs }: Props) {
     const fetchTrend = async () => {
       if (cancelled || inFlight) return;
       inFlight = true;
-      firstFetch ? setTrendLoading(true) : setTrendRefreshing(true);
+      if (firstFetch) {
+        setTrendLoading(true);
+      } else {
+        setTrendRefreshing(true);
+      }
 
       try {
         const data = await invoke<FieldTrendResponse>("get_vsr_field_analysis", { sectionId, fieldKey });
@@ -86,7 +90,7 @@ export function VehicleStatePanel({ sections, logs }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [activeField?.sectionId, activeField?.field.key, refreshTrigger]);
+  }, [activeField, refreshTrigger]);
 
   const updatedLabel = useMemo(() => {
     if (!trendUpdatedAtMs) return "not yet";

@@ -97,9 +97,7 @@ impl McapRecorder {
     }
 
     pub fn append_vsr(&mut self, payload: &[u8]) -> Option<String> {
-        let Some(writer) = self.writer.as_mut() else {
-            return None;
-        };
+        let writer = self.writer.as_mut()?;
 
         let log_time = epoch_nanos();
         let header = MessageHeader {
@@ -122,9 +120,7 @@ impl McapRecorder {
         if self.messages_since_flush >= MCAP_FLUSH_EVERY_MESSAGES
             || self.last_flush_at.elapsed() >= MCAP_FLUSH_INTERVAL
         {
-            let Some(writer) = self.writer.as_mut() else {
-                return None;
-            };
+            let writer = self.writer.as_mut()?;
 
             let flush_result = writer.flush();
             if let Err(err) = flush_result {
@@ -145,9 +141,7 @@ impl McapRecorder {
     }
 
     fn enforce_hard_size_limit(&mut self) -> Option<String> {
-        if self.writer.is_none() {
-            return None;
-        }
+        self.writer.as_ref()?;
 
         let file_size = match std::fs::metadata(&self.output_path) {
             Ok(metadata) => metadata.len(),

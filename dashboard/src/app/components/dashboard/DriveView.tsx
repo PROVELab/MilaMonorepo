@@ -11,6 +11,7 @@ interface Props {
   driveMode: DriveMode;
   motorRpm: number | null;
   pedalPct: number | null;
+  brakePct: number | null;
   cruiseTargetRpm: number | null;
   onDriveModeChange: (mode: DriveMode) => void;
   onCruiseDown: () => void;
@@ -35,6 +36,7 @@ export function DriveView({
   driveMode,
   motorRpm,
   pedalPct,
+  brakePct,
   cruiseTargetRpm,
   onDriveModeChange,
   onCruiseDown,
@@ -64,7 +66,7 @@ export function DriveView({
       </button>
 
       <div className="drive-view__topbar">
-        <Tachometer rpm={motorRpm} pedalPct={pedalPct} />
+        <Tachometer rpm={motorRpm} pedalPct={pedalPct} brakePct={brakePct} />
       </div>
       <div className="drive-view__controls">
         <DriveModeSelector value={driveMode} onChange={onDriveModeChange} />

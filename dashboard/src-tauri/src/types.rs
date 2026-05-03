@@ -2,10 +2,11 @@ use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_CRUISE_TARGET_RPM: u32 = 250;
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum DriveMode {
     #[serde(rename = "Reverse")]
     Reverse,
+    #[default]
     #[serde(rename = "Park")]
     Park,
     #[serde(rename = "Neutral")]
@@ -14,12 +15,6 @@ pub enum DriveMode {
     Drive,
     #[serde(rename = "Cruise Control")]
     CruiseControl,
-}
-
-impl Default for DriveMode {
-    fn default() -> Self {
-        Self::Park
-    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -46,11 +41,14 @@ pub struct MotorCommandRequest {
 pub struct VehicleSnapshot {
     pub motor_rpm: Option<f32>,
     pub pedal_pct: Option<f32>,
+    pub brake_pct: Option<f32>,
     pub drive_mode: DriveMode,
     pub cruise_target_rpm: Option<u32>,
     pub sections: Vec<VehicleSection>,
     pub live_text_logs: Vec<String>,
     pub is_serial_ready: bool,
+    pub frames_received: u64,
+    pub last_frame_age_seconds: Option<u64>,
 }
 
 impl VehicleSnapshot {
@@ -58,11 +56,14 @@ impl VehicleSnapshot {
         Self {
             motor_rpm: None,
             pedal_pct: None,
+            brake_pct: None,
             drive_mode: DriveMode::Park,
             cruise_target_rpm: None,
             sections: Vec::new(),
             live_text_logs: logs,
             is_serial_ready: false,
+            frames_received: 0,
+            last_frame_age_seconds: None,
         }
     }
 }

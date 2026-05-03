@@ -3,6 +3,7 @@ import { MAX_DISPLAY_RPM } from "../../constants/vehicle";
 interface TachometerProps {
   rpm: number | null;
   pedalPct: number | null;
+  brakePct: number | null;
 }
 
 function formatRpm(rpm: number | null): string {
@@ -10,9 +11,10 @@ function formatRpm(rpm: number | null): string {
   return Math.round(rpm).toLocaleString();
 }
 
-export function Tachometer({ rpm, pedalPct }: TachometerProps) {
+export function Tachometer({ rpm, pedalPct, brakePct }: TachometerProps) {
   const normalizedRpm = rpm == null ? 0 : Math.min(Math.max(Math.abs(rpm), 0), MAX_DISPLAY_RPM) / MAX_DISPLAY_RPM;
   const normalizedPedal = pedalPct == null ? 0 : Math.min(100, Math.max(0, pedalPct));
+  const normalizedBrake = brakePct == null ? 0 : Math.min(100, Math.max(0, brakePct));
   const radius = 90;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference * (1 - normalizedRpm);
@@ -58,8 +60,14 @@ export function Tachometer({ rpm, pedalPct }: TachometerProps) {
         <span className="tachometer__unit">RPM</span>
         <div className="pedal-indicator" aria-label={`Pedal position ${Math.round(normalizedPedal)} percent`}>
           <span>Pedal</span>
-          <div className="pedal-indicator__bar">
+          <div className="pedal-indicator__bar pedal-indicator__bar--pedal">
             <div style={{ width: `${normalizedPedal}%` }} />
+          </div>
+        </div>
+        <div className="pedal-indicator" aria-label={`Brake position ${Math.round(normalizedBrake)} percent`}>
+          <span>Brake</span>
+          <div className="pedal-indicator__bar pedal-indicator__bar--brake">
+            <div style={{ width: `${normalizedBrake}%` }} />
           </div>
         </div>
       </div>

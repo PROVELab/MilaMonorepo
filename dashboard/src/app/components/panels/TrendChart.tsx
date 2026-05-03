@@ -3,13 +3,16 @@
 import { useMemo, useRef } from "react";
 import {
   Chart as ChartJS,
+  type ChartData,
+  type ChartOptions,
   LinearScale,
   PointElement,
   LineElement,
+  type TooltipItem,
   Tooltip as ChartTooltip,
   Legend as ChartLegend,
   ScatterController,
-  LineController
+  LineController,
 } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 import zoomPlugin from 'chartjs-plugin-zoom';
@@ -33,34 +36,36 @@ function formatMinutes(minutes: number): string {
 }
 
 export default function TrendChart({ trend }: { trend: FieldTrendResponse }) {
-  const chartRef = useRef<ChartJS>(null);
+  const chartRef = useRef<ChartJS<"scatter"> | null>(null);
 
-  const chartData = useMemo(() => {
-    return {
-      datasets: [
-        {
-          type: 'scatter' as const,
-          label: 'Raw Sample',
-          data: trend.rawPoints.map((p: any) => ({ x: p.minutesFromNow, y: p.value })),
-          backgroundColor: '#f2a65a',
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        },
-        {
-          type: 'line' as const,
-          label: 'Linear Trend',
-          data: trend.fitPoints.map((p: any) => ({ x: p.minutesFromNow, y: p.value })),
-          borderColor: '#8bd8ca',
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHoverRadius: 0,
-          fill: false,
-        }
-      ]
-    };
-  }, [trend]);
+  const chartData = useMemo<ChartData<"scatter">>(
+    () =>
+      ({
+        datasets: [
+          {
+            type: 'scatter' as const,
+            label: 'Raw Sample',
+            data: trend.rawPoints.map((p) => ({ x: p.minutesFromNow, y: p.value })),
+            backgroundColor: '#f2a65a',
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
+          {
+            type: 'line' as const,
+            label: 'Linear Trend',
+            data: trend.fitPoints.map((p) => ({ x: p.minutesFromNow, y: p.value })),
+            borderColor: '#8bd8ca',
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+          }
+        ]
+      }) as unknown as ChartData<"scatter">,
+    [trend],
+  );
 
-  const options = useMemo(() => ({
+  const options = useMemo<ChartOptions<"scatter">>(() => ({
     responsive: true,
     maintainAspectRatio: false,
     interaction: {
@@ -75,12 +80,12 @@ export default function TrendChart({ trend }: { trend: FieldTrendResponse }) {
       },
       tooltip: {
         callbacks: {
-          title: (items: any[]) => {
+          title: (items: TooltipItem<"scatter">[]) => {
             if (!items.length) return '';
-            return formatMinutes(items[0].parsed.x);
+            return formatMinutes(Number(items[0].parsed.x ?? 0));
           },
-          label: (item: any) => {
-            return `${item.dataset.label}: ${item.parsed.y.toFixed(2)}`;
+          label: (item: TooltipItem<"scatter">) => {
+            return `${item.dataset.label}: ${(item.parsed.y ?? 0).toFixed(2)}`;
           }
         }
       },
@@ -127,9 +132,8 @@ export default function TrendChart({ trend }: { trend: FieldTrendResponse }) {
   }
 
   const handleResetZoom = () => {
-    if (chartRef.current) {
-      chartRef.current.resetZoom();
-    }
+    const chart = chartRef.current as (ChartJS<"scatter"> & { resetZoom?: () => void }) | null;
+    chart?.resetZoom?.();
   };
 
   return (
@@ -152,7 +156,7 @@ export default function TrendChart({ trend }: { trend: FieldTrendResponse }) {
       >
         Reset Zoom
       </button>
-      <Chart ref={chartRef as any} type="scatter" data={chartData} options={options} />
+      <Chart ref={chartRef} type="scatter" data={chartData} options={options} />
     </div>
   );
 }

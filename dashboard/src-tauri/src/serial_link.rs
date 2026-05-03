@@ -10,7 +10,8 @@ use crate::mcap_recorder::McapRecorder;
 use crate::state::SharedVehicleState;
 use crate::types::{DriveMode, OutboundCommand, RequestedMotorCommand};
 use crate::vsr_proto::{
-    decode_vehicle_status, descriptor_bytes, encode_motor_command, VSR_MESSAGE_FULL_NAME,
+    decode_vehicle_status, descriptor_bytes, encode_motor_command, get_repeated_string_field,
+    VSR_MESSAGE_FULL_NAME,
 };
 
 const VSR_SERIAL_BAUD: u32 = 921_600;
@@ -118,10 +119,19 @@ fn serial_worker_main(shared: SharedVehicleState, outbound_rx: mpsc::Receiver<Ou
             stream_buf.extend_from_slice(&read_buf[..bytes_read]);
             trim_stream_buffer(&mut stream_buf);
 
-            let drain_result = drain_vsr_frames(&mut stream_buf, |payload| {
+            let drain_result = drain_vsr_frames(&mut stream_buf, |payload, vsr| {
                 if let Some(warning) = mcap_recorder.append_vsr(payload) {
                     with_state(&shared, |state| {
                         push_log_line(&mut state.live_text_logs, warning);
+                    });
+                }
+
+                let mcu_logs = get_repeated_string_field(vsr, "log", "message");
+                if !mcu_logs.is_empty() {
+                    with_state(&shared, |state| {
+                        for line in mcu_logs {
+                            push_log_line(&mut state.live_text_logs, format!("MCU: {line}"));
+                        }
                     });
                 }
             });
@@ -212,7 +222,12 @@ fn process_outbound_commands(
             OutboundCommand::Motor(command) => {
                 push_log_line(
                     &mut state.live_text_logs,
-                    format!("sent motor command -> {:?}", command),
+                    format!(
+                        "sent motor command -> {:?} (payload={}B frame={}B)",
+                        command,
+                        payload.len(),
+                        frame.len()
+                    ),
                 );
             }
             OutboundCommand::EmergencyStop => {
@@ -257,11 +272,8 @@ fn drop_pending_outbound_commands(
     outbound_rx: &mpsc::Receiver<OutboundCommand>,
 ) {
     let mut dropped = 0_u64;
-    loop {
-        match outbound_rx.try_recv() {
-            Ok(_) => dropped = dropped.saturating_add(1),
-            Err(mpsc::TryRecvError::Empty) | Err(mpsc::TryRecvError::Disconnected) => break,
-        }
+    while outbound_rx.try_recv().is_ok() {
+        dropped = dropped.saturating_add(1);
     }
 
     if dropped > 0 {
@@ -368,7 +380,7 @@ fn find_magic_start(stream_buf: &[u8]) -> Option<usize> {
 
 fn drain_vsr_frames<F>(stream_buf: &mut Vec<u8>, mut on_vsr_payload: F) -> DrainResult
 where
-    F: FnMut(&[u8]),
+    F: FnMut(&[u8], &prost_reflect::DynamicMessage),
 {
     let mut result = DrainResult::default();
     let mut cursor = 0_usize;
@@ -428,7 +440,7 @@ where
             Ok(Some(vsr)) => {
                 result.frames_decoded = result.frames_decoded.saturating_add(1);
                 result.last_payload_len = payload_len;
-                on_vsr_payload(payload);
+                on_vsr_payload(payload, &vsr);
                 result.last_vsr = Some(vsr);
                 cursor = payload_end;
             }

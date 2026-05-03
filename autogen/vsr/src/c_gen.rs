@@ -110,6 +110,14 @@ fn build_slots<'a>(substructs: &'a IndexMap<String, VsrSubstruct>) -> Vec<VsrSta
                         "    printf(\"  {}: %.3f\\n\", (double)slot.{});",
                         label, field_name
                     )),
+                    FieldType::String => scalar_print_lines.push(format!(
+                        "    printf(\"  {}: %s\\n\", slot.{});",
+                        label, field_name
+                    )),
+                    FieldType::StringArray => scalar_print_lines.push(format!(
+                        "    printf(\"  {}: [%lu strings]\\n\", (unsigned long)slot.{}_count);",
+                        label, field_name
+                    )),
                     FieldType::Enum { .. } => skipped_enum_fields.push(field_name.as_str()),
                 }
             }

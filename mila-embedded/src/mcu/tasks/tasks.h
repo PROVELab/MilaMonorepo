@@ -35,6 +35,10 @@ void start_console_task();
 #define VSR_STREAM_TASK_PRIO 12
 void start_vsr_stream_task();
 
+// MCU health metrics snapshot on VSR at 1 Hz
+#define MCU_HEALTH_TASK_PRIO 10
+void start_mcu_health_task();
+
 // Dashboard motor-command stream over USB serial (UART0)
 #define MOTOR_COMMAND_RX_TASK_PRIO 12
 void start_motor_command_rx_task();

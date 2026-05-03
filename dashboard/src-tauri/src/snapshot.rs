@@ -1,4 +1,5 @@
 use prost_reflect::{DynamicMessage, ReflectMessage, Value};
+use std::time::Duration;
 use vsr::schema::VsrSubstruct;
 
 use crate::state::VehicleInternal;
@@ -6,8 +7,11 @@ use crate::types::{DriveMode, VehicleField, VehicleSection, VehicleSnapshot};
 use crate::vsr_proto::{dynamic_field_as_f32, get_field_value_string, get_nested_message};
 
 pub type VsrSchema = Vec<(String, VsrSubstruct)>;
+const VSR_STALE_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
+    let last_frame_age = state.last_frame_received_at.map(|t| t.elapsed());
+    let is_serial_ready = last_frame_age.is_some_and(|age| age <= VSR_STALE_TIMEOUT);
     let motor_rpm = state
         .latest_vsr
         .as_ref()
@@ -16,6 +20,11 @@ pub fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
         .latest_vsr
         .as_ref()
         .and_then(|vsr| dynamic_field_as_f32(vsr, "pedal", "pedal_position_pct"))
+        .map(|value| value.clamp(0.0, 100.0));
+    let brake_pct = state
+        .latest_vsr
+        .as_ref()
+        .and_then(|vsr| dynamic_field_as_f32(vsr, "brake", "brake_position_pct"))
         .map(|value| value.clamp(0.0, 100.0));
     let (drive_mode, cruise_target_rpm) = state
         .latest_vsr
@@ -31,11 +40,14 @@ pub fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
     VehicleSnapshot {
         motor_rpm,
         pedal_pct,
+        brake_pct,
         drive_mode,
         cruise_target_rpm,
         sections,
         live_text_logs: state.live_text_logs.iter().cloned().collect(),
-        is_serial_ready: state.frames_received > 0,
+        is_serial_ready,
+        frames_received: state.frames_received,
+        last_frame_age_seconds: last_frame_age.map(|age| age.as_secs()),
     }
 }
 

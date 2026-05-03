@@ -4,11 +4,13 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "esp_log.h"
+
 #include <pb_decode.h>
 #include <stdint.h>
 #include <string.h>
 
-#define MOTOR_COMMAND_PAYLOAD_MAX_LEN    vsr_MotorCommand_size
+#define MOTOR_COMMAND_PAYLOAD_MAX_LEN    256
 #define MOTOR_COMMAND_STREAM_CHUNK_LEN   128
 #define MOTOR_COMMAND_STREAM_BUFFER_LEN  (8 * (VSR_UART_FRAME_HEADER_LEN + MOTOR_COMMAND_PAYLOAD_MAX_LEN))
 #define MOTOR_COMMAND_RX_POLL_TIMEOUT_MS 2
@@ -23,6 +25,21 @@ static bool motor_command_has_valid_mode(const vsr_MotorCommand* command) {
         case vsr_MotorCommand_CommandValue_drive_tag:
         case vsr_MotorCommand_CommandValue_cruise_control_tag: return true;
         default: return false;
+    }
+}
+
+static const char* motor_command_mode_name(const vsr_MotorCommand* command) {
+    if (command == NULL || !command->has_command) {
+        return "UNKNOWN";
+    }
+
+    switch (command->command.which_kind) {
+        case vsr_MotorCommand_CommandValue_park_tag: return "PARK";
+        case vsr_MotorCommand_CommandValue_reverse_tag: return "REVERSE";
+        case vsr_MotorCommand_CommandValue_neutral_tag: return "NEUTRAL";
+        case vsr_MotorCommand_CommandValue_drive_tag: return "DRIVE";
+        case vsr_MotorCommand_CommandValue_cruise_control_tag: return "CRUISE_CONTROL";
+        default: return "UNKNOWN";
     }
 }
 
@@ -49,11 +66,16 @@ static void update_vsr_motor_command(const vsr_MotorCommand* command) {
 
 static void handle_motor_command_payload(const uint8_t* payload, size_t payload_len) {
     vsr_MotorCommand command = vsr_MotorCommand_init_zero;
-    if (!decode_motor_command(payload, payload_len, &command)) { return; }
+    if (!decode_motor_command(payload, payload_len, &command)) {
+        ESP_LOGE(__func__, "Error decoding motor command payload (len=%u)", (unsigned) payload_len);
+        return;
+    }
     update_vsr_motor_command(&command);
+    ESP_LOGI(__func__, "Applied motor command: %s", motor_command_mode_name(&command));
 }
 
 static void drain_motor_command_frames(uint8_t* stream_buf, size_t* stream_len) {
+    static uint32_t invalid_len_drops = 0;
     size_t cursor = 0;
 
     while (cursor + VSR_UART_FRAME_HEADER_LEN <= *stream_len) {
@@ -65,6 +87,11 @@ static void drain_motor_command_frames(uint8_t* stream_buf, size_t* stream_len) 
         size_t payload_len = (size_t) stream_buf[cursor + 2] | ((size_t) stream_buf[cursor + 3] << 8);
         if (payload_len == 0 || payload_len > MOTOR_COMMAND_PAYLOAD_MAX_LEN) {
             // Invalid length for a motor command payload, advance a byte and resync.
+            invalid_len_drops++;
+            if ((invalid_len_drops % 200) == 0) {
+                ESP_LOGW(__func__, "dropping invalid motor command frame length=%u (drops=%lu)", (unsigned) payload_len,
+                         (unsigned long) invalid_len_drops);
+            }
             cursor += 1;
             continue;
         }
@@ -84,11 +111,7 @@ static void drain_motor_command_frames(uint8_t* stream_buf, size_t* stream_len) 
 
 static void motor_command_rx_main(void* arg) {
     (void) arg;
-
-    if (!vsr_uart_init()) {
-        vTaskDelete(NULL);
-        return;
-    }
+    ESP_LOGI(__func__, "motor command RX task started on UART%u", (unsigned) VSR_UART_NUM);
 
     uint8_t rx_chunk[MOTOR_COMMAND_STREAM_CHUNK_LEN];
     uint8_t stream_buf[MOTOR_COMMAND_STREAM_BUFFER_LEN];

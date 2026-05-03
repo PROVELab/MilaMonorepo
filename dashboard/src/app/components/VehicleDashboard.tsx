@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DriveView } from "./dashboard/DriveView";
 import { ToastStack } from "./dashboard/ToastStack";
 import { DashboardViewId, ViewNav } from "./dashboard/ViewNav";
@@ -11,12 +11,16 @@ import { useLogToasts } from "../hooks/useLogToasts";
 import { useVehicleTelemetry } from "../hooks/useVehicleTelemetry";
 import { LoadingScreen } from "./dashboard/LoadingScreen";
 
+const LOADING_FADE_MS = 420;
+
 export function VehicleDashboard() {
   const {
     snapshot,
     driveMode,
     cruiseTargetRpm,
     isSerialReady,
+    framesReceived,
+    lastFrameAgeSeconds,
     changeDriveMode,
     nudgeCruiseUp,
     nudgeCruiseDown,
@@ -24,29 +28,61 @@ export function VehicleDashboard() {
   } = useVehicleTelemetry(180);
   const [activeView, setActiveView] = useState<DashboardViewId>("drive");
   const [showLoading, setShowLoading] = useState(true);
+  const [isLoadingFadingOut, setIsLoadingFadingOut] = useState(false);
   const [isSkipped, setIsSkipped] = useState(false);
+  const loadingFadeTimerRef = useRef<number | null>(null);
   const toasts = useLogToasts(snapshot.liveTextLogs);
 
+  const beginLoadingFadeOut = useCallback(() => {
+    if (!showLoading || isLoadingFadingOut) {
+      return;
+    }
+    setIsLoadingFadingOut(true);
+    if (loadingFadeTimerRef.current) {
+      window.clearTimeout(loadingFadeTimerRef.current);
+    }
+    loadingFadeTimerRef.current = window.setTimeout(() => {
+      setShowLoading(false);
+      setIsLoadingFadingOut(false);
+      loadingFadeTimerRef.current = null;
+    }, LOADING_FADE_MS);
+  }, [showLoading, isLoadingFadingOut]);
+
   useEffect(() => {
-    // If serial is lost, and we weren't already showing loading, reset to loading.
-    // unless the user has manually skipped.
     if (!isSerialReady && !showLoading && !isSkipped) {
       setShowLoading(true);
+      setIsLoadingFadingOut(false);
     }
+  }, [isSerialReady, isSkipped, showLoading]);
 
-    if (isSerialReady && showLoading) {
-      // Extended timing for high-fidelity startup sequence (4.5s draw + 3s hold/sweep)
-      const timer = setTimeout(() => {
-        setShowLoading(false);
-      }, 7500);
-      return () => clearTimeout(timer);
+  useEffect(() => {
+    if (isSerialReady && isSkipped) {
+      setIsSkipped(false);
     }
-  }, [isSerialReady, showLoading, isSkipped]);
+  }, [isSerialReady, isSkipped]);
+
+  useEffect(
+    () => () => {
+      if (loadingFadeTimerRef.current) {
+        window.clearTimeout(loadingFadeTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const handleSkip = () => {
     setIsSkipped(true);
-    setShowLoading(false);
+    beginLoadingFadeOut();
   };
+
+  const loadingReason = useMemo(() => {
+    if (framesReceived === 0) {
+      return "attempting to connect to MCU";
+    }
+    const age = Math.max(0, lastFrameAgeSeconds ?? 0);
+    const suffix = age === 1 ? "" : "s";
+    return `VSR not received in ${age} second${suffix}`;
+  }, [framesReceived, lastFrameAgeSeconds]);
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -64,22 +100,15 @@ export function VehicleDashboard() {
         e.preventDefault();
       }
     };
-    const preventGestures = (e: Event) => e.preventDefault();
 
     document.addEventListener('wheel', handleWheel, { passive: false });
     document.addEventListener('keydown', handleKeyDown, { passive: false });
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('gesturestart', preventGestures, { passive: false } as any);
-    document.addEventListener('gesturechange', preventGestures, { passive: false } as any);
-    document.addEventListener('gestureend', preventGestures, { passive: false } as any);
 
     return () => {
       document.removeEventListener('wheel', handleWheel);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('gesturestart', preventGestures as any);
-      document.removeEventListener('gesturechange', preventGestures as any);
-      document.removeEventListener('gestureend', preventGestures as any);
     };
   }, []);
 
@@ -95,6 +124,7 @@ export function VehicleDashboard() {
         driveMode={driveMode}
         motorRpm={snapshot.motorRpm}
         pedalPct={snapshot.pedalPct}
+        brakePct={snapshot.brakePct}
         cruiseTargetRpm={cruiseTargetRpm}
         onDriveModeChange={changeDriveMode}
         onCruiseDown={nudgeCruiseDown}
@@ -111,12 +141,20 @@ export function VehicleDashboard() {
     snapshot.liveTextLogs,
     snapshot.motorRpm,
     snapshot.pedalPct,
+    snapshot.brakePct,
     snapshot.sections,
   ]);
 
   return (
     <div className="dashboard-fullscreen">
-      {showLoading && <LoadingScreen onSkip={handleSkip} />}
+      {showLoading && (
+        <LoadingScreen
+          reason={loadingReason}
+          isReady={isSerialReady}
+          onSkip={handleSkip}
+          isFadingOut={isLoadingFadingOut}
+        />
+      )}
       <ToastStack toasts={toasts} />
       <main className="view-stage">
         <div key={activeView} className="view-stage__scene">
