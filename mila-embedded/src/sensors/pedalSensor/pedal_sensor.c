@@ -76,7 +76,7 @@ int32_t collect_pedalReadingTwo() {
     if (ADC_ReadingStatuses[reading2_Index] != READ_SUCCESS) {
         // we should not be driving if we cant read something
         ADC_Readings[reading2_Index] = -1;
-        mutexPrint("invalid pedal reading 2\n");
+        // mutexPrint("invalid pedal reading 2\n");
     } else {
         // transform pedal power reading mV to pedal reading percentage
         ADC_Readings[reading2_Index] =
