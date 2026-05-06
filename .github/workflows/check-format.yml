@@ -2,10 +2,9 @@ name: Check Code Formatting
 
 on:
   pull_request:
-    branches: [ main ]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,5 +28,6 @@ jobs:
 
           echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
 
-      - run: |
+      - name: Check formatting
+        run: |
           just check_format

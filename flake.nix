@@ -27,6 +27,17 @@
           libxi
           libxrandr
         ];
+        nanopbPython = pkgs.python312.withPackages (ps: [ ps.protobuf ]);
+        nanopbGenerator = pkgs.writeShellApplication {
+          name = "protoc-gen-nanopb";
+          runtimeInputs = [ nanopbPython pkgs.protobuf ];
+          text = ''
+            export PYTHONPATH=${pkgs.nanopb.src}/generator''${PYTHONPATH:+:$PYTHONPATH}
+            export NANOPB_PB2_TEMP_DIR=''${TMPDIR:-/tmp}
+            export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+            exec ${nanopbPython}/bin/python ${pkgs.nanopb.src}/generator/protoc-gen-nanopb "$@"
+          '';
+        };
         devTools = with pkgs; [
           cargo
           clang-tools
@@ -35,7 +46,7 @@
           gradle
           jdk17
           just
-          nanopb
+          nanopbGenerator
           nodejs_22
           openssl
           pkg-config
@@ -54,6 +65,8 @@
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath linuxTauriDeps;
           shellHook = ''
+            export PATH=${nanopbGenerator}/bin:$PATH
+            export PROTOC_GEN_NANOPB=${nanopbGenerator}/bin/protoc-gen-nanopb
             export PLATFORMIO_CORE_DIR=''${PLATFORMIO_CORE_DIR:-$PWD/.platformio}
             export UV_PROJECT_ENVIRONMENT=''${UV_PROJECT_ENVIRONMENT:-.venv}
             echo "dev shell: just, node, rust, python/uv, platformio, tauri deps"
