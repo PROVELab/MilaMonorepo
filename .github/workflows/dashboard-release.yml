@@ -14,8 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
+
       - uses: ./.github/actions/setup-devshell
+
       - name: Lint and build dashboard release
-        run: nix develop --command just ci_dashboard
+        run: |
+          nix develop --command just ci_dashboard

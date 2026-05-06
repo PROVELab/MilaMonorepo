@@ -16,18 +16,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
+
       - uses: ./.github/actions/setup-devshell
+
       - name: Build Linux dashboard packages
-        run: nix develop --command just release_dashboard_linux
+        run: |
+          nix develop --command just release_dashboard_linux
+
       - name: Stage release artifacts
         shell: bash
         run: |
           mkdir -p dist/dashboard-linux
+
           cp target/release/bundle/deb/*.deb dist/dashboard-linux/
+
           cp target/release/bundle/rpm/*.rpm dist/dashboard-linux/
+
           sha256sum dist/dashboard-linux/* > dist/dashboard-linux/SHA256SUMS
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -35,14 +41,20 @@ jobs:
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
+
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
+
           git push --force origin "refs/tags/$RELEASE_TAG"
 
           title="Dashboard Linux Latest"
+
           notes="Automated dashboard Linux release for commit ${GITHUB_SHA}."
+
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/dashboard-linux/* --clobber
+
             gh release edit "$RELEASE_TAG" --title "$title" --notes "$notes" --latest
           else
             gh release create "$RELEASE_TAG" dist/dashboard-linux/* --title "$title" --notes "$notes" --latest

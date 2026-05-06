@@ -13,7 +13,7 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
@@ -24,7 +24,10 @@ jobs:
       - name: Install clang-format tool
         run: |
           uv tool install clang-format==21.1.2
+
           uv tool install rust-just==1.45.0
+
           echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
 
-      - run: just check_format
+      - run: |
+          just check_format
