@@ -44,7 +44,25 @@ All new PROVE Memos will now reside in /doc as Markdown for CS and CPE-related
 items. This keeps the documentation close to the code, beneficial both for reviewers
 and devs
 
+## Nix Dev Shell
+The repo has a flake for the shared dev toolchain: Rust, Node/Tauri, Python/uv,
+PlatformIO, protobuf/nanopb, Java/Gradle, and Just.
+
+```bash
+nix develop
+just --list
+just dashboard
+just release_dashboard_linux
+just build_embedded_all
+```
+
+Dashboard release artifacts land in `target/release/bundle/{deb,rpm}/`.
+PlatformIO itself comes from Nix; downloaded board/toolchain packages are stored
+in the repo-local `.platformio` cache.
+
 # Dependencies
+If you are not using Nix, install these manually:
+
 To use the items in this monorepo, it's recommended that you have:
 - [Python](https://www.python.org/)
   - [uv](https://docs.astral.sh/uv/)

@@ -21,6 +21,15 @@ setup_reverse_camera:
 build_dashboard: setup_dashboard
     (cd dashboard && npm run tauri:build)
 
+release_dashboard: release_dashboard_linux
+
+release_dashboard_linux:
+    (cd dashboard && npm ci)
+    (cd dashboard && npm run lint)
+    (cd dashboard && npm run tauri:build -- --ci --bundles deb,rpm)
+
+ci_dashboard: release_dashboard_linux
+
 dashboard: setup_dashboard
     (cd dashboard && npm run tauri dev)
 
@@ -40,6 +49,8 @@ build_embedded: autogen
 # Builds all pio envs in mila-embedded
 build_embedded_all: autogen
     (cd mila-embedded && pio run)
+
+ci_embedded: build_embedded_all
 
 # Generates compile_commands.json for a specific (prompt)
 # platformio environment
