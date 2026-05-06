@@ -21,6 +21,8 @@
           libsoup_3
           librsvg
           pango
+          udev
+          udev.dev
           webkitgtk_4_1
           libx11
           libxcursor
@@ -50,7 +52,7 @@
           nodejs_22
           openssl
           pkg-config
-          platformio
+          platformio-core
           protobuf
           python312
           rustc
