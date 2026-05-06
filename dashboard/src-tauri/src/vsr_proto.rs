@@ -7,7 +7,8 @@ use std::sync::OnceLock;
 use crate::types::{DriveMode, RequestedMotorCommand, DEFAULT_CRUISE_TARGET_RPM};
 
 pub const VSR_MESSAGE_FULL_NAME: &str = "vsr.VehicleStatusRegister";
-pub const MOTOR_COMMAND_MESSAGE_FULL_NAME: &str = "vsr.MotorCommand";
+pub const DRIVE_MODE_MESSAGE_FULL_NAME: &str = "vsr.DriveMode";
+pub const LEGACY_MOTOR_COMMAND_MESSAGE_FULL_NAME: &str = "vsr.MotorCommand";
 
 pub fn descriptor_bytes() -> &'static [u8] {
     include_bytes!(concat!(env!("OUT_DIR"), "/vsr_descriptor.bin")).as_ref()
@@ -30,6 +31,19 @@ fn message_descriptor(name: &str) -> Result<MessageDescriptor, String> {
         .ok_or_else(|| format!("missing message descriptor for {name}"))
 }
 
+fn message_descriptor_any(names: &[&str]) -> Result<MessageDescriptor, String> {
+    let pool = descriptor_pool()?;
+    for name in names {
+        if let Some(descriptor) = pool.get_message_by_name(name) {
+            return Ok(descriptor);
+        }
+    }
+    Err(format!(
+        "missing message descriptor for any of: {}",
+        names.join(", ")
+    ))
+}
+
 pub fn decode_vehicle_status(payload: &[u8]) -> Result<Option<DynamicMessage>, String> {
     let descriptor = message_descriptor(VSR_MESSAGE_FULL_NAME)?;
     let vsr = DynamicMessage::decode(descriptor, payload)
@@ -43,14 +57,17 @@ pub fn decode_vehicle_status(payload: &[u8]) -> Result<Option<DynamicMessage>, S
 }
 
 pub fn encode_motor_command(command: RequestedMotorCommand) -> Result<Vec<u8>, String> {
-    let descriptor = message_descriptor(MOTOR_COMMAND_MESSAGE_FULL_NAME)?;
+    let descriptor = message_descriptor_any(&[
+        DRIVE_MODE_MESSAGE_FULL_NAME,
+        LEGACY_MOTOR_COMMAND_MESSAGE_FULL_NAME,
+    ])?;
     let command_field = descriptor
         .get_field_by_name("command")
-        .ok_or_else(|| "missing motor_command.command field".to_string())?;
+        .ok_or_else(|| "missing drive_mode.command field".to_string())?;
     let command_kind = command_field.kind();
     let command_value_descriptor = command_kind
         .as_message()
-        .ok_or_else(|| "motor_command.command is not a message".to_string())?;
+        .ok_or_else(|| "drive_mode.command is not a message".to_string())?;
     let mut command_value_message = DynamicMessage::new(command_value_descriptor.clone());
 
     let (variant_field_name, cruise_target_rpm) = match command.mode {
@@ -70,11 +87,11 @@ pub fn encode_motor_command(command: RequestedMotorCommand) -> Result<Vec<u8>, S
 
     let variant_field = command_value_descriptor
         .get_field_by_name(variant_field_name)
-        .ok_or_else(|| format!("missing motor_command.command.{variant_field_name} field"))?;
+        .ok_or_else(|| format!("missing drive_mode.command.{variant_field_name} field"))?;
     let variant_kind = variant_field.kind();
     let variant_descriptor = variant_kind
         .as_message()
-        .ok_or_else(|| format!("motor_command.command.{variant_field_name} is not a message"))?;
+        .ok_or_else(|| format!("drive_mode.command.{variant_field_name} is not a message"))?;
     let mut variant_message = DynamicMessage::new(variant_descriptor.clone());
 
     if let Some(target_speed_rpm) = cruise_target_rpm {
@@ -86,9 +103,9 @@ pub fn encode_motor_command(command: RequestedMotorCommand) -> Result<Vec<u8>, S
 
     command_value_message.set_field(&variant_field, Value::Message(variant_message));
 
-    let mut motor_command_message = DynamicMessage::new(descriptor);
-    motor_command_message.set_field(&command_field, Value::Message(command_value_message));
-    Ok(motor_command_message.encode_to_vec())
+    let mut drive_mode_message = DynamicMessage::new(descriptor);
+    drive_mode_message.set_field(&command_field, Value::Message(command_value_message));
+    Ok(drive_mode_message.encode_to_vec())
 }
 
 pub fn get_nested_message(vsr: &DynamicMessage, section_key: &str) -> Option<DynamicMessage> {

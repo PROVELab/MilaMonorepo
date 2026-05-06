@@ -1,4 +1,4 @@
-alias = "brake"
+alias = "brake_pedal"
 desc = "The brakeline pressure sensor"
 
 [brake_supply_voltage]

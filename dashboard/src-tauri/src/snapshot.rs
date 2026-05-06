@@ -8,6 +8,7 @@ use crate::vsr_proto::{dynamic_field_as_f32, get_field_value_string, get_nested_
 
 pub type VsrSchema = Vec<(String, VsrSubstruct)>;
 const VSR_STALE_TIMEOUT: Duration = Duration::from_secs(5);
+const VSR_RX_RATE_WINDOW: Duration = Duration::from_secs(5);
 
 pub fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
     let last_frame_age = state.last_frame_received_at.map(|t| t.elapsed());
@@ -19,17 +20,23 @@ pub fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
     let pedal_pct = state
         .latest_vsr
         .as_ref()
-        .and_then(|vsr| dynamic_field_as_f32(vsr, "pedal", "pedal_position_pct"))
+        .and_then(|vsr| {
+            dynamic_field_as_f32(vsr, "accel_pedal", "pedal_position_pct")
+                .or_else(|| dynamic_field_as_f32(vsr, "pedal", "pedal_position_pct"))
+        })
         .map(|value| value.clamp(0.0, 100.0));
     let brake_pct = state
         .latest_vsr
         .as_ref()
-        .and_then(|vsr| dynamic_field_as_f32(vsr, "brake", "brake_position_pct"))
+        .and_then(|vsr| {
+            dynamic_field_as_f32(vsr, "brake_pedal", "brake_position_pct")
+                .or_else(|| dynamic_field_as_f32(vsr, "brake", "brake_position_pct"))
+        })
         .map(|value| value.clamp(0.0, 100.0));
     let (drive_mode, cruise_target_rpm) = state
         .latest_vsr
         .as_ref()
-        .map(derive_motor_command_state)
+        .map(derive_drive_mode_state)
         .unwrap_or((DriveMode::Park, None));
 
     let mut sections = vec![build_link_section(state)];
@@ -81,15 +88,17 @@ pub fn lookup_field_meta(
     (label, unit)
 }
 
-fn derive_motor_command_state(vsr: &DynamicMessage) -> (DriveMode, Option<u32>) {
-    let Some(motor_command) = get_nested_message(vsr, "motor_command") else {
+fn derive_drive_mode_state(vsr: &DynamicMessage) -> (DriveMode, Option<u32>) {
+    let Some(drive_mode) =
+        get_nested_message(vsr, "drive_mode").or_else(|| get_nested_message(vsr, "motor_command"))
+    else {
         return (DriveMode::Park, None);
     };
 
-    let Some(command_field) = motor_command.descriptor().get_field_by_name("command") else {
+    let Some(command_field) = drive_mode.descriptor().get_field_by_name("command") else {
         return (DriveMode::Park, None);
     };
-    let command_value_binding = motor_command.get_field(&command_field);
+    let command_value_binding = drive_mode.get_field(&command_field);
     let Value::Message(command_value) = command_value_binding.as_ref() else {
         return (DriveMode::Park, None);
     };
@@ -145,6 +154,13 @@ fn build_link_section(state: &VehicleInternal) -> VehicleSection {
         .last_frame_received_at
         .map(|t| t.elapsed().as_millis().to_string())
         .unwrap_or_else(|| "n/a".to_string());
+    let recent_frame_count = state
+        .recent_vsr_frame_timestamps
+        .iter()
+        .rev()
+        .take_while(|timestamp| timestamp.elapsed() <= VSR_RX_RATE_WINDOW)
+        .count();
+    let rolling_vsr_hz = recent_frame_count as f64 / VSR_RX_RATE_WINDOW.as_secs_f64();
 
     VehicleSection::new(
         "mcu-link",
@@ -162,6 +178,12 @@ fn build_link_section(state: &VehicleInternal) -> VehicleSection {
                 "Frames RX",
                 state.frames_received.to_string(),
                 None,
+            ),
+            VehicleField::new(
+                "frames_rx_last_5s",
+                "VSR RX Frequency (last 5s)",
+                format!("{rolling_vsr_hz:.2}"),
+                Some("Hz"),
             ),
             VehicleField::new(
                 "last_frame_size",

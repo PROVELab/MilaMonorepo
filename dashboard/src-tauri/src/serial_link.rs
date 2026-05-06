@@ -26,6 +26,8 @@ const VSR_STREAM_BUFFER_MAX_LEN: usize = 8 * VSR_PAYLOAD_MAX_LEN;
 const VSR_RESYNC_LOG_EVERY_DROPS: u64 = 500;
 const VSR_NO_FRAME_WARNING_EVERY_DROPS: u64 = 50_000;
 const VSR_FRAME_PROGRESS_LOG_EVERY: u64 = 2_000;
+const VSR_RX_RATE_WINDOW: Duration = Duration::from_secs(5);
+const VSR_RX_RATE_MAX_SAMPLES: usize = 512;
 
 pub fn spawn_serial_worker(
     shared: SharedVehicleState,
@@ -105,6 +107,7 @@ fn serial_worker_main(shared: SharedVehicleState, outbound_rx: mpsc::Receiver<Ou
                         state.io_errors = state.io_errors.saturating_add(1);
                         state.serial_port_name = None;
                         state.serial_link_ready = false;
+                        state.recent_vsr_frame_timestamps.clear();
                         push_log_line(
                             &mut state.live_text_logs,
                             format!("serial read failed on {port_name}: {err}"),
@@ -167,6 +170,7 @@ fn reset_serial_link(shared: &SharedVehicleState) {
     with_state(shared, |state| {
         state.serial_port_name = None;
         state.serial_link_ready = false;
+        state.recent_vsr_frame_timestamps.clear();
     });
 }
 
@@ -490,13 +494,30 @@ fn apply_drain_result(shared: &SharedVehicleState, drain_result: DrainResult) {
 
         if drain_result.frames_decoded > 0 {
             let previous_frames = state.frames_received;
+            let now = Instant::now();
             state.frames_received = state
                 .frames_received
                 .saturating_add(drain_result.frames_decoded);
-            state.last_frame_received_at = Some(Instant::now());
+            state.last_frame_received_at = Some(now);
             state.last_frame_size_bytes = drain_result.last_payload_len;
             if let Some(latest_vsr) = drain_result.last_vsr {
                 state.latest_vsr = Some(latest_vsr);
+            }
+
+            for _ in 0..drain_result.frames_decoded {
+                state.recent_vsr_frame_timestamps.push_back(now);
+            }
+
+            let cutoff = now.checked_sub(VSR_RX_RATE_WINDOW).unwrap_or(now);
+            while state
+                .recent_vsr_frame_timestamps
+                .front()
+                .is_some_and(|timestamp| *timestamp < cutoff)
+            {
+                state.recent_vsr_frame_timestamps.pop_front();
+            }
+            while state.recent_vsr_frame_timestamps.len() > VSR_RX_RATE_MAX_SAMPLES {
+                state.recent_vsr_frame_timestamps.pop_front();
             }
 
             if state.frames_received / VSR_FRAME_PROGRESS_LOG_EVERY

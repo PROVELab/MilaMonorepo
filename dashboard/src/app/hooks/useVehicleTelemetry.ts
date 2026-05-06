@@ -37,7 +37,7 @@ function runtimeIsTauri() {
   );
 }
 
-export function useVehicleTelemetry(pollIntervalMs = 250) {
+export function useVehicleTelemetry(pollIntervalMs = 100) {
   const [snapshot, setSnapshot] = useState<VehicleSnapshot>(DEFAULT_SNAPSHOT);
   const [runtime, setRuntime] = useState<"unknown" | "tauri" | "browser">("unknown");
 

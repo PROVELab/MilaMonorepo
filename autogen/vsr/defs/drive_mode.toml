@@ -1,10 +1,10 @@
-alias = "motor_command"
+alias = "drive_mode"
 desc = ""
 
 [command]
 type = "enum"
 unit = ""
-desc = "Motor Command Mode"
+desc = "Vehicle Mode"
 
   [command.variants.PARK]
     value = 0
