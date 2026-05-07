@@ -21,7 +21,7 @@
 #define MIN_FREQUENCY_HZ 20000u // 20 kHz total stream
 
 // Fixed total samples in the drain window (shared across all channels)
-#define ADC_TOTAL_SAMPLES     512u 
+#define ADC_TOTAL_SAMPLES      512u
 #define ADC_CONV_FRAME_SAMPLES (ADC_TOTAL_SAMPLES / 4u) // 128 samples/frame
 #define ADC_READ_BUF_SAMPLES   (ADC_TOTAL_SAMPLES)
 

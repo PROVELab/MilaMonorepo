@@ -29,9 +29,7 @@ static bool motor_command_has_valid_mode(const vsr_MotorCommand* command) {
 }
 
 static const char* motor_command_mode_name(const vsr_MotorCommand* command) {
-    if (command == NULL || !command->has_command) {
-        return "UNKNOWN";
-    }
+    if (command == NULL || !command->has_command) { return "UNKNOWN"; }
 
     switch (command->command.which_kind) {
         case vsr_MotorCommand_CommandValue_park_tag: return "PARK";

@@ -42,13 +42,9 @@ void setup_motor_controller_params(PCANListenParamsCollection* plpc) {
 static void vsr_log_append_line(volatile vehicle_status_reg_t* vsr, const char* line) {
     const size_t max_messages = sizeof(VSR_DATA.log.message) / sizeof(VSR_DATA.log.message[0]);
     const size_t max_len = sizeof(VSR_DATA.log.message[0]);
-    if (max_messages == 0 || max_len < 2) {
-        return;
-    }
+    if (max_messages == 0 || max_len < 2) { return; }
 
-    if ((size_t) VSR_DATA.log.message_count >= max_messages) {
-        return;
-    }
+    if ((size_t) VSR_DATA.log.message_count >= max_messages) { return; }
 
     const size_t idx = (size_t) VSR_DATA.log.message_count;
     strncpy(VSR_DATA.log.message[idx], line, max_len - 1);
@@ -60,18 +56,14 @@ static int vsr_log_vprintf(const char* fmt, va_list ap) {
     volatile vehicle_status_reg_t* vsr = &vsr_global;
     char buf[128];
     int len = vsnprintf(buf, sizeof(buf), fmt, ap);
-    if (len < 0) {
-        return len;
-    }
+    if (len < 0) { return len; }
 
     size_t used = strnlen(buf, sizeof(buf));
     while (used > 0 && (buf[used - 1] == '\n' || buf[used - 1] == '\r')) {
         buf[used - 1] = '\0';
         used--;
     }
-    if (used == 0) {
-        return len;
-    }
+    if (used == 0) { return len; }
 
     if (vsr->log_mutex != NULL) {
         ACQ_REL_VSRSEM_W(vsr, log, { vsr_log_append_line(vsr, buf); });

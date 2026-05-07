@@ -38,7 +38,8 @@ static void mcu_health_main(void* arg) {
 
     while (1) {
         const uint32_t free_heap_bytes = esp_get_free_heap_size();
-        const uint32_t used_heap_bytes = (heap_total_bytes > free_heap_bytes) ? (heap_total_bytes - free_heap_bytes) : 0;
+        const uint32_t used_heap_bytes =
+            (heap_total_bytes > free_heap_bytes) ? (heap_total_bytes - free_heap_bytes) : 0;
         const float heap_used_pct =
             (heap_total_bytes > 0) ? (((float) used_heap_bytes * 100.0f) / (float) heap_total_bytes) : 0.0f;
 

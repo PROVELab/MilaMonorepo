@@ -11,9 +11,7 @@
 #define VSR_STREAM_FRAME_MAX_LEN   (VSR_UART_FRAME_HEADER_LEN + VSR_STREAM_PAYLOAD_MAX_LEN)
 
 static void clear_vsr_log_messages(volatile vehicle_status_reg_t* vsr) {
-    if (vsr->log_mutex == NULL) {
-        return;
-    }
+    if (vsr->log_mutex == NULL) { return; }
 
     if (xSemaphoreTake(vsr->log_mutex, portMAX_DELAY) == pdTRUE) {
         VSR_DATA.log.message_count = 0;
