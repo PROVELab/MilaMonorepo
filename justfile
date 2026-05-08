@@ -6,10 +6,11 @@ autogen:
     @test -n "${PROTOC_GEN_NANOPB:-}" || command -v protoc-gen-nanopb >/dev/null || (echo "Missing protoc-gen-nanopb. Install with: python3 -m pip install --user nanopb protobuf" && exit 1)
     # Generate into generated/ (makes it easy to test)
     (cd autogen/vsr && cargo run -- generated)
-    (cd autogen/vsr && protoc -I generated --plugin=protoc-gen-nanopb=${PROTOC_GEN_NANOPB:-$(command -v protoc-gen-nanopb)} --nanopb_out=generated generated/vsr.proto)
+    (cd autogen/vsr && protoc -I generated --plugin=protoc-gen-nanopb=${PROTOC_GEN_NANOPB:-$(command -v protoc-gen-nanopb)} --nanopb_opt=-f,generated/vsr.options --nanopb_out=generated generated/vsr.proto)
     # Generate into the actual vsr spot
     (cd autogen/vsr && cargo run -- ../../mila-embedded/src/mcu/vsr)
-    (cd autogen/vsr && protoc -I ../../mila-embedded/src/mcu/vsr --plugin=protoc-gen-nanopb=${PROTOC_GEN_NANOPB:-$(command -v protoc-gen-nanopb)} --nanopb_out=../../mila-embedded/src/mcu/vsr ../../mila-embedded/src/mcu/vsr/vsr.proto)
+    (cd autogen/vsr && protoc -I ../../mila-embedded/src/mcu/vsr --plugin=protoc-gen-nanopb=${PROTOC_GEN_NANOPB:-$(command -v protoc-gen-nanopb)} --nanopb_opt=-f,../../mila-embedded/src/mcu/vsr/vsr.options --nanopb_out=../../mila-embedded/src/mcu/vsr ../../mila-embedded/src/mcu/vsr/vsr.proto)
+
 
 ### Dashboard Stuff ###
 setup_dashboard:
@@ -42,9 +43,16 @@ dashboard_reverse_camera: reverse_camera_recv dashboard
 ### Build Embedded stuff ###
 
 # Build one target
-build_embedded: autogen
-    @read -p "PIO target: " pio_env; \
+build_embedded target='': autogen
+    @pio_env="{{target}}"; \
+    if [ -z "$pio_env" ]; then read -p "PIO target: " pio_env; fi; \
     (cd mila-embedded && pio run -e $pio_env)
+
+# Flash one target
+flash_embedded target='': autogen
+    @pio_env="{{target}}"; \
+    if [ -z "$pio_env" ]; then read -p "PIO target: " pio_env; fi; \
+    (cd mila-embedded && pio run -t upload -e $pio_env)
 
 # Builds all pio envs in mila-embedded
 build_embedded_all: autogen
@@ -70,3 +78,6 @@ check_format:
 ### Telem Dashboard Stuff ###
 telem_dashboard:
     (cd telem-dashboard && gradle run)
+
+clean:
+    git clean -fdX

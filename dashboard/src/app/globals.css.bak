@@ -118,24 +118,6 @@ button {
   animation: toastSlideIn 0.18s ease;
 }
 
-.toast-stack__item--warn {
-  border-color: rgba(245, 204, 89, 0.8);
-  background: rgba(63, 51, 14, 0.95);
-  color: #ffe9aa;
-  box-shadow:
-    0 14px 38px rgba(0, 0, 0, 0.42),
-    inset 0 0 0 1px rgba(245, 204, 89, 0.28);
-}
-
-.toast-stack__item--error {
-  border-color: rgba(242, 107, 94, 0.85);
-  background: rgba(65, 17, 17, 0.96);
-  color: #ffd7d3;
-  box-shadow:
-    0 14px 38px rgba(0, 0, 0, 0.44),
-    inset 0 0 0 1px rgba(242, 107, 94, 0.34);
-}
-
 @keyframes toastSlideIn {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -333,15 +315,8 @@ button {
 
 .pedal-indicator__bar div {
   height: 100%;
+  background: linear-gradient(90deg, #8bd8ca, #eef5d8);
   transition: width 0.18s ease;
-}
-
-.pedal-indicator__bar--pedal div {
-  background: linear-gradient(90deg, #52d68e, #c9ffd5);
-}
-
-.pedal-indicator__bar--brake div {
-  background: linear-gradient(90deg, #ef4e4e, #ffb0b0);
 }
 
 .drive-selector,
@@ -354,90 +329,39 @@ button {
 }
 
 .drive-selector {
-  width: 182px;
-  padding: 10px 10px 8px;
+  width: 76px;
+  padding: 6px;
   display: grid;
-  gap: 8px;
+  gap: 4px;
   position: relative;
-  border-color: rgba(244, 242, 234, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
-    rgba(10, 12, 14, 0.84);
 }
 
-.drive-selector__header,
-.drive-selector__hint {
-  color: rgba(244, 242, 234, 0.52);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.drive-selector__hint {
-  text-align: center;
-}
-
-.drive-selector__grid {
-  display: grid;
-  gap: 8px;
-}
-
-.drive-selector__row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-}
-
-.drive-selector__row--dual {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.drive-selector__indicator {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 6px;
+  height: 52px;
+  border-radius: 6px;
+  background: rgba(244, 242, 234, 0.9);
+  transition: transform 0.24s ease;
 }
 
 .drive-selector__mode {
-  min-height: 52px;
-  border: 1px solid rgba(244, 242, 234, 0.13);
+  position: relative;
+  z-index: 1;
+  height: 52px;
+  border: 0;
   border-radius: 6px;
-  background: rgba(244, 242, 234, 0.05);
-  color: rgba(244, 242, 234, 0.74);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
+  background: transparent;
+  color: rgba(244, 242, 234, 0.7);
+  font-size: 19px;
+  font-weight: 700;
   cursor: pointer;
-  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
-}
-
-.drive-selector__mode span {
-  font-size: 20px;
-  font-weight: 730;
-  line-height: 1;
-}
-
-.drive-selector__mode em {
-  color: rgba(244, 242, 234, 0.54);
-  font-size: 10px;
-  font-style: normal;
-  font-weight: 620;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.drive-selector__mode:active {
-  transform: translateY(1px) scale(0.99);
 }
 
 .drive-selector__mode--active {
-  color: #0f1218;
-  border-color: rgba(182, 224, 255, 0.66);
-  background: linear-gradient(180deg, rgba(233, 244, 255, 0.98), rgba(210, 231, 252, 0.92));
-  box-shadow:
-    0 0 0 1px rgba(167, 211, 255, 0.34) inset,
-    0 10px 22px rgba(109, 172, 235, 0.22);
-}
-
-.drive-selector__mode--active em {
-  color: rgba(17, 22, 30, 0.64);
+  color: #11120f;
 }
 
 .cruise-control {
@@ -758,17 +682,6 @@ button {
   justify-content: center;
   overflow: hidden;
   user-select: none;
-  opacity: 1;
-}
-
-.loading-screen--fade-out {
-  pointer-events: none;
-  animation: loading-screen-fade-out 0.42s ease forwards;
-}
-
-@keyframes loading-screen-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
 }
 
 .signature-group {
@@ -776,72 +689,31 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px;
-  overflow: visible;
-  transform: translateY(120px);
-  transition: transform 0.44s ease;
-}
-
-.signature-group--ready {
-  transform: translateY(84px) scale(0.92);
-}
-
-.loading-screen__brand {
-  margin-bottom: 30px;
-  opacity: 0;
-  animation: fadeInBrand 2s ease-out 0.5s forwards;
-  z-index: 10;
-}
-
-.loading-screen__brand img {
-  height: 120px;
-  width: auto;
-  filter: invert(1) hue-rotate(180deg);
-}
-
-@keyframes fadeInBrand {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 0.9; transform: translateY(0); }
 }
 
 .signature-text {
   font-family: 'Alex Brush', cursive;
-  font-size: clamp(140px, 30vw, 420px);
-  line-height: 1.2;
+  font-size: clamp(80px, 15vw, 160px);
+  line-height: 1;
   color: #fff;
   position: relative;
   white-space: nowrap;
-  overflow: visible;
 }
 
+/* Base text that "writes" itself */
 .signature-text--base {
   -webkit-mask-image: linear-gradient(110deg, #000 var(--reveal), transparent var(--reveal));
   mask-image: linear-gradient(110deg, #000 var(--reveal), transparent var(--reveal));
+  animation: apple-write 4.5s ease-in-out forwards;
 }
 
-.signature-text--phase-write {
-  animation: signature-write 4.5s ease-in-out forwards;
-}
-
-.signature-text--phase-erase {
-  -webkit-mask-image: linear-gradient(110deg, transparent var(--erase), #000 var(--erase));
-  mask-image: linear-gradient(110deg, transparent var(--erase), #000 var(--erase));
-  animation: signature-erase-ltr 9s ease-in-out forwards;
-}
-
-.signature-text--phase-static {
-  --reveal: 120%;
-}
-
+/* Bolding highlight that sweeps through */
 .signature-text--bold {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   color: #fff;
-  -webkit-text-stroke: 2.5px #fff;
-  text-shadow: 0 0 25px rgba(255, 255, 255, 0.6);
+  font-weight: bold;
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
   -webkit-mask-image: linear-gradient(
     110deg, 
     transparent var(--bold-start), 
@@ -856,22 +728,17 @@ button {
     #000 var(--bold-end), 
     transparent var(--bold-end)
   );
+  animation: apple-bold-sweep 4s ease-in-out 4.5s infinite;
   opacity: 0;
 }
 
-.signature-text--bold-pulse {
+.signature-text--bold.is-visible {
   opacity: 1;
-  animation: apple-bold-sweep 4s ease-in-out infinite;
 }
 
-@keyframes signature-write {
+@keyframes apple-write {
   0% { --reveal: 0%; }
   100% { --reveal: 120%; }
-}
-
-@keyframes signature-erase-ltr {
-  0% { --erase: 0%; }
-  100% { --erase: 120%; }
 }
 
 @keyframes apple-bold-sweep {
@@ -879,6 +746,7 @@ button {
   100% { --bold-start: 100%; --bold-end: 120%; }
 }
 
+/* Custom properties for smooth CSS transitions */
 @property --reveal {
   syntax: '<percentage>';
   inherits: false;
@@ -897,53 +765,14 @@ button {
   initial-value: 0%;
 }
 
-@property --erase {
-  syntax: '<percentage>';
-  inherits: false;
-  initial-value: 0%;
-}
-
 .signature-reflection {
-  margin-top: -40px;
-  transform: scaleY(-0.8) skewX(-2deg);
-  opacity: 0.42;
-  color: #6ec9ff;
-  filter: blur(10px) brightness(1.25) drop-shadow(0 0 24px rgba(57, 164, 255, 0.62));
-  mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
-  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+  margin-top: 5px;
+  transform: scaleY(-1);
+  opacity: 0.12;
+  filter: blur(4px);
+  mask-image: linear-gradient(to bottom, black 0%, transparent 80%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 80%);
   transform-origin: top center;
-}
-
-.signature-reflection .signature-text--bold {
-  -webkit-text-stroke: 2.5px #6ec9ff;
-}
-
-.loading-screen__ready {
-  position: relative;
-  z-index: 12;
-  margin-top: -24px;
-  margin-bottom: 12px;
-  font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: clamp(56px, 8vw, 98px);
-  line-height: 1.05;
-  font-weight: 740;
-  letter-spacing: 0.01em;
-  color: #3fff86;
-  text-shadow:
-    0 0 22px rgba(62, 255, 133, 0.48),
-    0 0 42px rgba(43, 201, 109, 0.34);
-  animation: ready-pulse 3s ease-in-out infinite;
-}
-
-@keyframes ready-pulse {
-  0%, 100% {
-    opacity: 0.72;
-    filter: brightness(0.9);
-  }
-  50% {
-    opacity: 1;
-    filter: brightness(1.15);
-  }
 }
 
 .loading-screen__status {
@@ -952,7 +781,7 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
+  gap: 12px;
 }
 
 .loading-screen__bar {
@@ -978,35 +807,12 @@ button {
   100% { transform: translateX(100%); }
 }
 
-.loading-screen__reason {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-}
-
-.loading-screen__reason-label {
-  color: rgba(255, 255, 255, 0.44);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.loading-screen__reason-text {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  font-weight: 610;
-  letter-spacing: 0.04em;
-  text-transform: none;
-}
-
-.loading-screen__phrase {
-  color: rgba(255, 255, 255, 0.52);
+.loading-screen__status span {
+  color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  text-align: center;
 }
 
 .panel--camera .camera-placeholder {
@@ -1050,19 +856,5 @@ button {
 
   .panel__logs {
     min-height: 220px;
-  }
-
-  .drive-selector {
-    width: 164px;
-    padding: 8px;
-    gap: 7px;
-  }
-
-  .drive-selector__mode {
-    min-height: 46px;
-  }
-
-  .drive-selector__mode span {
-    font-size: 18px;
   }
 }

@@ -12,7 +12,6 @@ export function EmergencyStopButton({ onEngage }: Props) {
       className="emergency-stop"
       onClick={() => {
         if (onEngage) onEngage();
-        console.warn("Emergency shutdown requested");
       }}
     >
       <span className="emergency-stop__pulse" />

@@ -97,9 +97,7 @@ impl McapRecorder {
     }
 
     pub fn append_vsr(&mut self, payload: &[u8]) -> Option<String> {
-        if self.writer.is_none() {
-            return None;
-        }
+        let writer = self.writer.as_mut()?;
 
         let log_time = epoch_nanos();
         let header = MessageHeader {
@@ -109,11 +107,7 @@ impl McapRecorder {
             publish_time: log_time,
         };
 
-        let write_result = self
-            .writer
-            .as_mut()
-            .expect("checked writer.is_some()")
-            .write_to_known_channel(&header, payload);
+        let write_result = writer.write_to_known_channel(&header, payload);
         if let Err(err) = write_result {
             return Some(
                 self.disable_logging(format!("MCAP logging stopped: write failed: {err}")),
@@ -126,11 +120,9 @@ impl McapRecorder {
         if self.messages_since_flush >= MCAP_FLUSH_EVERY_MESSAGES
             || self.last_flush_at.elapsed() >= MCAP_FLUSH_INTERVAL
         {
-            let flush_result = self
-                .writer
-                .as_mut()
-                .expect("writer must still be available after successful write")
-                .flush();
+            let writer = self.writer.as_mut()?;
+
+            let flush_result = writer.flush();
             if let Err(err) = flush_result {
                 return Some(
                     self.disable_logging(format!("MCAP logging stopped: flush failed: {err}")),
@@ -149,9 +141,7 @@ impl McapRecorder {
     }
 
     fn enforce_hard_size_limit(&mut self) -> Option<String> {
-        if self.writer.is_none() {
-            return None;
-        }
+        self.writer.as_ref()?;
 
         let file_size = match std::fs::metadata(&self.output_path) {
             Ok(metadata) => metadata.len(),

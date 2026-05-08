@@ -23,36 +23,14 @@
 StaticTask_t recieveMSG_Buffer;
 StackType_t recieveMSG_Stack[STACK_SIZE]; // buffer that the task will use as its stack
 
-#define numADCChannels 3
+#define numADCChannels 4
 
-typedef enum {
-    pedalPower_Index = 0,
-    reading1_Index = 1,
-    reading2_Index = 2,
-} ADC_Indices;
+typedef enum { pedalPower_Index = 0, reading1_Index = 1, reading2_Index = 2, brake_Index = 3 } ADC_Indices;
 
 int32_t ADC_Readings[numADCChannels];
 selfPowerStatus_t ADC_ReadingStatuses[numADCChannels];
 
 #include <stdint.h>
-
-// Tune these:
-#define PEDAL_START 10
-#define PEDAL_END   100
-#define MIN_SPEED   0
-#define MAX_SPEED   MPH_TO_RPM(20) // max 10 mph
-
-static inline int scale_pedal_to_speed(int a) {
-    if (a < PEDAL_START) return 0;        // deadband -> 0
-    if (a >= PEDAL_END) return MAX_SPEED; // clamp high
-
-    const int in_span = (PEDAL_END - PEDAL_START);
-    const int out_span = (MAX_SPEED - MIN_SPEED);
-
-    // Linear map with rounding to nearest, using wide intermediate to avoid overflow.
-    int64_t num = (int64_t) (a - PEDAL_START) * out_span + in_span / 2;
-    return MIN_SPEED + (int) (num / in_span);
-}
 
 int32_t collect_pedalPowerReadingmV() {
     // mutexPrint("collecting pedalPowerReadingmV\n");
@@ -68,9 +46,9 @@ int32_t collect_pedalPowerReadingmV() {
         ADC_ReadingStatuses[reading1_Index] = READ_CRITICAL;
         ADC_ReadingStatuses[reading2_Index] = READ_CRITICAL;
     }
-    char buffer[64];
-    sprintf(buffer, "collecting pedalPowermV: %ld\n", ADC_Readings[pedalPower_Index]);
-    mutexPrint(buffer);
+    // char buffer[64];
+    // sprintf(buffer, "collecting pedalPowermV: %ld\n", ADC_Readings[pedalPower_Index]);
+    // mutexPrint(buffer);
     return ADC_Readings[pedalPower_Index];
 }
 
@@ -78,15 +56,15 @@ int32_t collect_pedalReadingOne() {
     if (ADC_ReadingStatuses[reading1_Index] != READ_SUCCESS) {
         // we should not be driving if we cant read something
         ADC_Readings[reading1_Index] = -1;
-        mutexPrint("invalid pedal reading 1\n");
+        // mutexPrint("invalid pedal reading 1\n");
     } else {
         // transform pedal power reading mV to pedal reading percentage
         ADC_Readings[reading1_Index] =
             transformPedalReading(ADC_Readings[reading1_Index], ADC_Readings[pedalPower_Index], risingPedalIndex);
     }
-    char buffer[64];
-    sprintf(buffer, "collecting pedalReadingOne: %ld\n", ADC_Readings[reading1_Index]);
-    mutexPrint(buffer);
+    // char buffer[64];
+    // sprintf(buffer, "collecting pedalReadingOne: %ld\n", ADC_Readings[reading1_Index]);
+    // mutexPrint(buffer);
     return ADC_Readings[reading1_Index];
 }
 
@@ -94,47 +72,43 @@ int32_t collect_pedalReadingTwo() {
     if (ADC_ReadingStatuses[reading2_Index] != READ_SUCCESS) {
         // we should not be driving if we cant read something
         ADC_Readings[reading2_Index] = -1;
-        mutexPrint("invalid pedal reading 2\n");
+        // mutexPrint("invalid pedal reading 2\n");
     } else {
         // transform pedal power reading mV to pedal reading percentage
         ADC_Readings[reading2_Index] =
             transformPedalReading(ADC_Readings[reading2_Index], ADC_Readings[pedalPower_Index], fallingPedalIndex);
     }
-    char buffer[64];
-    sprintf(buffer, "collecting pedalReadingTwo: %ld\n", ADC_Readings[reading2_Index]);
-    mutexPrint(buffer);
+    // char buffer[64];
+    // sprintf(buffer, "collecting pedalReadingTwo: %ld\n", ADC_Readings[reading2_Index]);
+    // mutexPrint(buffer);
+    if (ADC_ReadingStatuses[brake_Index] != READ_SUCCESS) {
+        // we should not be driving if we cant read something
+        ADC_Readings[brake_Index] = -1;
+        // mutexPrint("invalid pedal reading 2\n");
+    } else {
+        // transform pedal power reading mV to pedal reading percentage
+        // ADC_Readings[brake_Index] =
+        //     transformPedalReading(ADC_Readings[brake_Index], ADC_Readings[pedalPower_Index], fallingPedalIndex);
+    }
 
     // speed stuff
     int a = (ADC_Readings[reading1_Index] < ADC_Readings[reading2_Index]) ? ADC_Readings[reading1_Index]
                                                                           : ADC_Readings[reading2_Index];
-    // int a = ADC_Readings[reading1_Index];
-
-    int b = 0;
-    if (a < 10) {
-        // Current 0
-        b = 0;
-    } else if (a > 100) {
-        b = 600;
-    } else {
-        b = 6 * a;
-    }
 
     // Send the speed (if necessary)
     volatile vehicle_status_reg_t* vsr = &vsr_global; // easier to type
-    bool use_pedal = false;
-    ACQ_REL_VSRSEM_W(vsr, pedal, {
-        VSR_DATA.pedal.pedal_position_pct = (float) a;
-        VSR_DATA.pedal.pedal_raw_1 = (float) ADC_Readings[reading1_Index];
-        VSR_DATA.pedal.pedal_raw_2 = (float) ADC_Readings[reading2_Index];
-        VSR_DATA.pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
-
-        VSR_DATA.pedal.tx_value = b;
-        use_pedal = VSR_DATA.pedal.use_pedal;
+    ACQ_REL_VSRSEM_W(vsr, accel_pedal, {
+        VSR_DATA.accel_pedal.pedal_position_pct = (float) a;
+        VSR_DATA.accel_pedal.pedal_raw_1 = (float) ADC_Readings[reading1_Index];
+        VSR_DATA.accel_pedal.pedal_raw_2 = (float) ADC_Readings[reading2_Index];
+        VSR_DATA.accel_pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
     });
 
-    if (use_pedal) {
-        ACQ_REL_VSRSEM_W(vsr, motor_control, { VSR_DATA.motor_control.current_reference = (int32_t) b; });
-    }
+    ACQ_REL_VSRSEM_W(vsr, brake_pedal, {
+        VSR_DATA.brake_pedal.brake_raw_1 = (float) ADC_Readings[brake_Index];
+        VSR_DATA.brake_pedal.brake_position_pct = 200.0f * (float) ADC_Readings[brake_Index] / 1000.0f - 90;
+        VSR_DATA.brake_pedal.brake_supply_voltage = (float) ADC_Readings[pedalPower_Index];
+    });
 
     return ADC_Readings[reading2_Index];
 }
@@ -161,11 +135,10 @@ void pedal_main(PCANListenParamsCollection* plpc) {
     pecan_CanInit(config); // initialize CAN
 
     // 1) Build your per-channel configs (order matters)
-    selfPowerConfig channels[numADCChannels] = {
-        {.ADCPin = VP_Pin, .R1 = 114000, .R2 = 57000},  //
-        {.ADCPin = VN_Pin, .R1 = 300000, .R2 = 150000}, // rising (white wire)
-        {.ADCPin = 35, .R1 = 303000, .R2 = 198000},     // falling (red wire)
-    };
+    selfPowerConfig channels[numADCChannels] = {{.ADCPin = VP_Pin, .R1 = 114000, .R2 = 57000},  //
+                                                {.ADCPin = VN_Pin, .R1 = 300000, .R2 = 150000}, // rising (white wire)
+                                                {.ADCPin = 35, .R1 = 303000, .R2 = 198000},     // falling (red wire)
+                                                {.ADCPin = 34, .R1 = 1, .R2 = 3000000}};
 
     // 2) Initialize; get per-channel init statuses
     const int ADCUnit = 1; // continous is only valid for ADC Unit 1 (not 2)

@@ -1,5 +1,5 @@
-alias = "pedal"
-desc = ""
+alias = "accel_pedal"
+desc = "Acceleration Pedal"
 
 [pedal_supply_voltage]
 type = "f32"
@@ -9,7 +9,7 @@ desc = "Pedal Supply Voltage"
 [pedal_position_pct]
 type = "f32"
 unit = "%"
-desc = "Pedal Position"
+desc = "Pedal Position as a percentage"
 
 [pedal_raw_1]
 type = "f32"
@@ -20,13 +20,3 @@ desc = "Pedal Raw ADC 1"
 type = "f32"
 unit = ""
 desc = "Pedal Raw ADC 2"
-
-[tx_value]
-type = "i32"
-unit = ""
-desc = "Transmit Value (CAN)"
-
-[use_pedal]
-type = "bool"
-unit = ""
-desc = "Use Pedal Flag"

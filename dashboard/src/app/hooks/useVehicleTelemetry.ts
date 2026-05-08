@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { DriveMode, VehicleSnapshot } from "../types/telemetry";
-import { MOTOR_SPEED_RPM_TO_MPH } from "../constants/vehicle";
+import { CRUISE_STEP_RPM, DEFAULT_CRUISE_TARGET_RPM } from "../constants/vehicle";
 
 declare global {
   interface Window {
@@ -13,67 +13,42 @@ declare global {
 }
 
 const DEFAULT_SNAPSHOT: VehicleSnapshot = {
-  speedMph: 0,
-  pedalPct: 0,
-  torqueRatio: 0,
-  batteryPct: 0,
-  driveMode: "P",
+  motorRpm: null,
+  pedalPct: null,
+  brakePct: null,
+  driveMode: "Park",
+  cruiseTargetRpm: null,
   sections: [],
   liveTextLogs: ["waiting for MCU VSR stream"],
+  isSerialReady: false,
+  framesReceived: 0,
+  lastFrameAgeSeconds: null,
 };
 
-type BackendVehicleSnapshot = Omit<VehicleSnapshot, "pedalPct">;
+type BackendMotorCommandRequest = {
+  mode: DriveMode;
+  cruiseTargetRpm?: number;
+};
 
-const runtimeIsTauri = () =>
-  typeof window !== "undefined" &&
-  ("__TAURI_INTERNALS__" in window || "__TAURI_IPC__" in window);
-
-function extractNumericVsrValue(
-  snapshot: Pick<VehicleSnapshot, "sections">,
-  sectionId: string,
-  fieldKey: string,
-): number {
-  const rawValue = snapshot.sections
-    .find(section => section.id === sectionId)
-    ?.fields.find(field => field.key === fieldKey)
-    ?.value;
-
-  const parsed = Number.parseFloat(rawValue ?? "");
-  return Number.isFinite(parsed) ? parsed : 0;
+function runtimeIsTauri() {
+  return (
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window || "__TAURI_IPC__" in window)
+  );
 }
 
-function clampPct(value: number): number {
-  return Math.min(100, Math.max(0, value));
-}
-
-function extractMotorSpeedRpm(snapshot: Pick<VehicleSnapshot, "sections">): number {
-  return extractNumericVsrValue(snapshot, "motor_speed", "motor_speed");
-}
-
-function extractPedalPct(snapshot: Pick<VehicleSnapshot, "sections">): number {
-  return clampPct(extractNumericVsrValue(snapshot, "pedal", "pedal_position"));
-}
-
-export function useVehicleTelemetry(pollIntervalMs = 250) {
+export function useVehicleTelemetry(pollIntervalMs = 100) {
   const [snapshot, setSnapshot] = useState<VehicleSnapshot>(DEFAULT_SNAPSHOT);
-  const [driveMode, setDriveMode] = useState<DriveMode>("P");
-  const [runtime, setRuntime] = useState<"unknown" | "tauri" | "sim">("unknown");
+  const [runtime, setRuntime] = useState<"unknown" | "tauri" | "browser">("unknown");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setRuntime(runtimeIsTauri() ? "tauri" : "sim");
+    setRuntime(runtimeIsTauri() ? "tauri" : "browser");
   }, []);
 
   const fetchSnapshot = useCallback(async () => {
-    const payload = await invoke<BackendVehicleSnapshot>("get_vehicle_snapshot");
-    const motorSpeedRpm = extractMotorSpeedRpm(payload);
-    const pedalPct = extractPedalPct(payload);
-    setSnapshot({
-      ...payload,
-      speedMph: motorSpeedRpm * MOTOR_SPEED_RPM_TO_MPH,
-      pedalPct,
-    });
-    setDriveMode(payload.driveMode);
+    const payload = await invoke<VehicleSnapshot>("get_vehicle_snapshot");
+    setSnapshot(payload);
   }, []);
 
   useEffect(() => {
@@ -96,32 +71,75 @@ export function useVehicleTelemetry(pollIntervalMs = 250) {
         console.warn("failed to fetch telemetry snapshot", error);
       }
 
-      if (stopped) return;
-      timer = window.setTimeout(tick, pollIntervalMs);
+      if (!stopped) {
+        timer = window.setTimeout(tick, pollIntervalMs);
+      }
     };
 
-    tick();
+    void tick();
     return () => {
       stopped = true;
       if (timer) window.clearTimeout(timer);
     };
   }, [runtime, fetchSnapshot, pollIntervalMs]);
 
-  const changeDriveMode = useCallback(
-    async (nextMode: DriveMode) => {
-      setDriveMode(nextMode);
-      setSnapshot(prev => ({ ...prev, driveMode: nextMode }));
-
+  const sendMotorCommand = useCallback(
+    async (command: BackendMotorCommandRequest) => {
       if (runtime !== "tauri") return;
-
       try {
-        await invoke("set_drive_mode", { mode: nextMode });
+        await invoke("send_motor_command", { command });
       } catch (error) {
-        console.error("failed to update drive mode", error);
+        console.error("failed to send motor command", error);
       }
     },
     [runtime],
   );
 
-  return { snapshot, driveMode, changeDriveMode };
+  const changeDriveMode = useCallback(
+    (nextMode: DriveMode) => {
+      if (snapshot.driveMode === nextMode) return;
+      const command: BackendMotorCommandRequest = { mode: nextMode };
+      if (nextMode === "Cruise Control") {
+        command.cruiseTargetRpm = DEFAULT_CRUISE_TARGET_RPM;
+      }
+      void sendMotorCommand(command);
+    },
+    [sendMotorCommand, snapshot.driveMode],
+  );
+
+  const adjustCruiseRpm = useCallback(
+    (deltaRpm: number) => {
+      if (snapshot.driveMode !== "Cruise Control") return;
+      const currentRpm = snapshot.cruiseTargetRpm ?? DEFAULT_CRUISE_TARGET_RPM;
+      const nextRpm = Math.max(0, currentRpm + deltaRpm);
+      void sendMotorCommand({ mode: "Cruise Control", cruiseTargetRpm: nextRpm });
+    },
+    [sendMotorCommand, snapshot.cruiseTargetRpm, snapshot.driveMode],
+  );
+
+  const engageEmergencyStop = useCallback(async () => {
+    if (runtime !== "tauri") return;
+    try {
+      await invoke("engage_emergency_stop");
+    } catch (error) {
+      console.error("failed to send emergency stop", error);
+    }
+  }, [runtime]);
+
+  return useMemo(
+    () => ({
+      snapshot,
+      runtime,
+      driveMode: snapshot.driveMode,
+      cruiseTargetRpm: snapshot.cruiseTargetRpm ?? null,
+      isSerialReady: snapshot.isSerialReady,
+      framesReceived: snapshot.framesReceived,
+      lastFrameAgeSeconds: snapshot.lastFrameAgeSeconds ?? null,
+      changeDriveMode,
+      nudgeCruiseUp: () => adjustCruiseRpm(CRUISE_STEP_RPM),
+      nudgeCruiseDown: () => adjustCruiseRpm(-CRUISE_STEP_RPM),
+      engageEmergencyStop,
+    }),
+    [adjustCruiseRpm, changeDriveMode, engageEmergencyStop, runtime, snapshot],
+  );
 }

@@ -1,0 +1,7 @@
+alias = "mcu_log"
+desc = "Log messages from the MCU"
+
+[message]
+type = "string_array"
+unit = ""
+desc = "Log message from MCU"

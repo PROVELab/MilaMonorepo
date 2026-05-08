@@ -1,0 +1,23 @@
+alias = "drive_mode"
+desc = ""
+
+[command]
+type = "enum"
+unit = ""
+desc = "Vehicle Mode"
+
+  [command.variants.PARK]
+    value = 0
+
+  [command.variants.REVERSE]
+    value = 1
+
+  [command.variants.NEUTRAL]
+    value = 2
+
+  [command.variants.DRIVE]
+    value = 3
+
+  [command.variants.CRUISE_CONTROL]
+    value = 4
+    target_speed_rpm = { type = "u16" }

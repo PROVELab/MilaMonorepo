@@ -24,6 +24,10 @@ fn main() -> Result<()> {
     write_proto_file(&substructs, &proto_out)?;
     println!("wrote {}", proto_out.display());
 
+    let options_out = args.output_dir.join("vsr.options");
+    std::fs::write(&options_out, "vsr.Log.message max_size:128 max_count:16\n")?;
+    println!("wrote {}", options_out.display());
+
     let state_h_out = args.output_dir.join("vsr_state.h");
     let state_c_out = args.output_dir.join("vsr_state.c");
     write_vsr_state_files(&substructs, &state_h_out, &state_c_out)?;

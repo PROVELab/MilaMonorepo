@@ -1,0 +1,17 @@
+alias = "brake_pedal"
+desc = "The brakeline pressure sensor"
+
+[brake_supply_voltage]
+type = "f32"
+unit = "mV"
+desc = "Pressure Sensor Supply Voltage"
+
+[brake_position_pct]
+type = "f32"
+unit = "%"
+desc = "Brake Position as a percent [TODO]"
+
+[brake_raw_1]
+type = "f32"
+unit = ""
+desc = "Brake Raw ADC 1"

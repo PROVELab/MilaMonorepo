@@ -19,6 +19,8 @@ mod filters {
             FieldType::I16 | FieldType::I32 => "sint32",
             FieldType::U8 | FieldType::U16 | FieldType::U32 => "uint32",
             FieldType::F32 => "float",
+            FieldType::String => "string",
+            FieldType::StringArray => "repeated string",
             FieldType::Enum { .. } => "bytes",
         })
     }
