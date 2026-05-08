@@ -17,34 +17,76 @@ StackType_t receiveMSG_Stack[STACK_SIZE]; //buffer that the task will use as its
 
 //For Standard behavior, fill in the collectData<NAME>() function(s).
 //In the function, return an int32_t with the corresponding data
-int32_t collect_pedalPowerReadingmV(bool* cancelFrameSend){
-    int32_t pedalPowerReadingmV = 6000;
-	mutexPrint("collecting pedalPowerReadingmV\n");
-    return pedalPowerReadingmV;
+int32_t collect_IMU_temp_F(bool* cancelFrameSend){
+    int32_t IMU_temp_F = 67;
+	mutexPrint("collecting IMU_temp_F\n");
+    return IMU_temp_F;
 }
 
-int32_t collect_pedalReadingOne(bool* cancelFrameSend){
-    int32_t pedalReadingOne = 30;
-	mutexPrint("collecting pedalReadingOne\n");
-    return pedalReadingOne;
+int32_t collect_radiator_temp_F(bool* cancelFrameSend){
+    int32_t radiator_temp_F = 67;
+	mutexPrint("collecting radiator_temp_F\n");
+    return radiator_temp_F;
 }
 
-int32_t collect_pedalReadingTwo(bool* cancelFrameSend){
-    int32_t pedalReadingTwo = 30;
-	mutexPrint("collecting pedalReadingTwo\n");
-    return pedalReadingTwo;
+int32_t collect_humiditySense_temp_F(bool* cancelFrameSend){
+    int32_t humiditySense_temp_F = 67;
+	mutexPrint("collecting humiditySense_temp_F\n");
+    return humiditySense_temp_F;
 }
 
-int32_t collect_brakeReading(bool* cancelFrameSend){
-    int32_t brakeReading = -1;
-	mutexPrint("collecting brakeReading\n");
-    return brakeReading;
+int32_t collect_RH(bool* cancelFrameSend){
+    int32_t RH = 1;
+	mutexPrint("collecting RH\n");
+    return RH;
 }
 
-int32_t collect_SDIO_det_pin(bool* cancelFrameSend){
-    int32_t SDIO_det_pin = 0;
-	mutexPrint("collecting SDIO_det_pin\n");
-    return SDIO_det_pin;
+int32_t collect_posX_m(bool* cancelFrameSend){
+    int32_t posX_m = 0;
+	mutexPrint("collecting posX_m\n");
+    return posX_m;
+}
+
+int32_t collect_posY_m(bool* cancelFrameSend){
+    int32_t posY_m = 0;
+	mutexPrint("collecting posY_m\n");
+    return posY_m;
+}
+
+int32_t collect_posZ_m(bool* cancelFrameSend){
+    int32_t posZ_m = 0;
+	mutexPrint("collecting posZ_m\n");
+    return posZ_m;
+}
+
+int32_t collect_accelY_mm_p_ss(bool* cancelFrameSend){
+    int32_t accelY_mm_p_ss = 0;
+	mutexPrint("collecting accelY_mm_p_ss\n");
+    return accelY_mm_p_ss;
+}
+
+int32_t collect_accelZ_mm_p_ss(bool* cancelFrameSend){
+    int32_t accelZ_mm_p_ss = 0;
+	mutexPrint("collecting accelZ_mm_p_ss\n");
+    return accelZ_mm_p_ss;
+}
+
+int32_t collect_gyroX_deg_p_s(bool* cancelFrameSend){
+    int32_t gyroX_deg_p_s = 0;
+	mutexPrint("collecting gyroX_deg_p_s\n");
+    return gyroX_deg_p_s;
+}
+
+int32_t collect_gryoY_deg_p_s(bool* cancelFrameSend){
+    int32_t gryoY_deg_p_s = 0;
+	mutexPrint("collecting gryoY_deg_p_s\n");
+    return gryoY_deg_p_s;
+}
+
+int32_t collect_gyroZ_deg_p_s(bool* cancelFrameSend){
+    int32_t gyroZ_deg_p_s = 0;
+	mutexPrint("collecting gyroZ_deg_p_s\n");
+    return gyroZ_deg_p_s;
 }
 
 void receiveMSG(){  //task handles recieving Messages

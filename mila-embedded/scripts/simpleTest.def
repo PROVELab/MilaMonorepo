@@ -1,116 +1,63 @@
-#Vitals related Constants
-#To avoid issues with longs being interpreted wierdly on different platforms, all values here should fit in int32_t.
+#node Definitions
+#Update the pedal to no longer be critical when pressed for final use. ts for testing rn
 
-# Also, no sensor IDs = 0. Telem interprets an ID = 0 as null for VitalsHB Updates
-global: nullID = 0
-
-#General Constants
-global: pointsPerData=10
-global enum: specialIDs = {
-    vitalsID    = 2,
-    prechargeID = 3,
-    telemetryID = 4
-}
-global: nodeIDSizeBits = 7
-
-//set motor controller ID = 1.
-global enum: functionCodes = {
-    reservedForMotorController_1 = 0b0000,
-    reservedForMotorController_2 = 0b0001,
-    warningCode             = 0b0010,
-    TelemetryCommand        = 0b0011,
-    statusUpdate            = 0b0100,
-    HBPing                  = 0b0101,
-    HBPong                  = 0b0110,
-
-    transmitData            = 0b0111,
-}
-
-# mark for "pecan packet" is not set
+node: id=prechargeID, name=precharge, board=esp
+CANFrame: frequency=100, dataTimeout=500
+battery_V: bitLength=10, min=-100, max=923, minWarning=120, minCritical=80, startingValue=0
+motor_V: bitLength=10, min=-100, max=923,  minWarning=120, minCritical=80, startingValue=0
+prechargeState: enum=prechargeState, startingValue=prechargeState.Off
+contactorState: enum=prechargeState, startingValue=prechargeState.Off
+prechargeLatched: bitLength=1, min=0, max=1, startingValue=0
 
 
 
-# #warningCode flags # # 
-global: nonCriticalWarning= 0b010 
-global: CriticalWarning = 0b100 
-global: warningTypeMask = 0b111
-
-#the above flags takes up the first 11 bits:
-global: warningNodeFlagIndex = 11
-global: warningFrameFlagIndex=18
-#After the flags, we have identify the problematic frame and data point
-# setting maxFrameCnt = 8 (2^3=8)
-global: maxFrameCntBits=3
-# setting max number of data in a given frame to 8 (2^3=8)
-global: warningDataFlagIndex=21
-global: maxDataInFrameBits=3
-# #    # #
-
-#Should move telemetry command ack to be a status update from vitals
-#telemetryCommandAck   = 6,
-global enum: telemetryCommandFlags = {
-    # Telemetry Command flags. to be used as first byte of data for TelemetryCommands.
-    # To force precharge on/off. Should override any previous or future precharge commands from vitalsNode
-    enablePrecharge       = 4,
-    disablePrecharge      = 5,
-    telemetryCommandCRCError = 7,
-    # for debugging/testing. Not intended as final flags:
-    # APSensorESP updates what value it reads when recv this. Updates the value to the int32_t following the flag.
-    customChangeDataFlag  = 9
-}
-
-global enum: TWAI_STATE = {
-    TWAI_PECAN_STOPPED    = 0,            
-    TWAI_PECAN_RUNNING    = 1,             
-    TWAI_PECAN_BUS_OFF    = 2,             
-    TWAI_PECAN_RECOVERING = 3
-}
-
-#flags for status Updates. The data sent will just be this flag
-global enum: statusUpdates = {
-    initFlag =                      0b00000000,
-    canRecoveryFlag =               0b00000001,
-    # ATM, only ESP's indicate RX Overruns, Arduino's do not.
-    canRXOverunFlag =               0b00000010,
-}
-#TODO: update this to be in python file, and be a struct for matching any nodeID onto custom status update only for that node
-#if ID = precharge, this enum should be checked for possible messages
-global enum: prechargeStatusUpdates = {
-    On_Charging =          0b00000101,
-    On_FinishedCharging =  0b00000110,
-    Off =                  0b00000111,
-}
-#
-global enum: extrapolationTrigger = {
-    extrap10 = 0,
-    extrap5 = 1,
-    doubleCritical = 2
-}
-
-# # For HBRespUpdate # #
-# Two updates for HB, one for who responded, another for timing.
-global: HBupdateTypeBits = 1
-global: HBupdateStatus = 0b0
-global: HBupdateTiming = 0b1
-# Timing update records the three slowestNodes. (code will not adjust just by changing this param. make sure ok b4 change)
-global: slowestNodeCount = 3
+node: id=8, name=pedalSensor, board=esp
+CANFrame: frequency=1000, dataTimeout=5000
+pedalPowerReadingmV: bitLength=16, min=-30000, max=35000, minWarning=4700, maxWarning=7100, startingValue=6000
+pedalReadingOne: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
+pedalReadingTwo: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
+brakeReading: bitLength=8, min=-20, max=120, minWarning=-10, maxWarning=110, startingValue=-1
+SDIO_det_pin: bitLength=1, min=0, max=1, minWarning=0, startingValue=0
 
 
-# HBupdateStatus divided into at most 2 frames: (could inc by increasing frameNoBits). must be a power of 2
-global: HBStatusFrameBits = 1
-# average time for HB resp recorded in ms takes 10 bits (unsigned)
-global: HBTimerMSBits = 10
-#how many bits of filler at start of frame0 (excluding frame ID)? 10 + 1 = 11
-global: frame0FillerBits = 11
+node: id=9, name=IMU, board=esp
+
+CANFrame: frequency=100, dataTimeout=500
+IMU_temp_F: bitLength=10, min=-100, max=923, startingValue=67
+radiator_temp_F: bitLength=10, min=-100, max=923, startingValue=67
+humiditySense_temp_F: bitLength=10, min=-100, max=923, startingValue=67
+RH: bitLength=8, min=-55, max=200, minWarning=0, maxWarning=100, startingValue=1
+
+CANFrame: frequency=1000, dataTimeout=5000
+posX_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
+posY_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
+posZ_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
+
+CANFrame: frequency=1000, dataTimeout=5000
+accelY_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
+accelZ_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
+gyroX_deg_p_s: bitLength=8, min=-128, max=127, startingValue=0
+gryoY_deg_p_s: bitLength=8, min=-128, max=127, startingValue=0
+gyroZ_deg_p_s: bitLength=8, min=-128, max=127, startingValue=0
 
 
-# #   # #
-#warningCode
+
+node: id=10, name=powerDistribution, board=esp
+CANFrame: frequency=100, dataTimeout=500
+LV_Battery_mV: bitLength=16, min=-22768, max=42767, startingValue=0
+LV_Battery_mA: bitLength=16, min=-32768, max=32767, startingValue=0
+
+CANFrame: frequency=200, dataTimeout=1000
+CoolantPumpAvgCurrent_mA: bitLength=16, min=-32768, max=32767, startingValue=0
+CoolantPumpPeakCurrent_mA: bitLength=16, min=-32768, max=32767, startingValue=0
+CoolantPump_Freq_kHz: bitLength=8, min=0, max=255, startingValue=0
+CoolantPumpDutyCycle: bitLength=7, min=0, max=100, startingValue=0
+CoolantDriver_Fault: bitLength=1, min=0, max=1, startingValue=0
 
 
-#can add magnotometer at some point later if wanted
 
-node: id=10, name=APSensorArduino, board=arduino
+
+node: id=11, name=APSensorESP, board=esp
 CANFrame: frequency=700, dataTimeout=1500
 airPressure: bitLength=32, min=-2147483648, max=2147483647, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=50
 #airPressure: bitLength=32, min=-2147483648, max=2147483647, startingValue=2147483647

@@ -1,11 +1,17 @@
 #ifndef vitalsHelp
 #define vitalsHelp
 
-#include <stdatomic.h>
+#ifdef __cplusplus
+#include <atomic>
+#endif
 
 #include "../../programConstants.h"
 #include "vitalsStaticDec.h"
 #include "vitalsStructs.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // fixed vitals Constants
 enum internalVitalsFlags { // flags being placed in Vitals' flags field for each node
@@ -25,12 +31,21 @@ int32_t isolateBits(uint8_t* value, int8_t startingIndex, int8_t numBits);
 void sendWarningForDataPoint(const CANFrame* problemFrame, uint8_t dataPointIndex, uint32_t flags);
 void sendWarningForNode(uint8_t nodeID, uint32_t flags);
 
-// helpers for atomic use of modifiable fields
-inline void VitalsFlagSet(uint8_t nodeIndex, uint32_t bit) { atomic_fetch_or(&(nodes[nodeIndex].flags), bit); }
-inline void VitalsFlagClear(uint8_t nodeIndex, uint32_t bit) { atomic_fetch_and(&(nodes[nodeIndex].flags), ~bit); }
-inline uint8_t VitalsFlagsGet(uint8_t nodeIndex) { return atomic_load(&(nodes[nodeIndex].flags)); }
+#ifdef __cplusplus
+} // extern "C"
 
-inline void HBTimeSet(uint8_t nodeIndex, uint16_t time) { atomic_store(&(nodes[nodeIndex].milliSeconds), time); }
-inline int16_t HBTimeGet(uint8_t nodeIndex) { return atomic_load(&(nodes[nodeIndex].milliSeconds)); }
+// helpers for atomic use of modifiable fields
+inline void VitalsFlagSet(uint8_t nodeIndex, uint32_t bit) { nodes[nodeIndex].flags.fetch_or(bit); }
+inline void VitalsFlagClear(uint8_t nodeIndex, uint32_t bit) { nodes[nodeIndex].flags.fetch_and(~bit); }
+inline uint8_t VitalsFlagsGet(uint8_t nodeIndex) { return nodes[nodeIndex].flags.load(); }
+
+inline void HBTimeSet(uint8_t nodeIndex, uint16_t time) { nodes[nodeIndex].milliSeconds.store(time); }
+inline int16_t HBTimeGet(uint8_t nodeIndex) { return nodes[nodeIndex].milliSeconds.load(); }
 //
 #endif
+
+#else // Not C++
+#error "This project must be compiled as C++"
+#endif // __cplusplus
+
+#endif // vitalsHelp

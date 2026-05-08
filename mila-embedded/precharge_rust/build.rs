@@ -7,7 +7,7 @@ fn main() {
         // If programConstants has a .c file, add it here too:
         // .file("c_src/programConstants.c")
         .include("c_src")
-        .flag("-std=c99")
+        .flag("-std=c++23")
         .flag("-mcpu=cortex-m4")
         .flag("-mthumb")
         .flag("-mfloat-abi=hard")

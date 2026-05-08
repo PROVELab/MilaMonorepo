@@ -1,8 +1,9 @@
 #ifndef VITALS_STRUCTS_H
 #define VITALS_STRUCTS_H
 
+#include <stdio.h>
 #include <stdint.h>
-#include <atomic>
+#include <stdatomic.h>
 #include "../../programConstants.h"
 #define R10(x) {x,x,x,x,x,x,x,x,x,x}
 
@@ -15,7 +16,7 @@ typedef struct {
     int32_t maxWarning;
     int32_t startingValue;
     uint8_t crit_count_max;
-    std::atomic<uint8_t> crit_count;
+    uint8_t crit_count;
     int8_t bits;
 } dataPoint;
 
@@ -33,8 +34,8 @@ typedef struct {
 } CANFrame;
 
 typedef struct {
-    std::atomic<int8_t> flags;
-    std::atomic<int16_t> milliSeconds;
+    _Atomic int8_t flags;
+    _Atomic int16_t milliSeconds;
     int8_t numFrames;
     CANFrame *CANFrames; 
 } vitalsNode;

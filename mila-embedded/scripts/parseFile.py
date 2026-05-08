@@ -21,16 +21,17 @@ def ACCESS(fields, name):
 
 # A copy of each of these will be made for every dataPoint
 dataPoint_fields = [                                                    
-    {"name": "bitLength",       "type": "int8_t",  "expectation": "required", "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},    # bitLength is manually computed, no need to specify
     {"name": "minCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
     {"name": "maxCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
-    {"name": "min",             "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False},
-    {"name": "max",             "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False},
+    {"name": "min",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False},
+    {"name": "max",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False},
     {"name": "minWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
     {"name": "maxWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
     {"name": "startingValue",   "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals"], "isSet": False},
     {"name": "crit_count_max",  "type": "uint8_t", "expectation": "optional",    "value": 0,  "node": ["vitals, telemetry"], "isSet": False},  #how many consecutive criticals (after removing outliers) before considered in critical range? default is 1 if unsepecified and a critical range is set. 0 if not critical at all
-    {"name": "crit_count",   "type": "uint8_t", "expectation": "dontSpecify",    "value": 0,  "node": ["vitals"], "isSet": False}
+    {"name": "enum",            "type": "str",     "expectation": "optional",    "value": None, "node": ["vitals", "sensor", "telemetry"], "isSet": False}, # If set, min/max/bits are derived from this enum
+    {"name": "crit_count",      "type": "uint8_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False},
+    {"name": "bits",            "type": "int8_t",  "expectation": "optional",    "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},
 ]
 
 # A copy of each of these will be made for every CANFrame
@@ -79,21 +80,24 @@ globalDefines = []
 #The function will also set values that were not specified based on other values
 #Ex: if minWarning was not specified, it will be set to min, so that it never triggers (comparison is exclusive)
 def validate_datapoint(dp, dataName, node_id):
-    # Retrieve values from the datapoint.
-    bit_length    = int(ACCESS(dp, "bitLength")["value"])
-    min_value     = int(ACCESS(dp, "min")["value"])
-    max_value     = int(ACCESS(dp, "max")["value"])
-    minWarning   = int(ACCESS(dp, "minWarning")["value"])
+    # Check for required fields first. These should have been set either by the user or by enum logic.
+    # This validation is now done after enum processing in parse_config.
+
+    # Retrieve and evaluate values from the datapoint.
+    bit_length    = expression_to_int(ACCESS(dp, "bits")["value"])
+    min_value     = expression_to_int(ACCESS(dp, "min")["value"])
+    max_value     = expression_to_int(ACCESS(dp, "max")["value"])
     minWarningSet= bool(ACCESS(dp, "minWarning")["isSet"])
-    maxWarning   = int(ACCESS(dp, "maxWarning")["value"])
+    minWarning   = expression_to_int(ACCESS(dp, "minWarning")["value"]) if minWarningSet else 0
     maxWarningSet= bool(ACCESS(dp, "maxWarning")["isSet"])
-    minCritical   = int(ACCESS(dp, "minCritical")["value"])
+    maxWarning   = expression_to_int(ACCESS(dp, "maxWarning")["value"]) if maxWarningSet else 0
     minCriticalSet= bool(ACCESS(dp, "minCritical")["isSet"])
-    maxCritical   = int(ACCESS(dp, "maxCritical")["value"])
+    minCritical   = expression_to_int(ACCESS(dp, "minCritical")["value"]) if minCriticalSet else 0
     maxCriticalSet= bool(ACCESS(dp, "maxCritical")["isSet"])
-    starting_val  = int(ACCESS(dp, "startingValue")["value"])  
-    crit_count_max = int(ACCESS(dp, "crit_count_max")["value"])
+    maxCritical   = expression_to_int(ACCESS(dp, "maxCritical")["value"]) if maxCriticalSet else 0
+    starting_val  = expression_to_int(ACCESS(dp, "startingValue")["value"])
     crit_count_max_Set= bool(ACCESS(dp, "crit_count_max")["isSet"])
+    crit_count_max = expression_to_int(ACCESS(dp, "crit_count_max")["value"]) if crit_count_max_Set else 0
 
     # Check overall range is valid.
     if not (min_value < max_value):
@@ -101,7 +105,7 @@ def validate_datapoint(dp, dataName, node_id):
               Overall range invalid: min ({min_value}) must be less than max ({max_value}).")
         while(1): pass
     # Check that bit_length is appropriate,Compute the number of bits required for the range.
-    req = math.log2(int(max_value) - int(min_value) + 1)
+    req = math.log2(max_value - min_value + 1)
     required_bits = math.ceil(req)
     if bit_length != required_bits:
         print(f"Warning: For {dataName} (node {node_id}): Bit length {bit_length} \
@@ -118,16 +122,16 @@ def validate_datapoint(dp, dataName, node_id):
     #set ranges so that they will be ignored if they were not set.
     #note: with current system, warning/critical ranges will be triggered on exclusive comparisons.
     if not minWarningSet:
-         minWarning=(int)(ACCESS(dp, "min")["value"])
+         minWarning = min_value
          ACCESS(dp, "minWarning")["value"]= minWarning
     if not maxWarningSet:
-         maxWarning=(int)(ACCESS(dp, "max")["value"])
+         maxWarning = max_value
          ACCESS(dp, "maxWarning")["value"]= maxWarning
     if not minCriticalSet:
-         minCritical=(int)(ACCESS(dp, "min")["value"])
+         minCritical = min_value
          ACCESS(dp, "minCritical")["value"]= minCritical
     if not maxCriticalSet:
-         maxCritical=(int)(ACCESS(dp, "max")["value"])
+         maxCritical = max_value
          ACCESS(dp, "maxCritical")["value"]= maxCritical
 
     #check crit_count_max
@@ -164,30 +168,28 @@ def validate_datapoint(dp, dataName, node_id):
     #check startingVal
     if(starting_val<minWarning or starting_val>maxWarning):
         print(f"Warning: For {dataName} (node {node_id}): startingVal outside of acceptable range")
-        while(1): pass
 
 #update the data in a given set of fields based on what was read from a line
 def updateEntries(parsedFields, fields):
+    # Handle backward compatibility for bitLength -> bits
+    if 'bitLength' in parsedFields:
+        parsedFields['bits'] = parsedFields.pop('bitLength')
+
     for name, value in parsedFields.items():
         found = False
         for field in fields:
             if field["name"] == name:
                 found = True
                 if field["expectation"] == "dontSpecify":
-                    print(f"specified something locked: {name}")
-                    while(1): pass
+                    raise ValueError(f"Specified a locked field: '{name}'")
                 else:
                     field["value"] = value
                     ACCESS(fields, name)["isSet"] = True
+                break # Found it, no need to check other fields
         if not found:
-            print(f"No matching frame found for '{name}'.")
-            while(1): pass
-
-    for field in fields:
-        if field["expectation"] == "required" and not field["isSet"]:
-            print("did not specify required parameter for CanFrame:")
-            print(field)
-            while(1): pass
+            # Get a list of valid field names for a helpful error message
+            valid_names = [f['name'] for f in fields if f['expectation'] != 'dontSpecify']
+            raise ValueError(f"No matching field found for '{name}'. Valid fields are: {valid_names}")
 
 import ast
 import operator
@@ -195,9 +197,19 @@ import operator
 def eval_int_expr(expr: str) -> int:
     """
     Accepts strings like:
-      "0b11<<3", "4<<1", "0xF>>2", "-(0b101<<2)"
-    and returns the evaluated integer. Disallows names, function calls, etc.
+      "0b11<<3", "4<<1", "0xF>>2", "-(0b101<<2)", "vitalsID", "prechargeID | 1"
+    and returns the evaluated integer. It looks up names in globalDefines and globalEnums.
     """
+    
+    # Build a context for name lookups
+    name_context = {}
+    for define in globalDefines:
+        name_context[define.name] = define.value_int
+    for enum in globalEnums:
+        for entry in enum.entries:
+            # Later definitions can override earlier ones if names conflict.
+            name_context[entry.name] = entry.value_int
+
     node = ast.parse(expr, mode="eval")
 
     def _eval(n):
@@ -207,6 +219,25 @@ def eval_int_expr(expr: str) -> int:
         # Python already parses 0b..., 0o..., 0x..., and decimal ints as ints
         if isinstance(n, ast.Constant) and isinstance(n.value, int):
             return n.value
+        
+        # Handle name lookups
+        if isinstance(n, ast.Name):
+            if n.id in name_context:
+                return name_context[n.id]
+            raise NameError(f"Name '{n.id}' is not defined in global defines or enums.")
+
+        # Handle attribute access like 'enumName.entryName'
+        if isinstance(n, ast.Attribute):
+            if isinstance(n.value, ast.Name):
+                enum_name = n.value.id
+                entry_name = n.attr
+                for enum_def in globalEnums:
+                    if enum_def.enum_name == enum_name:
+                        for entry in enum_def.entries:
+                            if entry.name == entry_name:
+                                return entry.value_int
+                raise NameError(f"Enum entry '{enum_name}.{entry_name}' not found.")
+            raise TypeError("Unsupported attribute access pattern.")
 
         # Support unary + and -
         if isinstance(n, ast.UnaryOp) and isinstance(n.op, (ast.UAdd, ast.USub)):
@@ -230,25 +261,22 @@ def eval_int_expr(expr: str) -> int:
             if isinstance(n.op, ast.BitAnd): return left & right
             return left ^ right
 
-        raise ValueError("Only integer literals (3, 0b11, 0x3) with <<, >>, &, ^, | are allowed.")
+        raise ValueError(f"Unsupported expression component: {ast.dump(n)}")
 
     return _eval(node)
 
 def expression_to_int(input_str):
-    raw = input_str.strip()
+    # This function now becomes a simple wrapper around eval_int_expr
+    raw = str(input_str).strip()
     try:
-        val = eval_int_expr(raw) if isinstance(raw, str) else int(raw)
-    except Exception:
-        if isinstance(raw, str) and raw.startswith("0b"):
-            val = int(raw, 2)
-        else:
-            raise ValueError(f"Non-numeric enum value for {e.name}: {raw!r}")
-    return val
+        return eval_int_expr(raw)
+    except (ValueError, SyntaxError, NameError) as e:
+        raise ValueError(f"Could not evaluate expression '{raw}': {e}") from e
 
 # --- parse_config function moved here ---
 def parse_config(file_path):
     # Variables storing info as we go about our parsing
-    startingNodeID = None
+    startingNodeID = None # This will be the lowest node ID found
     nodeCount = 0
     frameCount = 0
     maxFrameCount = 0
@@ -264,6 +292,7 @@ def parse_config(file_path):
     node_ids = []     #Array of node ID's
 
     missingIDs = []   # will be computed based on node_ids
+    
 
     with open(file_path, 'r') as file:
         lines = file.readlines()
@@ -279,7 +308,7 @@ def parse_config(file_path):
         if line.startswith("node:"):
             node_details = line.split(":")[1].split(",")
             node_info = {k.strip(): v.strip() for k, v in (item.split("=") for item in node_details)}
-            node_id = int(node_info["id"])
+            node_id = expression_to_int(node_info["id"])
             node_name = node_info["name"]
             board_type= node_info["board"]
             # Initialize vitalsNode
@@ -291,7 +320,6 @@ def parse_config(file_path):
             node_ids.append(node_id)
             numData.append(0)
             nodeCount += 1
-
         # Process a CANFrame
         elif line.startswith("CANFrame"):
             frameCount+=1
@@ -311,9 +339,79 @@ def parse_config(file_path):
             ACCESS(frame, "numData")["value"] = 0
 
             updateEntries(frame_info, frame)
+        # Process a dataPoint
+        elif ":" in line:
+            # example: temperature: bitLength=7, min=-10, max=117, ...
+            frame = ACCESS(vitalsNodes[nodeCount - 1], "CANFrames")["value"][-1]
+            dataArr = ACCESS(frame, "dataInfo")["value"]
+            dataArr.append(deepcopy(dataPoint_fields))
+            dataPoint = dataArr[-1]
+            dataNames.append(line.split(":")[0].strip())
+            numData[-1] += 1
 
-        #Process an enum block
-        elif line.startswith("global enum"):
+            data_details = line.split(":")[1].split(",")
+            data_info = {k.strip(): v.strip() for k, v in (item.split("=") for item in data_details)}
+            updateEntries(data_info, dataPoint)
+            
+            # If dataPoint is an enum, set its min/max/bits from the enum definition
+            enum_name_val = ACCESS(dataPoint, "enum")["value"]
+            if enum_name_val:
+                if ACCESS(dataPoint, "min")["isSet"] or ACCESS(dataPoint, "max")["isSet"] or ACCESS(dataPoint, "bits")["isSet"]:
+                    print(f"Warning: For {dataNames[-1]} (node {node_ids[-1]}): 'min', 'max', or 'bits' should not be set when 'enum' is used. They will be overridden.")
+                try:
+                    enum_def = next(entry for entry in globalEnums if entry.enum_name == enum_name_val)
+                except StopIteration:
+                    raise ValueError(f"Enum '{enum_name_val}' specified for dataPoint '{dataNames[-1]}' (node {node_ids[-1]}) not found in enum definitions.")
+                
+                min_enum_val = min(entry.value_int for entry in enum_def.entries)
+                max_enum_val = max(entry.value_int for entry in enum_def.entries)
+                bits_needed = max(1, math.ceil(math.log2(max_enum_val + 1)))
+                
+                ACCESS(dataPoint, "min")["value"], ACCESS(dataPoint, "min")["isSet"] = min_enum_val, True
+                ACCESS(dataPoint, "max")["value"], ACCESS(dataPoint, "max")["isSet"] = max_enum_val, True
+                ACCESS(dataPoint, "bits")["value"], ACCESS(dataPoint, "bits")["isSet"] = bits_needed, True
+                # Also set startingValue if not provided, which satisfies the 'required' expectation.
+                if not ACCESS(dataPoint, "startingValue")["isSet"]:
+                    ACCESS(dataPoint, "startingValue")["value"] = enum_def.entries[0].value_int
+                    ACCESS(dataPoint, "startingValue")["isSet"] = True
+
+            # Now that enums have been processed, check for any remaining required fields.
+            for field in dataPoint:
+                if field["expectation"] == "required" and not field["isSet"]:
+                    raise ValueError(f"For dataPoint '{dataNames[-1]}' (node {node_ids[-1]}): Did not specify required parameter '{field['name']}'")
+
+            validate_datapoint(dataPoint, dataNames[-1], node_ids[-1])
+            ACCESS(frame, "numData")["value"] += 1
+
+
+    # Compute missing IDs
+    all_ids = range(min(node_ids), max(node_ids) + 1)
+    missingIDs = [node_id for node_id in all_ids if node_id not in node_ids]
+
+    maxFrameCount = max(ACCESS(vitalsNodes[i], "numFrames")["value"] for i in range(nodeCount))
+    maxDataCount = max(numData)
+
+    return vitalsNodes, nodeNames, boardTypes, dataNames, numData, \
+            node_ids, startingNodeID, missingIDs, nodeCount, frameCount, \
+            maxFrameCount, maxDataCount
+
+def _parse_enums_and_defines(file_path):
+    """
+    Parses a separate file for global enums and defines.
+    Populates globalEnums and globalDefines lists.
+    """
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        i += 1
+        if line.startswith("#") or not line:
+            continue
+
+        # Process an enum block
+        if line.startswith("global enum"):
             header = line
             block_lines = [header]
 
@@ -334,68 +432,29 @@ def parse_config(file_path):
             # Parse the collected lines into joined string. remove comments
             joined = "\n".join(l.split("#", 1)[0] for l in block_lines).strip()
 
-            #Parse enum name
-            import re
+            # Parse enum name
             m = re.match(r"global\s+enum:\s*(\w+)\s*=", joined)
             if not m:
                 raise ValueError(f"Bad enum declaration header: {joined!r}")
             enum_name = m.group(1)
 
-            # Find indices of opening and closing braces
-            open_idx = joined.find("{")
-            if open_idx == -1:
-                raise ValueError(f"Enum {enum_name} missing '{{': {joined!r}")
-            close_idx = joined.find("}", open_idx + 1)
-            if close_idx == -1:
-                raise ValueError(f"Enum {enum_name} missing '}}': {joined!r}")
-
             # Extract body between braces
-            body = joined[open_idx + 1:close_idx].strip()
+            body = joined[joined.find("{") + 1:joined.rfind("}")].strip()
 
             # Retrieve entries split by commas of the form name=value
             entries = []
             for piece in body.split(","):
                 piece = piece.strip()
-                if not piece:
-                    continue
-                if "=" not in piece:
-                    raise ValueError(f"Bad enum entry: {piece!r}")
+                if not piece: continue
+                if "=" not in piece: raise ValueError(f"Bad enum entry: {piece!r}")
                 k, v = [s.strip() for s in piece.split("=", 1)] #split name and value on '='
                 entries.append(EnumEntry(k, v, expression_to_int(v)))
 
             globalEnums.append(GlobalEnum(enum_name, entries))  #add the enum block to the global list
 
-        #parse global defines. will become #define in C, and final const in Java
-        elif "global" in line:
+        # Parse global defines. will become #define in C, and final const in Java
+        elif line.startswith("global:"):
             # example: global: vitalsID=0b000010, will make: #define vitalsID 2
             split = line.strip().split(":")[1].strip().split("=")
             newGlobal = globalDefine(split[0], split[1], expression_to_int(split[1]))
             globalDefines.append(newGlobal)
-
-        # Process a dataPoint
-        elif ":" in line:
-            # example: temperature: bitLength=7, min=-10, max=117, ...
-            frame = ACCESS(vitalsNodes[nodeCount - 1], "CANFrames")["value"][-1]
-            dataArr = ACCESS(frame, "dataInfo")["value"]
-            dataArr.append(deepcopy(dataPoint_fields))
-            dataPoint = dataArr[-1]
-            dataNames.append(line.split(":")[0].strip())
-            numData[-1] += 1
-
-            data_details = line.split(":")[1].split(",")
-            data_info = {k.strip(): v.strip() for k, v in (item.split("=") for item in data_details)}
-            updateEntries(data_info, dataPoint)
-            validate_datapoint(dataPoint, dataNames[-1], node_ids[-1])
-            ACCESS(frame, "numData")["value"] += 1
-
-
-    # Compute missing IDs
-    all_ids = range(min(node_ids), max(node_ids) + 1)
-    missingIDs = [node_id for node_id in all_ids if node_id not in node_ids]
-
-    maxFrameCount = max(ACCESS(vitalsNodes[i], "numFrames")["value"] for i in range(nodeCount))
-    maxDataCount = max(numData)
-
-    return vitalsNodes, nodeNames, boardTypes, dataNames, numData, \
-            node_ids, startingNodeID, missingIDs, nodeCount, frameCount, \
-            maxFrameCount, maxDataCount

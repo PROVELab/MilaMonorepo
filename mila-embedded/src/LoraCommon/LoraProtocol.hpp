@@ -1,7 +1,15 @@
 #ifndef LORA_PROTOCOL_H
 #define LORA_PROTOCOL_H
 
-#include <cstddef>
+#ifdef __cplusplus
+extern "C" { // Ensures C linkage for all functions. This is needed since arduino and common files are cpp, while esp
+             // Specific files are c, and pecan.h has function declarations for both. This will compile all functions
+             // with C linkage
+#endif
+
+#include <stdint.h>
+
+// #include <cstddef>
 #include "Driver/Config.hpp"   //RadioConfig
 #include "blastProtocolConfig.hpp"   //protocol packet formats and config
 
@@ -23,5 +31,9 @@ void getBitmap(uint16_t& bitmap, uint8_t& burstSize);
 //for internal use (in protocol common):
 bool validatePacketHeader(driverRecvPacket* driverPacket, size_t expectedHeaderLength);
 void printRecvStatus(driverRecvPacket* info);
+
+#ifdef __cplusplus
+} // End extern "C"
+#endif
 
 #endif

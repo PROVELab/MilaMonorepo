@@ -12,10 +12,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../espBase/debug_esp.h"
 #include "pecan.h"
 
-void flexiblePrint(const char* str) { mutexPrint(str); }
+static const char* TAG = "PecanESP";
+
+void flexiblePrint(const char* str) { ESP_LOGI(TAG, "%s", str); }
 
 // State changing management task.
 #define busStatus_TaskSize 4096
@@ -31,9 +32,9 @@ void checkBusStatus(void* pvParameters) {
         // mutexPrint("reading alert\n");
         if (alertStatus == ESP_OK) {
             if (alerts & TWAI_ALERT_BUS_OFF) {
-                // mutexPrint("initiating recovery\n");
+                ESP_LOGW(TAG, "Bus-off detected, initiating recovery");
                 if (twai_initiate_recovery() != ESP_OK) {
-                    // mutexPrint("invalid recovery attempting to reboot. This should never happen\n");
+                    ESP_LOGE(TAG, "invalid recovery attempting to reboot. This should never happen");
                     // esp_restart();
                 }
 
@@ -41,23 +42,21 @@ void checkBusStatus(void* pvParameters) {
                 // After recovering, twai enters stopped state. Lets enter the start state
                 int err = twai_start();
                 if (err != ESP_OK) {
-                    // char buffer[70];
-                    // sprintf(buffer, "error restarting Can: %d. Attempting to reboot\n", err);
-                    // mutexPrint(buffer);
+                    ESP_LOGE(TAG, "error restarting Can: %d. Attempting to reboot", err);
                     // esp_restart();
                 } else {
-                    // mutexPrint("Can Driver Started\n\n");
+                    ESP_LOGI(TAG, "Can Driver Started after recovery");
                     // send update indicating Bus restarted
                     sendStatusUpdate(canRecoveryFlag, myNodeId);
                 }
             }
             if (alerts & TWAI_ALERT_RX_FIFO_OVERRUN) {
                 // Hardware RX FIFO overrun (frames were dropped)
-                mutexPrint("TWAI: RX FIFO overrun detected — at least one frame was lost\n");
+                ESP_LOGW(TAG, "TWAI: RX FIFO overrun detected — at least one frame was lost");
                 sendStatusUpdate(canRXOverunFlag, myNodeId);
             }
         } else if (alertStatus != ESP_ERR_TIMEOUT) {
-            mutexPrint("confused on what state we are in. Should never happen. rebooting\n");
+            ESP_LOGE(TAG, "Unknown CAN state. Rebooting.");
             esp_restart();
         }
     }
@@ -83,17 +82,17 @@ void pecan_CanInit(pecanInit config) {
     twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
     // Install TWAI driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-        printf("Driver installed\n");
+        ESP_LOGI(TAG, "Driver installed");
     } else {
-        printf("Failed to install driver in pecan_CanInit\n");
+        ESP_LOGE(TAG, "Failed to install driver in pecan_CanInit");
         exit(1);
     }
 
     // Start TWAI driver
     if (twai_start() == ESP_OK) {
-        printf("Driver started\n");
+        ESP_LOGI(TAG, "Driver started");
     } else {
-        printf("Failed to start TWAI driver in pecan_CanInit\n");
+        ESP_LOGE(TAG, "Failed to start TWAI driver in pecan_CanInit");
         exit(1);
     }
 
@@ -101,7 +100,7 @@ void pecan_CanInit(pecanInit config) {
             TWAI_ALERT_BUS_OFF | TWAI_ALERT_BUS_RECOVERED | TWAI_ALERT_RX_FIFO_OVERRUN, // Alerts we care about
             NULL // NULL since dont need old alerts
             ) != ESP_OK) {
-        mutexPrint("couldn't configure alerts. Attempting Restart\n");
+        ESP_LOGE(TAG, "couldn't configure alerts. Attempting Restart");
         esp_restart();
     }
     // Create static State task
@@ -147,6 +146,7 @@ int16_t waitPackets(PCANListenParamsCollection* plpc) {
         }
 
         CANListenParam clp;
+        
         // Then match the packet id with our params; if none matches, use default handler
         for (int16_t i = 0; i < plpc->size; i++) {
             clp = plpc->arr[i];
@@ -159,7 +159,7 @@ int16_t waitPackets(PCANListenParamsCollection* plpc) {
 
 void sendPacket(CANPacket* p) {
     if (p->dataSize > MAX_SIZE_PACKET_DATA) {
-        mutexPrint("Packet Too Big\n");
+        ESP_LOGE(TAG, "Packet Too Big");
         return;
     }
     twai_message_t message = {
@@ -186,18 +186,15 @@ void sendPacket(CANPacket* p) {
         if (err != ESP_OK) {
             vTaskDelay(pdMS_TO_TICKS(
                 10)); // give 10ms to let other message send, bus recover, or whatever else is going wrong.
-            // char buffer[70];
-            // sprintf(buffer, "error sending Can: %d\n", err);
-            // mutexPrint(buffer);
+            ESP_LOGW(TAG, "error sending Can: %d", err);
         }
         transmitAttemptCount += 1;
     } while (err != ESP_OK && transmitAttemptCount != 50);
 
     if (transmitAttemptCount == 50) {
-        // mutexPrint("Unable to transmit msg for at least 1 second of time. attempting reboot\n");
+        ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms. attempting reboot");
         // esp_restart();
     }
-    // mutexPrint("sent Packet\n");
     // in current implementation, will always return ESP_OK.
     return;
 }

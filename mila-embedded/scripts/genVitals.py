@@ -1,26 +1,17 @@
 import os
-from parseFile import dataPoint_fields, CANFrame_fields, vitalsNode_fields, globalDefine, ACCESS
+from parseFile import dataPoint_fields, CANFrame_fields, vitalsNode_fields, globalDefine, ACCESS, expression_to_int
 from constantGen import writeConstants
 from genTelemetry import get_telem_path
 
 
-def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, generated_code_dir, globalDefines):
-
-    # 1. Get the directory where this script resides
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # 2. Construct the target path:
-    #    Go UP one level (..) -> into 'src' -> 'vitalsNode' -> 'vitalsHelper'
-    vitals_dir = os.path.join(script_dir, "..", "src", "vitalsNode", "vitalsHelper")
-    # 3. Clean up the path (resolves the ".." so it looks like a normal path)
-    vitals_dir = os.path.normpath(vitals_dir)
+def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, globalDefines, vitals_dir):
 
     # 4. Create the directory tree if it doesn't exist
     os.makedirs(vitals_dir, exist_ok=True)
 
     numMissingIDs=0
     # Define the file path (this joins the path with the filename)
-    file_path = os.path.join(vitals_dir, 'vitalsStaticDec.c')
+    file_path = os.path.join(vitals_dir, 'vitalsStaticDec.cpp')
     print("generating\n")
     with open(file_path, 'w') as f:
         f.write(
@@ -40,8 +31,14 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
                 num_data_points = ACCESS(frame, "numData")["value"]
                 f.write(f"dataPoint n{nodeIndex}f{frameIndex}DPs [{num_data_points}]={{\n")
                 for dataPoint in ACCESS(frame, "dataInfo")["value"]:
-                    fields = [f".{field['name']}={ACCESS(dataPoint, field['name'])['value']}"
-                              for field in dataPoint_fields if "vitals" in field["node"]]
+                    fields = []
+                    for field in dataPoint_fields:
+                        if "vitals" in field["node"] and field['name'] != 'enum':
+                            evaluated_value = expression_to_int(ACCESS(dataPoint, field['name'])['value'])
+                            if field['name'] == 'crit_count':
+                                fields.append(f".{field['name']}={{ {evaluated_value} }}") # Brace-init for std::atomic
+                            else:
+                                fields.append(f".{field['name']}={evaluated_value}")
                     f.write("    {" + ", ".join(fields) + "},\n")
                 f.write("};\n\n")
 
@@ -49,8 +46,10 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
             for frameIndex, frame in enumerate(ACCESS(node, "CANFrames")["value"]):
                 num_data_points = ACCESS(frame, "numData")["value"]
                 f.write(f"int32_t n{nodeIndex}f{frameIndex}Data[{num_data_points}][10]={{")
-                f.write(",".join(f"R10({ACCESS(dataPoint, 'startingValue')['value']})"  for dataPoint in \
-                   ACCESS(frame, "dataInfo")["value"] if any("vitals" in field["node"] for field in dataPoint_fields)))
+                r10_values = [f"R10({expression_to_int(ACCESS(dataPoint, 'startingValue')['value'])})"
+                              for dataPoint in ACCESS(frame, "dataInfo")["value"]
+                              if any("vitals" in field["node"] for field in dataPoint_fields)]
+                f.write(",".join(r10_values))
                 f.write("};\n\n")
 
             #CANFrames
@@ -66,9 +65,14 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
         f.write("// vitalsData *nodes;\n")
         f.write(f"vitalsNode nodes [{len(vitalsNodes)}]={{\n")
         for nodeIndex, node in enumerate(vitalsNodes):
-            NODE_fields = [f".{field['name']}={ACCESS(node, field['name'])['value']}"
-                            for field in vitalsNode_fields if field["name"] not in {"CANFrames"}]
-                            #^ Exclude CANFrames, as that is handled specially below
+            NODE_fields = []
+            for field in vitalsNode_fields:
+                if field["name"] not in {"CANFrames"}:
+                    value = ACCESS(node, field['name'])['value']
+                    if field.get('Atomic'):
+                        NODE_fields.append(f".{field['name']}={{ {value} }}") # Brace-init for std::atomic
+                    else:
+                        NODE_fields.append(f".{field['name']}={value}")
             f.write(f"    {{{', '.join(NODE_fields)}, .CANFrames=n{nodeIndex}}},\n")
         f.write("};\n")
 
@@ -91,23 +95,20 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
     with open(structs_file_path, "w") as f:
         f.write("#ifndef VITALS_STRUCTS_H\n")
         f.write("#define VITALS_STRUCTS_H\n\n")
-        f.write("#include <stdio.h>\n")
         f.write("#include <stdint.h>\n")
-        f.write('#include <stdatomic.h>\n')
+        f.write('#include <atomic>\n')
         f.write("#include \"../../programConstants.h\"\n")
         f.write("#define R10(x) {x,x,x,x,x,x,x,x,x,x}\n\n")
-
-        f.write("// For packing/unpacking telemetry packets.\n")
-        f.write("typedef struct {\n")
-        f.write("    int8_t bits;\n")
-        f.write("    int32_t min;\n")
-        f.write("    int32_t max;\n")
-        f.write("} simpleDataPoint;\n\n")
 
         # DataPoint struct definition
         f.write("typedef struct {\n")
         for field in dataPoint_fields:
-            f.write(f"    {field['type']} {field['name']};\n")
+            if field['name'] != 'enum':
+                # Handle atomic crit_count specifically for C++
+                if field['name'] == 'crit_count':
+                    f.write(f"    std::atomic<{field['type']}> {field['name']};\n")
+                else:
+                    f.write(f"    {field['type']} {field['name']};\n")
         f.write("} dataPoint;\n\n")
 
         # CANFrame struct definition
@@ -133,11 +134,10 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
                 f.write("    CANFrame *CANFrames; \n")  #Write CANFrames field manually as pointer
             else:
                 # For other fields, write them as usual
-                f.write("    ")
-                if(field['Atomic'] == True) : 
-                    f.write("_Atomic ");
-                
-                f.write(f"{field['type']} {field['name']};\n")
+                if(field.get('Atomic') == True) :
+                    f.write(f"    std::atomic<{field['type']}> {field['name']};\n")
+                else:
+                    f.write(f"    {field['type']} {field['name']};\n")
         f.write("} vitalsNode;\n\n")
 
         # End of header guards

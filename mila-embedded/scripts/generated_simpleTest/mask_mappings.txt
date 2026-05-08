@@ -1,0 +1,21 @@
+--- Vitals to Telem ---
+Packet Name -> Assigned Mask
+
+CANDataFrame (1 bits): 0 (0b0)
+HBStatus (3 bits): 4 (0b100)
+BusStatus (4 bits): 10 (0b1010)
+HBTiming (5 bits): 22 (0b10110)
+dataWarning (7 bits): 92 (0b1011100)
+nodeStatus (7 bits): 93 (0b1011101)
+unknownCanPacket (8 bits): 188 (0b10111100)
+vitalsErr (8 bits): 189 (0b10111101)
+
+
+--- Telem to Vitals ---
+Packet Name -> Assigned Mask
+
+set_telem_update_frequency_divider (4 bits): 0 (0b0000)
+prechargeCommand (6 bits): 4 (0b000100)
+genericVitalsCommand (7 bits): 10 (0b0001010)
+forward_packet (8 bits): 22 (0b00010110)
+prechargeValue (8 bits): 23 (0b00010111)

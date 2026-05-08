@@ -47,6 +47,12 @@ typedef struct {
     enum MATCH_TYPE mt;
 } CANListenParam;
 
+typedef struct __attribute__((packed)) {
+    int32_t min;
+    int32_t max;
+    int8_t bits; // Moved to bottom to reduce potential for mis-aligned accesses
+} simpleDataPoint;
+
 // A collection containing an array of params to listen for
 // and the default handler if none of the params match with
 // a given packet
@@ -62,6 +68,26 @@ typedef struct {
     int pin1; // for ESP: txLine. for Arduino: intPin
     int pin2; // for ESP: rxLine. for Arduino: csPin
 } pecanInit;
+
+/**
+ * @brief Unpacks a single data field from a byte buffer, adds the min offset, and advances a bit index.
+ * 
+ * @param dest A pointer to an int32_t to store the final unpacked value.
+ * @param src The source byte buffer to unpack from.
+ * @param field_info A pointer to a simpleDataPoint describing the field to unpack.
+ * @param bitIndex A pointer to the current bit index in the source buffer. This will be incremented by the function.
+ */
+void pecan_unpack(int32_t* dest, const uint8_t* src, const simpleDataPoint* field_info, int8_t* bitIndex);
+
+/**
+ * @brief Packs a single data field into a uint32_t, applying min/max constraints.
+ *
+ * @param dest A pointer to a uint32_t to store the formatted value.
+ * @param value The raw int32_t value to pack.
+ * @param field_info A pointer to a simpleDataPoint describing the field's constraints.
+ * @return 0 on success, 1 on error (e.g., value out of bounds after squeezing).
+ */
+int16_t pecan_pack(uint32_t* dest, int32_t value, const simpleDataPoint* field_info);
 
 void flexiblePrint(const char* str);
 
@@ -125,7 +151,7 @@ int16_t copyValueToData(uint32_t* value, uint8_t* target, int8_t startBit,
                         int8_t numBits); // copies the first numBits of value into target, starting from target's
                                          // startBit'th bit. target must be 8 bytes.
 
-int16_t copyDataToValue(uint32_t* target, uint8_t* data, int8_t startBit, int8_t numBits); // inverse of above function
+int16_t copyDataToValue(uint32_t* target, const uint8_t* data, int8_t startBit, int8_t numBits); // inverse of above function
 
 // The default handler for a packet who
 // we couldn't match with other params

@@ -2,10 +2,10 @@ public final class Constants {
     private Constants() {}
 
     //generated Constants
-    public static final int numberOfNodes = 1;
-    public static final int totalNumFrames = 1;
-    public static final int numMissingIDs = 0;
-    public static final int startingOffset = 10;
+    public static final int numberOfNodes = 5;
+    public static final int totalNumFrames = 8;
+    public static final int numMissingIDs = 4;
+    public static final int startingOffset = 3;
 
     //Explicilty defined in sensors.def constants
     public static final int nullID  = 0;		//  0
@@ -19,13 +19,6 @@ public final class Constants {
     public static final int maxFrameCntBits = 3;		// 3
     public static final int warningDataFlagIndex = 21;		// 21
     public static final int maxDataInFrameBits = 3;		// 3
-    public static final int HBupdateTypeBits  = 1;		//  1
-    public static final int HBupdateStatus  = 0;		//  0b0
-    public static final int HBupdateTiming  = 1;		//  0b1
-    public static final int slowestNodeCount  = 3;		//  3
-    public static final int HBStatusFrameBits  = 1;		//  1
-    public static final int HBTimerMSBits  = 10;		//  10
-    public static final int frame0FillerBits  = 11;		//  11
 
 	// global enum specialIDs
 	public static final class specialIDs {
@@ -48,13 +41,18 @@ public final class Constants {
 		public static final int transmitData = 7;	// 0b0111
 	}
 
-	// global enum telemetryCommandFlags
-	public static final class telemetryCommandFlags {
-		private telemetryCommandFlags() {}
-		public static final int enablePrecharge = 4;	// 4
-		public static final int disablePrecharge = 5;	// 5
-		public static final int telemetryCommandCRCError = 7;	// 7
-		public static final int customChangeDataFlag = 9;	// 9
+	// global enum vitalsCommands
+	public static final class vitalsCommands {
+		private vitalsCommands() {}
+		public static final int lowPowerLora = 0;	// 0
+	}
+
+	// global enum prechargeCommands
+	public static final class prechargeCommands {
+		private prechargeCommands() {}
+		public static final int prechargeRemoveLatch = 0;	// 0
+		public static final int prechargeLatchOff = 1;	// 1
+		public static final int prechargeLatchOn = 2;	// 2
 	}
 
 	// global enum TWAI_STATE
@@ -69,17 +67,18 @@ public final class Constants {
 	// global enum statusUpdates
 	public static final class statusUpdates {
 		private statusUpdates() {}
-		public static final int initFlag = 0;	// 0b00000000
-		public static final int canRecoveryFlag = 1;	// 0b00000001
-		public static final int canRXOverunFlag = 2;	// 0b00000010
+		public static final int initFlag = 0;	// 0
+		public static final int canRecoveryFlag = 1;	// 1
+		public static final int canRXOverunFlag = 2;	// 2
+		public static final int telemetryCommandAck = 3;	// 3
 	}
 
-	// global enum prechargeStatusUpdates
-	public static final class prechargeStatusUpdates {
-		private prechargeStatusUpdates() {}
-		public static final int On_Charging = 5;	// 0b00000101
-		public static final int On_FinishedCharging = 6;	// 0b00000110
-		public static final int Off = 7;	// 0b00000111
+	// global enum prechargeState
+	public static final class prechargeState {
+		private prechargeState() {}
+		public static final int On = 0;	// 0
+		public static final int Charging = 1;	// 1
+		public static final int Off = 2;	// 2
 	}
 
 	// global enum extrapolationTrigger
@@ -89,4 +88,6 @@ public final class Constants {
 		public static final int extrap5 = 1;	// 1
 		public static final int doubleCritical = 2;	// 2
 	}
+
+	public static final int[] nodeIDs = new int[]{ 3, 8, 9, 10, 11 };
 }

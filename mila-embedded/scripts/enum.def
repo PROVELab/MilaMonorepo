@@ -1,0 +1,82 @@
+# Also, no sensor IDs = 0. Telem interprets an ID = 0 as null for VitalsHB Updates
+global: nullID = 0
+
+#General Constants
+global: pointsPerData=10
+global enum: specialIDs = {
+    vitalsID    = 2,
+    prechargeID = 3,
+    telemetryID = 4
+}
+global: nodeIDSizeBits = 7
+
+//set motor controller ID = 1.
+global enum: functionCodes = {
+    reservedForMotorController_1 = 0b0000,
+    reservedForMotorController_2 = 0b0001,
+    warningCode             = 0b0010,
+    TelemetryCommand        = 0b0011,
+    statusUpdate            = 0b0100,
+    HBPing                  = 0b0101,
+    HBPong                  = 0b0110,
+
+    transmitData            = 0b0111
+}
+
+# mark for "pecan packet" is not set
+
+# #warningCode flags # # 
+global: nonCriticalWarning= 0b010 
+global: CriticalWarning = 0b100 
+global: warningTypeMask = 0b111
+
+#the above flags takes up the first 11 bits:
+global: warningNodeFlagIndex = 11
+global: warningFrameFlagIndex=18
+#After the flags, we have identify the problematic frame and data point
+# setting maxFrameCnt = 8 (2^3=8)
+global: maxFrameCntBits=3
+# setting max number of data in a given frame to 8 (2^3=8)
+global: warningDataFlagIndex=21
+global: maxDataInFrameBits=3
+# #    # #
+
+global enum: vitalsCommands = {
+    lowPowerLora = 0
+}
+
+#LatchOn forces precharge on, overriding vitals. avoid using unless needed
+global enum: prechargeCommands = {
+    prechargeRemoveLatch = 0,
+    prechargeLatchOff = 1,
+    prechargeLatchOn = 2
+}
+
+global enum: TWAI_STATE = {
+    TWAI_PECAN_STOPPED    = 0,            
+    TWAI_PECAN_RUNNING    = 1,             
+    TWAI_PECAN_BUS_OFF    = 2,             
+    TWAI_PECAN_RECOVERING = 3
+}
+
+#flags for status Updates. The data sent will just be this flag
+global enum: statusUpdates = {
+    initFlag =                      0,
+    canRecoveryFlag =               1,
+    # ATM, only ESP's indicate RX Overruns, Arduino's do not.
+    canRXOverunFlag =               2,
+    telemetryCommandAck   = 3
+}
+
+#if ID = precharge, this enum should be checked for possible messages
+global enum: prechargeState = {
+    On =        0,
+    Charging =  1,
+    Off =       2
+}
+#
+global enum: extrapolationTrigger = {
+    extrap10 = 0,
+    extrap5 = 1,
+    doubleCritical = 2
+}

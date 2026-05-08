@@ -17,34 +17,34 @@ StackType_t receiveMSG_Stack[STACK_SIZE]; //buffer that the task will use as its
 
 //For Standard behavior, fill in the collectData<NAME>() function(s).
 //In the function, return an int32_t with the corresponding data
-int32_t collect_pedalPowerReadingmV(bool* cancelFrameSend){
-    int32_t pedalPowerReadingmV = 6000;
-	mutexPrint("collecting pedalPowerReadingmV\n");
-    return pedalPowerReadingmV;
+int32_t collect_battery_V(bool* cancelFrameSend){
+    int32_t battery_V = 0;
+	mutexPrint("collecting battery_V\n");
+    return battery_V;
 }
 
-int32_t collect_pedalReadingOne(bool* cancelFrameSend){
-    int32_t pedalReadingOne = 30;
-	mutexPrint("collecting pedalReadingOne\n");
-    return pedalReadingOne;
+int32_t collect_motor_V(bool* cancelFrameSend){
+    int32_t motor_V = 0;
+	mutexPrint("collecting motor_V\n");
+    return motor_V;
 }
 
-int32_t collect_pedalReadingTwo(bool* cancelFrameSend){
-    int32_t pedalReadingTwo = 30;
-	mutexPrint("collecting pedalReadingTwo\n");
-    return pedalReadingTwo;
+int32_t collect_prechargeState(bool* cancelFrameSend){
+    int32_t prechargeState = prechargeState.Off;
+	mutexPrint("collecting prechargeState\n");
+    return prechargeState;
 }
 
-int32_t collect_brakeReading(bool* cancelFrameSend){
-    int32_t brakeReading = -1;
-	mutexPrint("collecting brakeReading\n");
-    return brakeReading;
+int32_t collect_contactorState(bool* cancelFrameSend){
+    int32_t contactorState = prechargeState.Off;
+	mutexPrint("collecting contactorState\n");
+    return contactorState;
 }
 
-int32_t collect_SDIO_det_pin(bool* cancelFrameSend){
-    int32_t SDIO_det_pin = 0;
-	mutexPrint("collecting SDIO_det_pin\n");
-    return SDIO_det_pin;
+int32_t collect_prechargeLatched(bool* cancelFrameSend){
+    int32_t prechargeLatched = 0;
+	mutexPrint("collecting prechargeLatched\n");
+    return prechargeLatched;
 }
 
 void receiveMSG(){  //task handles recieving Messages

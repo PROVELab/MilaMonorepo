@@ -126,11 +126,11 @@ async fn main(spawner: Spawner) {
         pin2: -1,
     };
     // // We call this directly. Note: In original code this set a global NODE_ID.
-    // crate::hw::pecan_CanInit(cfg, &spawner, p.CAN1, p.PA11, p.PA12).await;
+    crate::hw::pecan_CanInit(cfg, &spawner, p.CAN1, p.PA11, p.PA12).await;
 
-    // let mut listen_collection: PCANListenParamsCollection = unsafe { core::mem::zeroed() };
+    let mut listen_collection: PCANListenParamsCollection = unsafe { core::mem::zeroed() };
 
-    // unsafe {
+    unsafe {
     //     let listen_id = combinedID(HBPing, vitalsID);
     //     let baby_duck = CANListenParam {
     //         listen_id,
@@ -139,22 +139,22 @@ async fn main(spawner: Spawner) {
     //     };
     //     addParam(&mut listen_collection as *mut _, baby_duck);
 
-    //     let listen_id = combinedID(enablePrecharge, vitalsID);
-    //     let enablePC = CANListenParam {
-    //         listen_id,
-    //         handler: Some(contactorsOn),
-    //         mt: MATCH_TYPE_MATCH_EXACT,
-    //     };
-    //     addParam(&mut listen_collection as *mut _, enablePC);
+        let listen_id = combinedID(enablePrecharge, vitalsID);
+        let enablePC = CANListenParam {
+            listen_id,
+            handler: Some(contactorsOn),
+            mt: MATCH_TYPE_MATCH_EXACT,
+        };
+        addParam(&mut listen_collection as *mut _, enablePC);
 
-    //     let listen_id = combinedID(2, vitalsID);
-    //     let disablePC = CANListenParam {
-    //         listen_id,
-    //         handler: Some(contactorsOff),
-    //         mt: MATCH_TYPE_MATCH_EXACT,
-    //     };
-    //     addParam(&mut listen_collection as *mut _, disablePC);
-    // }
+        let listen_id = combinedID(2, vitalsID);
+        let disablePC = CANListenParam {
+            listen_id,
+            handler: Some(contactorsOff),
+            mt: MATCH_TYPE_MATCH_EXACT,
+        };
+        addParam(&mut listen_collection as *mut _, disablePC);
+    }
 
     spawner.spawn(HBLED_task(p.PA3)).unwrap();
     spawner.spawn(contactor_control_task(p.PC6, p.PB12, p.PB14)).unwrap();
@@ -168,7 +168,7 @@ async fn main(spawner: Spawner) {
         // unsafe { sendStatusUpdate(5, 3); }
 
         // Process packets (This polls the queue populated by the background task)
-        // let _res = waitPackets(&mut listen_collection as *mut _);
+        let _res = waitPackets(&mut listen_collection as *mut _);
 
         // --        
         // Non-blocking sleep! Allows CAN RX task to run.

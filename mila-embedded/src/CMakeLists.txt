@@ -3,15 +3,22 @@
 list(APPEND EXTRA_COMPONENT_DIRS icm20948)
 
 if(CMAKE_VITALS_ESP_BUILD)
+    file(GLOB VITALS_HELPER_FILES "vitalsNode/vitalsHelper/*")
+    file(GLOB VITALS_ROOT_FILES   "vitalsNode/*")
+    file(GLOB LORA_COMMON_FILES   "LoraCommon/*")
+    file(GLOB LORA_DRIVER_FILES   "LoraCommon/Driver/*")
+    file(GLOB LORA_TX_FILES       "telemetryTX/*")
+
+    # 2. Define SRC_FILES with explicit paths and append the globbed lists
     set(SRC_FILES 
-        "vitalsNode/vitalsHelper/vitalsStaticDec.c"
-        "vitalsNode/vitalsHelper/vitalsHelper.c"
         "pecan/common.cpp"
         "pecan/espSpecific.c"
-        "vitalsNode/main.c"
         "espBase/debug_esp.c"
-        "vitalsNode/vitalsData.c"
-        "vitalsNode/vitalsHB.c"
+        ${VITALS_HELPER_FILES}
+        ${VITALS_ROOT_FILES}
+        ${LORA_COMMON_FILES}
+        ${LORA_DRIVER_FILES}
+        ${LORA_TX_FILES}
     )
     # message(SEND_ERROR "SRC_FILES for VITALS_BUILD: ${SRC_FILES}")
 endif()

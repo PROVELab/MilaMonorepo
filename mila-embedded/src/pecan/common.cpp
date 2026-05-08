@@ -1,9 +1,12 @@
 #include "../programConstants.h"
 #include "pecan.h"
+#include "esp_log.h"
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdio.h>  //for snprintf
+#include <stdio.h>
 #include <string.h> // memcpy
+
+static const char* TAG = "PecanCommon";
 
 uint32_t combinedID(uint32_t fn_id, uint32_t node_id) { return (fn_id << 7) + node_id; }
 uint32_t combinedIDExtended(uint32_t fn_id, uint32_t node_id, uint32_t extension) {
@@ -64,16 +67,32 @@ int16_t writeData(CANPacket* p, int8_t* dataPoint, int16_t size) {
     return SUCCESS;
 }
 
+void pecan_unpack(int32_t* dest, const uint8_t* src, const simpleDataPoint* field_info, int8_t* bitIndex) {
+    if (!dest || !src || !field_info || !bitIndex) {
+        return;
+    }
+    uint32_t temp = 0;
+    // Use const_cast because existing copyDataToValue is not const-correct, but doesn't modify src.
+    copyDataToValue(&temp, src, *bitIndex, field_info->bits);
+    *dest = ((int32_t)temp) + field_info->min;
+    *bitIndex += field_info->bits;
+}
+
+int16_t pecan_pack(uint32_t* dest, int32_t value, const simpleDataPoint* field_info) {
+    if (!dest || !field_info) {
+        return 1; // Error
+    }
+    *dest = formatValue(value, field_info->min, field_info->max);
+    return 0; // Success
+}
+
 // returns value constrained to min of min, and max of max
 int32_t squeeze(int32_t value, int32_t min, int32_t max) { return (value < min) ? min : (value > max ? max : value); }
 
-bool exact(uint32_t id, uint32_t mask) { // does not check extended bits of Id
-    return (id & 0b11111111111) == mask;
-}
 uint32_t formatValue(int32_t value, int32_t min, int32_t max) { return (uint32_t) (squeeze(value, min, max) - min); }
-int16_t
-copyValueToData(uint32_t* value, uint8_t* target, int8_t startBit,
-                int8_t numBits) { // copies the first numBits of value into target starting at startBit of target
+
+// copies the first numBits of value into target starting at startBit of target
+int16_t copyValueToData(uint32_t* value, uint8_t* target, int8_t startBit, int8_t numBits) { 
     if (numBits <= 0 || startBit < 0 || startBit + numBits > 64) return 1; // function called in invalid circumstance
 
     // Treat target and source as 64-bit integers
@@ -84,10 +103,8 @@ copyValueToData(uint32_t* value, uint8_t* target, int8_t startBit,
     return 0;
 }
 
-// inverse of the above function
-int16_t
-copyDataToValue(uint32_t* target, uint8_t* data, int8_t startBit,
-                int8_t numBits) { // relies on mc using little endian (since interpretting array of bytes as int)
+// inverse of the above function. requires mc to be little endian
+int16_t copyDataToValue(uint32_t* target, const uint8_t* data, int8_t startBit, int8_t numBits) { 
     if (numBits <= 0 || startBit < 0 || startBit + numBits > 64) return 1;
 
     // Treat target as a 64-bit integer (for up to 8 bytes)
@@ -99,12 +116,17 @@ copyDataToValue(uint32_t* target, uint8_t* data, int8_t startBit,
     return 0;
 }
 
+
 void sendStatusUpdate(uint8_t flag, uint32_t Id) {
     CANPacket statusUpdatePacket;
     memset(&statusUpdatePacket, 0, sizeof(CANPacket));
     statusUpdatePacket.id = combinedID(statusUpdate, Id);
     writeData(&statusUpdatePacket, (int8_t*) &flag, 1);
     sendPacket(&statusUpdatePacket);
+}
+
+bool exact(uint32_t id, uint32_t mask) { // does not check extended bits of Id
+    return (id & 0b11111111111) == mask;
 }
 
 // note: ID sent over CAN is 11 bit long, with first 7 bitsbeing the identifier of sending node, and last 4 bits being

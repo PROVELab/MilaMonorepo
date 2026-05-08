@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 
+
 #define maxLoraPacketSize 255
 
 #ifdef __cplusplus

@@ -1,9 +1,11 @@
 import os
-from parseFile import parse_config, globalDefines
-from genSensors import createSensors
+from parseFile import parse_config, _parse_enums_and_defines, globalDefines, globalEnums
+from genSensors import createSensors 
 from genVitals import createVitals
 from genTelemetry import createTelemetry 
 from genPacketSend import createPacketSendFiles
+from processPacketFormat import preprocess_packets
+from packetFormat import vitals_to_telem, telem_to_vitals
 
 import json
 def pretty_print_vitals(vitals_nodes):  #useful for debugging
@@ -26,37 +28,53 @@ def pretty_print_vitals(vitals_nodes):  #useful for debugging
 if __name__ == "__main__":
     # Get the directory of the current script
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # fileName = input("\nEnter the name of the file (ex: sensors.def, or simpleTest.def)\n")
-    fileName = "simpleTest.def"
-    # Build absolute path to the input file (assumed to be in same dir as this script)
-    file_path = os.path.join(script_dir, fileName)
+
+    # Define file names
+    node_def_file_name = "simpleTest.def"
+    enum_def_file_name = "enum.def"
+
+    # Build absolute paths to the input files
+    node_def_file_path = os.path.join(script_dir, node_def_file_name)
+    enum_def_file_path = os.path.join(script_dir, enum_def_file_name)
 
     # Make directory for the generated code
-    base_name = os.path.splitext(os.path.basename(fileName))[0]
-    generated_code_dir = os.path.join(script_dir, f"Gen_For_{base_name}")
+    base_name = os.path.splitext(os.path.basename(node_def_file_name))[0]
+    generated_code_dir = os.path.join(script_dir, f"generated_{base_name}")
     os.makedirs(generated_code_dir, exist_ok=True)
 
-    # Parse configuration file
+    # --- Pre-process Packet Formats ---
+    print("Parsing enums and defines from:", enum_def_file_name)
+    _parse_enums_and_defines(enum_def_file_path) # This populates globalEnums and globalDefines
+
+    print("Parsing node definitions from:", node_def_file_name)
     (vitalsNodes, nodeNames, boardTypes, dataNames, numData, nodeIds,
-     startingNodeID, missingIDs, nodeCount, frameCount, maxFrameCnt, maxDataCnt) = parse_config(file_path)
+     startingNodeID, missingIDs, nodeCount, frameCount, maxFrameCnt, maxDataCnt) = parse_config(node_def_file_path)
+    print("Done parsing.")
 
+    print("\n--- Parsed Configuration ---")
     print("Starting Node ID:", startingNodeID)
-    print("Missimsing IDs:", missingIDs)
+    print("Missing IDs:", missingIDs)
     print("Node Count:", nodeCount)
-    print("node Names:", nodeNames)
-    print("data Names:", dataNames)
+    print("Node Names:", nodeNames)
 
-    # pretty_print_vitals(vitalsNodes)
-    # Generate sensor files
-    createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, script_dir, generated_code_dir)
-    #Generate Vitals Files
-    createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, generated_code_dir, globalDefines)
+    # Get vitals helper dir, where most vitals-related generated files will go
+    vitals_helper_dir = os.path.join(script_dir, "..", "src", "vitalsNode", "vitalsHelper")
+    vitals_helper_dir = os.path.normpath(vitals_helper_dir)
+    os.makedirs(vitals_helper_dir, exist_ok=True)
 
+    # Get vitals node dir, for files like user-editable callbacks
+    vitals_node_dir = os.path.join(script_dir, "..", "src", "vitalsNode")
+    vitals_node_dir = os.path.normpath(vitals_node_dir)
+    os.makedirs(vitals_node_dir, exist_ok=True)
+
+    # --- Pre-process Packet Formats (after parsing config) ---
+    print("\nPre-processing packet formats...")
+    preprocess_packets(nodeCount, maxFrameCnt, maxDataCnt)
+    print("Done.")
+
+    createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, script_dir, generated_code_dir, telem_to_vitals, globalEnums)
+    createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, globalDefines, vitals_helper_dir)
     createTelemetry(vitalsNodes, "telemetryDashboard.csv", generated_code_dir, nodeNames, dataNames)
 
-    # --- Generate Packet Send Files ---
-
-    print("Generating Packet Send LUTs...")
-    createPacketSendFiles(generated_code_dir, nodeCount, maxFrameCnt, maxDataCnt)
+    createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir, nodeNames, nodeIds, vitals_to_telem, telem_to_vitals, globalEnums)
     print("Done.")

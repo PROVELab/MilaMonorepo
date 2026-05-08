@@ -39,7 +39,10 @@ typedef enum {
     TX_Queue_Msg_Timeout   = 14,    //very common on timeout
     TX_Completion_Timeout  = 15,     //shouldnt be possible?
     TX_Completion_Crash    = 16,
-    driverOff              = 17
+    driverOff              = 17,
+    recvUnknownSensorID    = 18,
+
+    //Vitals Specific:
     //Raised by Vitals non-Lora code
 
 } custom_Vitals_Er;

@@ -17,34 +17,46 @@ StackType_t receiveMSG_Stack[STACK_SIZE]; //buffer that the task will use as its
 
 //For Standard behavior, fill in the collectData<NAME>() function(s).
 //In the function, return an int32_t with the corresponding data
-int32_t collect_pedalPowerReadingmV(bool* cancelFrameSend){
-    int32_t pedalPowerReadingmV = 6000;
-	mutexPrint("collecting pedalPowerReadingmV\n");
-    return pedalPowerReadingmV;
+int32_t collect_LV_Battery_mV(bool* cancelFrameSend){
+    int32_t LV_Battery_mV = 0;
+	mutexPrint("collecting LV_Battery_mV\n");
+    return LV_Battery_mV;
 }
 
-int32_t collect_pedalReadingOne(bool* cancelFrameSend){
-    int32_t pedalReadingOne = 30;
-	mutexPrint("collecting pedalReadingOne\n");
-    return pedalReadingOne;
+int32_t collect_LV_Battery_mA(bool* cancelFrameSend){
+    int32_t LV_Battery_mA = 0;
+	mutexPrint("collecting LV_Battery_mA\n");
+    return LV_Battery_mA;
 }
 
-int32_t collect_pedalReadingTwo(bool* cancelFrameSend){
-    int32_t pedalReadingTwo = 30;
-	mutexPrint("collecting pedalReadingTwo\n");
-    return pedalReadingTwo;
+int32_t collect_CoolantPumpAvgCurrent_mA(bool* cancelFrameSend){
+    int32_t CoolantPumpAvgCurrent_mA = 0;
+	mutexPrint("collecting CoolantPumpAvgCurrent_mA\n");
+    return CoolantPumpAvgCurrent_mA;
 }
 
-int32_t collect_brakeReading(bool* cancelFrameSend){
-    int32_t brakeReading = -1;
-	mutexPrint("collecting brakeReading\n");
-    return brakeReading;
+int32_t collect_CoolantPumpPeakCurrent_mA(bool* cancelFrameSend){
+    int32_t CoolantPumpPeakCurrent_mA = 0;
+	mutexPrint("collecting CoolantPumpPeakCurrent_mA\n");
+    return CoolantPumpPeakCurrent_mA;
 }
 
-int32_t collect_SDIO_det_pin(bool* cancelFrameSend){
-    int32_t SDIO_det_pin = 0;
-	mutexPrint("collecting SDIO_det_pin\n");
-    return SDIO_det_pin;
+int32_t collect_CoolantPump_Freq_kHz(bool* cancelFrameSend){
+    int32_t CoolantPump_Freq_kHz = 0;
+	mutexPrint("collecting CoolantPump_Freq_kHz\n");
+    return CoolantPump_Freq_kHz;
+}
+
+int32_t collect_CoolantPumpDutyCycle(bool* cancelFrameSend){
+    int32_t CoolantPumpDutyCycle = 0;
+	mutexPrint("collecting CoolantPumpDutyCycle\n");
+    return CoolantPumpDutyCycle;
+}
+
+int32_t collect_CoolantDriver_Fault(bool* cancelFrameSend){
+    int32_t CoolantDriver_Fault = 0;
+	mutexPrint("collecting CoolantDriver_Fault\n");
+    return CoolantDriver_Fault;
 }
 
 void receiveMSG(){  //task handles recieving Messages

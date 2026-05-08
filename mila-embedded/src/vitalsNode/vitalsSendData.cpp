@@ -1,7 +1,7 @@
 #include "esp_log.h"
 
 #include "vitalsHelper/vitalsPacketSendLUT.h"
-#include "../pecan/pecan.h"
+#include "../LoraCommon/LoraProtocol.hpp"
 
 const char* TAG = "vitalsSendData";
 
@@ -10,16 +10,8 @@ const char* TAG = "vitalsSendData";
     
 // }
 
-void sendPacket(const uint8_t* packet, size_t dataBytes){
-    ESP_LOGI(TAG, "\nsending data:");
-    for(size_t i=0; i<dataBytes;i++){
-        ESP_LOGI(TAG, "%0x", packet[i]);
-    
-    }
-}
-
-
-int formatPacketCore(const simpleDataPoint* fields, size_t numFields, const int* data, uint8_t* tempData, size_t tempBytes){
+// Returns the number of bytes written to tempData
+int formatPacketCore(const simpleDataPoint* fields, size_t numFields, const int32_t* data, uint8_t* tempData){
     int8_t currBit = 0;
 
     for (size_t i = 0; i < numFields; i++) {
@@ -29,31 +21,29 @@ int formatPacketCore(const simpleDataPoint* fields, size_t numFields, const int*
         copyValueToData(&unsignedConstrained, tempData, currBit, info.bits);
         currBit += info.bits;
     }
-    return currBit / 8;
+    return (currBit + 7) / 8;
 }
 
 uint8_t variableDataBuffer [255];
 static SemaphoreHandle_t variableDataMutex = NULL; //mutex to take or add to msg queue.
 static StaticSemaphore_t variableDataMutexBuffer;
 
-void sendPacketVariable(const simpleDataPoint* fields, size_t numFields, const int* data, const uint8_t* payload, const uint8_t payloadBytes){
-    int dataBufferBytes = formatPacketCore(fields, numFields, data, variableDataBuffer, dataBufferBytes);
-
+void sendPacketVariable(const simpleDataPoint* fields, size_t numFields, const int32_t* data, const uint8_t* payload, const uint8_t payloadBytes){
     if (variableDataMutex == NULL){
         variableDataMutex = xSemaphoreCreateMutexStatic(&variableDataMutexBuffer);
     }
     xSemaphoreTake(variableDataMutex, portMAX_DELAY);
-    memcpy(variableDataBuffer + dataBufferBytes, payload, payloadBytes);
 
-    sendPacket(variableDataBuffer, dataBufferBytes + payloadBytes);
+    int dataBufferBytes = formatPacketCore(fields, numFields, data, variableDataBuffer);
+
+    memcpy(variableDataBuffer + dataBufferBytes, payload, payloadBytes);
+    ProtocolTransmit((uint8_t*) variableDataBuffer, dataBufferBytes + payloadBytes);
 
     xSemaphoreGive(variableDataMutex);
 }
-
-
-void sendPacketCore(const simpleDataPoint* fields, size_t numFields, const int* data, uint8_t* dataBuffer) {
-    formatPacketCore(fields, numFields, data, dataBuffer, dataBufferBytes);
-
-    sendPacket(dataBuffer, dataBufferBytes);
-
+ 
+void sendPacketCore(const simpleDataPoint* fields, size_t numFields, const int32_t* data, uint8_t* dataBuffer) {
+    int dataBufferBytes = formatPacketCore(fields, numFields, data, dataBuffer);
+    ProtocolTransmit(dataBuffer, dataBufferBytes);
+   
 }

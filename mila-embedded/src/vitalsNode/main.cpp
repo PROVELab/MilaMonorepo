@@ -8,16 +8,18 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../espBase/debug_esp.h" //for checking and restarting CAN bus
+#include "esp_log.h"
 #include "../pecan/pecan.h"       //helper code for CAN stuff
 #include "../programConstants.h"  //Constants
 // random vitals stuff:
 #include "vitalsData.h"
 #include "vitalsHB.h"
 #include "vitalsHelper/vitalsHelper.h"
+#include "vitalsHelper/vitalsPacketSendLUT.h"
 #include "vitalsHelper/vitalsStaticDec.h"
 
 // Initialize space for each task
+static const char* TAG = "VitalsMain";
 StaticTask_t sendHB_Buffer;
 StackType_t sendHB_Stack[STACK_SIZE];
 StaticTask_t recieveMSG_Buffer;
@@ -29,49 +31,31 @@ StackType_t checkStatus_Stack[STACK_SIZE];
 void vitals_check_bus_status(void* pvParameters) {
     for (;;) {
         twai_status_info_t status_info;
-        esp_err_t err;
-        if ((err = twai_get_status_info(&status_info)) == ESP_OK) {
-            if (xSemaphoreTake(printfMutex, portMAX_DELAY)) {
-                printf("Messages to TX: %lu\n", status_info.msgs_to_tx);
-                printf("Messages to RX: %lu\n", status_info.msgs_to_rx);
-                printf("TX Error Counter: %lu\n", status_info.tx_error_counter);
-                printf("RX Error Counter: %lu\n", status_info.rx_error_counter);
-                printf("TX Failed Count: %lu\n", status_info.tx_failed_count);
-                printf("RX Missed Count: %lu\n", status_info.rx_missed_count);
-                printf("RX Overrun Count: %lu\n", status_info.rx_overrun_count);
-                printf("Arbitration Lost Count: %lu\n", status_info.arb_lost_count);
-                printf("Bus Error Count: %lu\n", status_info.bus_error_count);
-                xSemaphoreGive(printfMutex); // Release the mutex.
-            } else {
-                printf("cant print, in deadlock!\n");
-            }
+        if (twai_get_status_info(&status_info) == ESP_OK) {
+            ESP_LOGD(TAG,
+                     "Bus Status - TXQ:%lu, RXQ:%lu, TX_err:%lu, RX_err:%lu, TX_fail:%lu, RX_miss:%lu, "
+                     "RX_overrun:%lu, ARB_lost:%lu, BUS_err:%lu",
+                     status_info.msgs_to_tx, status_info.msgs_to_rx, status_info.tx_error_counter,
+                     status_info.rx_error_counter, status_info.tx_failed_count, status_info.rx_missed_count,
+                     status_info.rx_overrun_count, status_info.arb_lost_count, status_info.bus_error_count);
 
-            // send Status update
-            int8_t frameNumData = 8;
-            int8_t currBit = 0;
             static uint32_t errCnt = 0, txFails = 0, rxOverrun = 0, rxMissed = 0; // records previous value
-            uint32_t dataPoints[8] = {(uint32_t) status_info.state,           status_info.tx_error_counter,
-                                      status_info.rx_error_counter,           status_info.bus_error_count - errCnt,
-                                      status_info.tx_failed_count - txFails,  status_info.rx_overrun_count - rxOverrun,
-                                      status_info.rx_missed_count - rxMissed, status_info.msgs_to_rx};
-            const int8_t bitLengths[8] = {2, 8, 8, 12, 10, 10, 10, 4};
-            const int32_t dataMaxes[8] = {3, 255, 255, 4095, 1023, 1023, 1023, 15};
+
+            sendBusStatusArgs bus_status_args = {.TWAI_STATE = status_info.state,
+                                                 .TWAI_TX_Err_Cnt = status_info.tx_error_counter,
+                                                 .TWAI_RX_Err_Cnt = status_info.rx_error_counter,
+                                                 .TWAI_Err_Cnt = status_info.bus_error_count - errCnt,
+                                                 .failed_TX_Cnt = status_info.tx_failed_count - txFails,
+                                                 .RX_Overrun_Cnt = status_info.rx_overrun_count - rxOverrun,
+                                                 .RX_Missed_Cnt = status_info.rx_missed_count - rxMissed,
+                                                 .RX_Recv_Queue_Cnt = status_info.msgs_to_rx};
+            sendBusStatusFunction(bus_status_args);
+
+            // Update static counters for next delta calculation
             errCnt = status_info.bus_error_count; // record current value for next time
             txFails = status_info.tx_failed_count;
             rxOverrun = status_info.rx_overrun_count;
             rxMissed = status_info.rx_missed_count;
-            int8_t tempData[8] = {0};
-            for (int i = 0; i < frameNumData; i++) { // iterate over each dataPoint that is taken above
-                uint32_t unsignedConstrained =
-                    formatValue(dataPoints[i], 0, dataMaxes[i]); // constraining. All data have min of 0.
-                copyValueToData(&unsignedConstrained, (uint8_t*) tempData, currBit, bitLengths[i]);
-                currBit += bitLengths[i];
-            }
-            // Send the status update
-            CANPacket message = {0};
-            writeData(&message, tempData, 8);
-            message.id = combinedID(busStatusUpdate, vitalsID);
-            sendPacket(&message);
         }
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
@@ -94,7 +78,7 @@ void recieveMSG() {
     processBeat.mt = MATCH_FUNCTION; // MATCH_EXACT to make id and function code require match. MATCH_ID for same 7 bits
                                      // of node ID. MATCH_FUNCTION for same 4 bits of function code
     if (addParam(&plpc, processBeat) != SUCCESS) { // adds the parameter
-        mutexPrint("plpc no room");
+        ESP_LOGE(TAG, "plpc no room for HB handler");
         while (1);
     }
     //
@@ -108,7 +92,7 @@ void recieveMSG() {
     processData.mt = MATCH_FUNCTION; // MATCH_EXACT to make id and function code require match. MATCH_ID for same 7 bits
                                      // of node ID. MATCH_FUNCTION for same 4 bits of function code
     if (addParam(&plpc, processData) != SUCCESS) { // adds the parameter
-        mutexPrint("plpc no room");
+        ESP_LOGE(TAG, "plpc no room for data handler");
         while (1);
     }
     //
@@ -116,7 +100,6 @@ void recieveMSG() {
     for (;;) { waitPackets(&plpc); }
 }
 void app_main(void) {
-    base_ESP_init();
     pecanInit config = {.nodeId = vitalsID, .pin1 = defaultPin, .pin2 = defaultPin};
     pecan_CanInit(config);
 

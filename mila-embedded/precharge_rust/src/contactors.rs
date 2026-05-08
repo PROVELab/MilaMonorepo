@@ -88,8 +88,8 @@ pub async fn contactor_control_task(
     let mut pos = Output::new(pos_pin, Level::Low, Speed::Low);
 
     let mut current_state = PrechargeState::Off;
-    let mut is_latched = true; // Start latched for safety. Must receive explicit command to unlatch (from Lora telemetry)
-
+    // let mut is_latched: bool = true; // Start latched for safety. Must receive explicit command to unlatch (from Lora telemetry)
+    let mut is_latched: bool = false; // TEMPORARY for test
     loop {
         // The single match block handles Output -> Wait -> Print -> Parse
         match current_state {
@@ -157,6 +157,7 @@ pub async fn contactor_control_task(
             // ==========================================
             PrechargeState::On => {
                 //check if safe to go on
+
                 match with_timeout(Duration::from_millis(1500), get_voltages_fresh()).await {
                     Ok((v_bat, v_mc)) => {
                         if v_mc < (v_bat * 8) / 10 {
@@ -170,7 +171,6 @@ pub async fn contactor_control_task(
                         rprintln!("Precharge voltage read timeout (very bad)");
                         continue;
                     }
-
                 }
 
                 //set output

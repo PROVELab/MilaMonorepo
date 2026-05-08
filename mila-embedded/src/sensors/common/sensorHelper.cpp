@@ -75,10 +75,10 @@ void sendFrame(int8_t frameNum) {
             flexiblePrint("data collector requested to cancel frame send\n");
             return; //skip sending this frame
         }
-        dataPoint info = myframes[frameNum].dataInfo[i];
+        simpleDataPoint info = myframes[frameNum].dataInfo[i];
         uint32_t unsignedConstrained = formatValue(data, info.min, info.max); 
-        copyValueToData(&unsignedConstrained, tempData, currBit, info.bitLength);
-        currBit += info.bitLength;
+        copyValueToData(&unsignedConstrained, tempData, currBit, info.bits);
+        currBit += info.bits;
     }
 
     // send the packet

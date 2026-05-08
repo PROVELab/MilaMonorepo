@@ -2,10 +2,10 @@
 #define progConsts
 
 //generated Constants
-#define numberOfNodes 1
-#define totalNumFrames 1
-#define numMissingIDs 0
-#define startingOffset 10
+#define numberOfNodes 5
+#define totalNumFrames 8
+#define numMissingIDs 4
+#define startingOffset 3
 
 //Explicilty defined in sensors.def constants
 #define nullID  0		//  0
@@ -19,13 +19,6 @@
 #define maxFrameCntBits 3		// 3
 #define warningDataFlagIndex 21		// 21
 #define maxDataInFrameBits 3		// 3
-#define HBupdateTypeBits  1		//  1
-#define HBupdateStatus  0		//  0b0
-#define HBupdateTiming  1		//  0b1
-#define slowestNodeCount  3		//  3
-#define HBStatusFrameBits  1		//  1
-#define HBTimerMSBits  10		//  10
-#define frame0FillerBits  11		//  11
 
 // global enum specialIDs
 typedef enum {
@@ -46,13 +39,17 @@ typedef enum {
 	transmitData = 7	/* 0b0111 */
 } functionCodes;
 
-// global enum telemetryCommandFlags
+// global enum vitalsCommands
 typedef enum {
-	enablePrecharge = 4,	/* 4 */
-	disablePrecharge = 5,	/* 5 */
-	telemetryCommandCRCError = 7,	/* 7 */
-	customChangeDataFlag = 9	/* 9 */
-} telemetryCommandFlags;
+	lowPowerLora = 0	/* 0 */
+} vitalsCommands;
+
+// global enum prechargeCommands
+typedef enum {
+	prechargeRemoveLatch = 0,	/* 0 */
+	prechargeLatchOff = 1,	/* 1 */
+	prechargeLatchOn = 2	/* 2 */
+} prechargeCommands;
 
 // global enum TWAI_STATE
 typedef enum {
@@ -64,17 +61,18 @@ typedef enum {
 
 // global enum statusUpdates
 typedef enum {
-	initFlag = 0,	/* 0b00000000 */
-	canRecoveryFlag = 1,	/* 0b00000001 */
-	canRXOverunFlag = 2	/* 0b00000010 */
+	initFlag = 0,	/* 0 */
+	canRecoveryFlag = 1,	/* 1 */
+	canRXOverunFlag = 2,	/* 2 */
+	telemetryCommandAck = 3	/* 3 */
 } statusUpdates;
 
-// global enum prechargeStatusUpdates
+// global enum prechargeState
 typedef enum {
-	On_Charging = 5,	/* 0b00000101 */
-	On_FinishedCharging = 6,	/* 0b00000110 */
-	Off = 7	/* 0b00000111 */
-} prechargeStatusUpdates;
+	On = 0,	/* 0 */
+	Charging = 1,	/* 1 */
+	Off = 2	/* 2 */
+} prechargeState;
 
 // global enum extrapolationTrigger
 typedef enum {
