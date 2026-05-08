@@ -1,6 +1,7 @@
 use serialport::{ClearBuffer, SerialPortInfo, SerialPortType};
 use std::env;
 use std::io::{self, Read};
+use std::path::Path;
 use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -300,8 +301,13 @@ fn wait_for_serial_port_name() -> String {
     loop {
         match serialport::available_ports() {
             Ok(ports) => {
+                // SITL serial port:
+                let p = Path::new("/dev/pts/1");
                 if let Some(name) = choose_serial_port_name(&ports) {
                     return name;
+                }
+                else if p.exists() {
+                    return p.to_str().unwrap().to_string(); // this is basically guaranteed0
                 }
             }
             Err(err) => {
