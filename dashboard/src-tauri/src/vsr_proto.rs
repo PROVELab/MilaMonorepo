@@ -8,7 +8,6 @@ use crate::types::{DriveMode, RequestedMotorCommand, DEFAULT_CRUISE_TARGET_RPM};
 
 pub const VSR_MESSAGE_FULL_NAME: &str = "vsr.VehicleStatusRegister";
 pub const DRIVE_MODE_MESSAGE_FULL_NAME: &str = "vsr.DriveMode";
-pub const LEGACY_MOTOR_COMMAND_MESSAGE_FULL_NAME: &str = "vsr.MotorCommand";
 
 pub fn descriptor_bytes() -> &'static [u8] {
     include_bytes!(concat!(env!("OUT_DIR"), "/vsr_descriptor.bin")).as_ref()
@@ -31,19 +30,6 @@ fn message_descriptor(name: &str) -> Result<MessageDescriptor, String> {
         .ok_or_else(|| format!("missing message descriptor for {name}"))
 }
 
-fn message_descriptor_any(names: &[&str]) -> Result<MessageDescriptor, String> {
-    let pool = descriptor_pool()?;
-    for name in names {
-        if let Some(descriptor) = pool.get_message_by_name(name) {
-            return Ok(descriptor);
-        }
-    }
-    Err(format!(
-        "missing message descriptor for any of: {}",
-        names.join(", ")
-    ))
-}
-
 pub fn decode_vehicle_status(payload: &[u8]) -> Result<Option<DynamicMessage>, String> {
     let descriptor = message_descriptor(VSR_MESSAGE_FULL_NAME)?;
     let vsr = DynamicMessage::decode(descriptor, payload)
@@ -57,10 +43,7 @@ pub fn decode_vehicle_status(payload: &[u8]) -> Result<Option<DynamicMessage>, S
 }
 
 pub fn encode_motor_command(command: RequestedMotorCommand) -> Result<Vec<u8>, String> {
-    let descriptor = message_descriptor_any(&[
-        DRIVE_MODE_MESSAGE_FULL_NAME,
-        LEGACY_MOTOR_COMMAND_MESSAGE_FULL_NAME,
-    ])?;
+    let descriptor = message_descriptor(DRIVE_MODE_MESSAGE_FULL_NAME)?;
     let command_field = descriptor
         .get_field_by_name("command")
         .ok_or_else(|| "missing drive_mode.command field".to_string())?;

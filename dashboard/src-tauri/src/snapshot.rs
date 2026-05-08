@@ -20,18 +20,12 @@ pub fn build_snapshot(state: &VehicleInternal) -> VehicleSnapshot {
     let pedal_pct = state
         .latest_vsr
         .as_ref()
-        .and_then(|vsr| {
-            dynamic_field_as_f32(vsr, "accel_pedal", "pedal_position_pct")
-                .or_else(|| dynamic_field_as_f32(vsr, "pedal", "pedal_position_pct"))
-        })
+        .and_then(|vsr| dynamic_field_as_f32(vsr, "accel_pedal", "pedal_position_pct"))
         .map(|value| value.clamp(0.0, 100.0));
     let brake_pct = state
         .latest_vsr
         .as_ref()
-        .and_then(|vsr| {
-            dynamic_field_as_f32(vsr, "brake_pedal", "brake_position_pct")
-                .or_else(|| dynamic_field_as_f32(vsr, "brake", "brake_position_pct"))
-        })
+        .and_then(|vsr| dynamic_field_as_f32(vsr, "brake_pedal", "brake_position_pct"))
         .map(|value| value.clamp(0.0, 100.0));
     let (drive_mode, cruise_target_rpm) = state
         .latest_vsr
@@ -89,9 +83,7 @@ pub fn lookup_field_meta(
 }
 
 fn derive_drive_mode_state(vsr: &DynamicMessage) -> (DriveMode, Option<u32>) {
-    let Some(drive_mode) =
-        get_nested_message(vsr, "drive_mode").or_else(|| get_nested_message(vsr, "motor_command"))
-    else {
+    let Some(drive_mode) = get_nested_message(vsr, "drive_mode") else {
         return (DriveMode::Park, None);
     };
 

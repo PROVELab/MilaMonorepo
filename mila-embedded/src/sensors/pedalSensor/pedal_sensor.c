@@ -97,17 +97,17 @@ int32_t collect_pedalReadingTwo() {
 
     // Send the speed (if necessary)
     volatile vehicle_status_reg_t* vsr = &vsr_global; // easier to type
-    ACQ_REL_VSRSEM_W(vsr, pedal, {
-        VSR_DATA.pedal.pedal_position_pct = (float) a;
-        VSR_DATA.pedal.pedal_raw_1 = (float) ADC_Readings[reading1_Index];
-        VSR_DATA.pedal.pedal_raw_2 = (float) ADC_Readings[reading2_Index];
-        VSR_DATA.pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
+    ACQ_REL_VSRSEM_W(vsr, accel_pedal, {
+        VSR_DATA.accel_pedal.pedal_position_pct = (float) a;
+        VSR_DATA.accel_pedal.pedal_raw_1 = (float) ADC_Readings[reading1_Index];
+        VSR_DATA.accel_pedal.pedal_raw_2 = (float) ADC_Readings[reading2_Index];
+        VSR_DATA.accel_pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
     });
 
-    ACQ_REL_VSRSEM_W(vsr, brake, {
-        VSR_DATA.brake.brake_raw_1 = (float) ADC_Readings[brake_Index];
-        VSR_DATA.brake.brake_position_pct = 200.0f * (float) ADC_Readings[brake_Index] / 1000.0f - 90;
-        VSR_DATA.brake.brake_supply_voltage = (float) ADC_Readings[pedalPower_Index];
+    ACQ_REL_VSRSEM_W(vsr, brake_pedal, {
+        VSR_DATA.brake_pedal.brake_raw_1 = (float) ADC_Readings[brake_Index];
+        VSR_DATA.brake_pedal.brake_position_pct = 200.0f * (float) ADC_Readings[brake_Index] / 1000.0f - 90;
+        VSR_DATA.brake_pedal.brake_supply_voltage = (float) ADC_Readings[pedalPower_Index];
     });
 
     return ADC_Readings[reading2_Index];

@@ -15,55 +15,55 @@
 #define MOTOR_COMMAND_STREAM_BUFFER_LEN  (8 * (VSR_UART_FRAME_HEADER_LEN + MOTOR_COMMAND_PAYLOAD_MAX_LEN))
 #define MOTOR_COMMAND_RX_POLL_TIMEOUT_MS 2
 
-static bool motor_command_has_valid_mode(const vsr_MotorCommand* command) {
+static bool motor_command_has_valid_mode(const vsr_DriveMode* command) {
     if (command == NULL || !command->has_command) { return false; }
 
     switch (command->command.which_kind) {
-        case vsr_MotorCommand_CommandValue_park_tag:
-        case vsr_MotorCommand_CommandValue_reverse_tag:
-        case vsr_MotorCommand_CommandValue_neutral_tag:
-        case vsr_MotorCommand_CommandValue_drive_tag:
-        case vsr_MotorCommand_CommandValue_cruise_control_tag: return true;
+        case vsr_DriveMode_CommandValue_park_tag:
+        case vsr_DriveMode_CommandValue_reverse_tag:
+        case vsr_DriveMode_CommandValue_neutral_tag:
+        case vsr_DriveMode_CommandValue_drive_tag:
+        case vsr_DriveMode_CommandValue_cruise_control_tag: return true;
         default: return false;
     }
 }
 
-static const char* motor_command_mode_name(const vsr_MotorCommand* command) {
+static const char* motor_command_mode_name(const vsr_DriveMode* command) {
     if (command == NULL || !command->has_command) { return "UNKNOWN"; }
 
     switch (command->command.which_kind) {
-        case vsr_MotorCommand_CommandValue_park_tag: return "PARK";
-        case vsr_MotorCommand_CommandValue_reverse_tag: return "REVERSE";
-        case vsr_MotorCommand_CommandValue_neutral_tag: return "NEUTRAL";
-        case vsr_MotorCommand_CommandValue_drive_tag: return "DRIVE";
-        case vsr_MotorCommand_CommandValue_cruise_control_tag: return "CRUISE_CONTROL";
+        case vsr_DriveMode_CommandValue_park_tag: return "PARK";
+        case vsr_DriveMode_CommandValue_reverse_tag: return "REVERSE";
+        case vsr_DriveMode_CommandValue_neutral_tag: return "NEUTRAL";
+        case vsr_DriveMode_CommandValue_drive_tag: return "DRIVE";
+        case vsr_DriveMode_CommandValue_cruise_control_tag: return "CRUISE_CONTROL";
         default: return "UNKNOWN";
     }
 }
 
-static bool decode_motor_command(const uint8_t* payload, size_t payload_len, vsr_MotorCommand* out_command) {
+static bool decode_motor_command(const uint8_t* payload, size_t payload_len, vsr_DriveMode* out_command) {
     if (payload == NULL || out_command == NULL || payload_len == 0 || payload_len > MOTOR_COMMAND_PAYLOAD_MAX_LEN) {
         return false;
     }
 
-    const vsr_MotorCommand zero = vsr_MotorCommand_init_zero;
+    const vsr_DriveMode zero = vsr_DriveMode_init_zero;
     *out_command = zero;
     pb_istream_t stream = pb_istream_from_buffer(payload, payload_len);
-    if (!pb_decode(&stream, vsr_MotorCommand_fields, out_command)) { return false; }
+    if (!pb_decode(&stream, vsr_DriveMode_fields, out_command)) { return false; }
 
     return motor_command_has_valid_mode(out_command);
 }
 
-static void update_vsr_motor_command(const vsr_MotorCommand* command) {
+static void update_vsr_motor_command(const vsr_DriveMode* command) {
     volatile vehicle_status_reg_t* vsr = &vsr_global;
-    ACQ_REL_VSRSEM_W(vsr, motor_command, {
-        VSR_DATA.motor_command = *command;
-        VSR_DATA.motor_command.has_command = true;
+    ACQ_REL_VSRSEM_W(vsr, drive_mode, {
+        VSR_DATA.drive_mode = *command;
+        VSR_DATA.drive_mode.has_command = true;
     });
 }
 
 static void handle_motor_command_payload(const uint8_t* payload, size_t payload_len) {
-    vsr_MotorCommand command = vsr_MotorCommand_init_zero;
+    vsr_DriveMode command = vsr_DriveMode_init_zero;
     if (!decode_motor_command(payload, payload_len, &command)) {
         ESP_LOGE(__func__, "Error decoding motor command payload (len=%u)", (unsigned) payload_len);
         return;

@@ -5,7 +5,7 @@ This backend is the Tauri side of the in-car dashboard.
 It has two serial responsibilities:
 
 - Read framed `VehicleStatusRegister` protobuf frames from the MCU.
-- Write framed `MotorCommand` protobuf frames back to the MCU.
+- Write framed `DriveMode` protobuf frames back to the MCU.
 
 The frame format intentionally matches the MCU UART code:
 

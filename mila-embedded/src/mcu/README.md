@@ -23,7 +23,6 @@ You can use vscode's git view to make this easier.
 - Generated files are in `src/mcu/vsr/`:
     - `vsr.pb.h/.c` (nanopb wire structs + encode/decode metadata)
     - `vsr_state.h/.c` (runtime wrapper, per-slot mutexes/timestamps, serialize helper)
-    - `vsr_print.c` (topic-based debug printing helpers)
 - The global runtime state is `volatile vehicle_status_reg_t vsr_global`.
 - Each top-level VSR slot has its own mutex and `*_updated_at_us` timestamp.
 - Use `ACQ_REL_VSRSEM_R/W` macros from `vsr_state.h` for slot-scoped reads/writes.
