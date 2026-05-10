@@ -3,13 +3,12 @@
 ### Autogen ###
 autogen:
     @command -v protoc >/dev/null || (echo "Missing protoc (Protocol Buffers compiler)." && exit 1)
-    @test -n "${PROTOC_GEN_NANOPB:-}" || command -v protoc-gen-nanopb >/dev/null || (echo "Missing protoc-gen-nanopb. Install with: python3 -m pip install --user nanopb protobuf" && exit 1)
     # Generate into generated/ (makes it easy to test)
     (cd autogen/vsr && cargo run -- generated)
-    (cd autogen/vsr && protoc -I generated --plugin=protoc-gen-nanopb=${PROTOC_GEN_NANOPB:-$(command -v protoc-gen-nanopb)} --nanopb_opt=-f,generated/vsr.options --nanopb_out=generated generated/vsr.proto)
+    (cd autogen/vsr && protoc -I generated --plugin=protoc-gen-nanopb="../../deps/nanopb/generator/protoc-gen-nanopb" --nanopb_opt=-f,generated/vsr.options --nanopb_out=generated generated/vsr.proto)
     # Generate into the actual vsr spot
     (cd autogen/vsr && cargo run -- ../../mila-embedded/src/mcu/vsr)
-    (cd autogen/vsr && protoc -I ../../mila-embedded/src/mcu/vsr --plugin=protoc-gen-nanopb=${PROTOC_GEN_NANOPB:-$(command -v protoc-gen-nanopb)} --nanopb_opt=-f,../../mila-embedded/src/mcu/vsr/vsr.options --nanopb_out=../../mila-embedded/src/mcu/vsr ../../mila-embedded/src/mcu/vsr/vsr.proto)
+    (cd autogen/vsr && protoc -I ../../mila-embedded/src/mcu/vsr --plugin="../../deps/nanopb/generator/protoc-gen-nanopb" --nanopb_opt=-f,../../mila-embedded/src/mcu/vsr/vsr.options --nanopb_out=../../mila-embedded/src/mcu/vsr ../../mila-embedded/src/mcu/vsr/vsr.proto)
 
 
 ### Dashboard Stuff ###
@@ -57,6 +56,34 @@ flash_embedded target='': autogen
 # Builds all pio envs in mila-embedded
 build_embedded_all: autogen
     (cd mila-embedded && pio run)
+
+build_mcu_sitl:
+    BUILD=mila-embedded/.pio/build/mcu; \
+    esptool --chip esp32 merge-bin \
+      --flash-mode dio \
+      --flash-freq 40m \
+      --flash-size 4MB \
+      --pad-to-size 4MB \
+      -o "$BUILD/qemu_flash.bin" \
+      0x1000 "$BUILD/bootloader.bin" \
+      0x8000 "$BUILD/partitions.bin" \
+      0x10000 "$BUILD/firmware.bin"
+
+run_mcu_sitl:
+    BUILD=mila-embedded/.pio/build/mcu; \
+    ~/.espressif/tools/qemu-xtensa/esp_develop_9.2.2_20250817/qemu/bin/qemu-system-xtensa \
+      -machine esp32 \
+      -nographic \
+      -no-reboot \
+      -drive file="$BUILD/qemu_flash.bin",if=mtd,format=raw \
+      -serial unix:/tmp/mcu_serial.sock,server,nowait \
+      -monitor stdio \
+      -object can-bus,id=canbus0 \
+      -global driver=esp32.twai,property=canbus,value=canbus0 \
+      -object can-host-socketcan,id=canhost0,if=vcan0,canbus=canbus0
+    # socat -d -d PTY,link=/tmp/mcu_serial,raw,echo=0 UNIX-CONNECT:/tmp/mcu_serial.sock 
+# Wireshark:
+# tshark -i vcan0 -w can_capture.pcapng
 
 ci_embedded: build_embedded_all
 

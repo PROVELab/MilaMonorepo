@@ -33,6 +33,7 @@ void checkBusStatus(void* pvParameters) {
             if (alerts & TWAI_ALERT_BUS_OFF) {
                 // mutexPrint("initiating recovery\n");
                 if (twai_initiate_recovery() != ESP_OK) {
+                    ESP_LOGE(__func__, "Invalid recovery attempt");
                     // mutexPrint("invalid recovery attempting to reboot. This should never happen\n");
                     // esp_restart();
                 }
@@ -45,7 +46,9 @@ void checkBusStatus(void* pvParameters) {
                     // sprintf(buffer, "error restarting Can: %d. Attempting to reboot\n", err);
                     // mutexPrint(buffer);
                     // esp_restart();
+                    ESP_LOGE(__func__, "Error Starting CAN");
                 } else {
+                    ESP_LOGI(__func__, "CAN Drier Started");
                     // mutexPrint("Can Driver Started\n\n");
                     // send update indicating Bus restarted
                     sendStatusUpdate(canRecoveryFlag, myNodeId);
@@ -53,11 +56,11 @@ void checkBusStatus(void* pvParameters) {
             }
             if (alerts & TWAI_ALERT_RX_FIFO_OVERRUN) {
                 // Hardware RX FIFO overrun (frames were dropped)
-                mutexPrint("TWAI: RX FIFO overrun detected — at least one frame was lost\n");
+                ESP_LOGE(__func__, "TWAI: RX FIFO overrun detected — at least one frame was lost\n");
                 sendStatusUpdate(canRXOverunFlag, myNodeId);
             }
         } else if (alertStatus != ESP_ERR_TIMEOUT) {
-            mutexPrint("confused on what state we are in. Should never happen. rebooting\n");
+            ESP_LOGE(__func__, "confused on what state we are in. Should never happen. rebooting\n");
             esp_restart();
         }
     }
@@ -78,7 +81,7 @@ void pecan_CanInit(pecanInit config) {
     //  twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NO_ACK); //TWAI_MODE_NORMAL
     //  for standard behavior
     twai_general_config_t g_config =
-        TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NORMAL); // TWAI_MODE_NORMAL for standard behavior
+        TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NO_ACK); // TWAI_MODE_NORMAL for standard behavior
     twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
     twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
     // Install TWAI driver
