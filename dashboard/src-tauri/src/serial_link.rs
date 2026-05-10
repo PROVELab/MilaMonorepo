@@ -302,7 +302,7 @@ fn wait_for_serial_port_name() -> String {
         match serialport::available_ports() {
             Ok(ports) => {
                 // SITL serial port:
-                let p = Path::new("/dev/pts/1");
+                let p = Path::new("/tmp/mcu_serial");
                 if let Some(name) = choose_serial_port_name(&ports) {
                     return name;
                 } else if p.exists() {

@@ -38,7 +38,18 @@ just flash_embedded mcu
 
 ## SITL 
 - Run the dashboard without an ESP!
-TODO
+
+This is not supported by default through the nix flake. 
+You will need to be on linux and ideally have all your 
+dependencies installed.
+
+Then under deps/esp-idf run `./install.sh`
+and then `python tools/idf_tools.py install qemu-xtensa`.
+
+Lastly run `. ./export.sh` and then 
+verify `which qemu-system-xtensa` works properly.
+
+You can now run just build_sitl_mcu and run_sitl_mcu.
 
 #### VSR Autogeneration
 

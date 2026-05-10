@@ -76,8 +76,14 @@ run_mcu_sitl:
       -nographic \
       -no-reboot \
       -drive file="$BUILD/qemu_flash.bin",if=mtd,format=raw \
-      -serial pty \
-      -monitor stdio
+      -serial unix:/tmp/mcu_serial.sock,server,nowait \
+      -monitor stdio \
+      -object can-bus,id=canbus0 \
+      -global driver=esp32.twai,property=canbus,value=canbus0 \
+      -object can-host-socketcan,id=canhost0,if=vcan0,canbus=canbus0
+  # socat -d -d PTY,link=/tmp/mcu_serial,raw,echo=0 UNIX-CONNECT:/tmp/mcu_serial.sock 
+# Wireshark:
+# tshark -i vcan0 -w can_capture.pcapng
 
 ci_embedded: build_embedded_all
 
