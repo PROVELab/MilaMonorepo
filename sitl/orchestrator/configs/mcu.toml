@@ -1,0 +1,4 @@
+[mcu]
+serial = "/tmp/mcu_serial.sock"
+can = "vcan0"
+
