@@ -95,6 +95,8 @@ int32_t collect_pedalReadingTwo() {
     int a = (ADC_Readings[reading1_Index] < ADC_Readings[reading2_Index]) ? ADC_Readings[reading1_Index]
                                                                           : ADC_Readings[reading2_Index];
 
+    if (a < 15) a = 0;
+
     // Send the speed (if necessary)
     volatile vehicle_status_reg_t* vsr = &vsr_global; // easier to type
     ACQ_REL_VSRSEM_W(vsr, accel_pedal, {

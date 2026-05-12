@@ -54,12 +54,71 @@ static bool decode_motor_command(const uint8_t* payload, size_t payload_len, vsr
     return motor_command_has_valid_mode(out_command);
 }
 
+/**
+ * Is it valid to go from *from* to *to*?
+ * (RPM limits, readiness, etc)
+ * false if not valid, true if is valid
+ */
+static bool check_valid_transition(const vsr_DriveMode* from, const vsr_DriveMode* to) {
+    if (!from->has_command || !to->has_command) {
+        ESP_LOGE(__func__, "Either from or to does not have command. Should not happen");
+    }
+
+    switch (from->command.which_kind) {
+        case vsr_DriveMode_CommandValue_neutral_tag:
+        case vsr_DriveMode_CommandValue_park_tag: {
+            if (to->command.which_kind == vsr_DriveMode_CommandValue_cruise_control_tag) {
+                ESP_LOGE(__func__, "Park can only transition to N/R/D");
+                return false;
+            }
+            return true;
+        }
+
+        case vsr_DriveMode_CommandValue_reverse_tag: {
+            if (to->command.which_kind == vsr_DriveMode_CommandValue_park_tag ||
+                to->command.which_kind == vsr_DriveMode_CommandValue_neutral_tag) {
+                return true;
+            }
+            ESP_LOGE(__func__, "R can only transition to P/N");
+            return false;
+        }
+
+        case vsr_DriveMode_CommandValue_drive_tag: {
+            if (to->command.which_kind == vsr_DriveMode_CommandValue_reverse_tag) {
+                ESP_LOGE(__func__, "D can only transition to P/N/CC");
+                return false;
+            }
+            return true;
+        }
+
+        case vsr_DriveMode_CommandValue_cruise_control_tag: {
+            if (to->command.which_kind == vsr_DriveMode_CommandValue_drive_tag ||
+                to->command.which_kind == vsr_DriveMode_CommandValue_cruise_control_tag) {
+                return true;
+            }
+            ESP_LOGE(__func__, "CC can only transition to D");
+            return false;
+        }
+
+        default: {
+            ESP_LOGE(__func__, "Invalid transition!");
+        }
+    }
+    return false;
+}
+
 static void update_vsr_motor_command(const vsr_DriveMode* command) {
     volatile vehicle_status_reg_t* vsr = &vsr_global;
-    ACQ_REL_VSRSEM_W(vsr, drive_mode, {
-        VSR_DATA.drive_mode = *command;
-        VSR_DATA.drive_mode.has_command = true;
-    });
+
+    vsr_DriveMode from = vsr_DriveMode_init_zero;
+    ACQ_REL_VSRSEM_R(vsr, drive_mode, { from = VSR_DATA.drive_mode; });
+
+    if (check_valid_transition(&from, command)) {
+        ACQ_REL_VSRSEM_W(vsr, drive_mode, {
+            VSR_DATA.drive_mode = *command;
+            VSR_DATA.drive_mode.has_command = true;
+        });
+    }
 }
 
 static void handle_motor_command_payload(const uint8_t* payload, size_t payload_len) {

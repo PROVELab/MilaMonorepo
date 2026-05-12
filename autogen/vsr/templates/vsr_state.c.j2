@@ -9,7 +9,7 @@
 
 #include "pb_encode.h"
 
-volatile vehicle_status_reg_t vsr_global = {{ "{" }} 0 {{ "}" }};
+vehicle_status_reg_t vsr_global = {{ "{" }} 0 {{ "}" }};
 
 int vsr_init(vehicle_status_reg_t* vsr) {
     if (vsr == NULL) {

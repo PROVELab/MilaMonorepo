@@ -62,7 +62,7 @@ typedef struct {
         xSemaphoreGive((vsr_ptr)->slot_name##_mutex);               \
     } while (0)
 
-extern volatile vehicle_status_reg_t vsr_global;
+extern vehicle_status_reg_t vsr_global;
 int vsr_init(vehicle_status_reg_t* vsr);
 
 bool vsr_serialize(

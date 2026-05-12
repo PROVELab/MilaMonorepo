@@ -39,7 +39,7 @@ void setup_motor_controller_params(PCANListenParamsCollection* plpc) {
     addParam(plpc, process_motor_fxn_code2);
 }
 
-static void vsr_log_append_line(volatile vehicle_status_reg_t* vsr, const char* line) {
+static void vsr_log_append_line(vehicle_status_reg_t* vsr, const char* line) {
     const size_t max_messages = sizeof(VSR_DATA.log.message) / sizeof(VSR_DATA.log.message[0]);
     const size_t max_len = sizeof(VSR_DATA.log.message[0]);
     if (max_messages == 0 || max_len < 2) { return; }
@@ -53,7 +53,7 @@ static void vsr_log_append_line(volatile vehicle_status_reg_t* vsr, const char* 
 }
 
 static int vsr_log_vprintf(const char* fmt, va_list ap) {
-    volatile vehicle_status_reg_t* vsr = &vsr_global;
+    vehicle_status_reg_t* vsr = &vsr_global;
     char buf[128];
     int len = vsnprintf(buf, sizeof(buf), fmt, ap);
     if (len < 0) { return len; }
