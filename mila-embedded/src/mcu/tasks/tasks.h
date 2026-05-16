@@ -6,7 +6,7 @@
  * Tasks themselves, however, are defined in their own .c files
  * and usually not exposed.
  *
- * Most of them are in tasks/ but motor-specific tasks are in motor_h300/
+ * Most of them are in tasks/ but motor-specific tasks are in motor_h300/firmware/
  */
 
 #ifndef TASKS_H

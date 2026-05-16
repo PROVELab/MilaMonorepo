@@ -7,12 +7,15 @@ than some of the other targets.
 
 A normal esp32 build needs to just be built via `pio run -e mcu` 
 to build it. However the MCU also needs: the vehicle state register
-(VSR) generated as well as the private PROVE submodule for the h300
-code (The Motor Controller interface code). 
+(VSR) generated as well as the private NDA submodule for the h300
+code at `motor_h300/` (the Motor Controller interface code). The firmware
+sources from that submodule live under `motor_h300/firmware/`; the 
+`mila-embedded/src/mcu/motor_h300/` directory is a symlink pointing 
+directly to that firmware section for the MCU build.
 
 First, get the submodule synced up via 
 ```bash
-git submodule sync --recursive && git submodule  update --init --recursive
+git submodule sync --recursive && git submodule update --init --recursive motor_h300
 ```
 
 (run it twice for funsies; I've aliased this in my .gitconfig)
@@ -90,4 +93,3 @@ I added to deps so it may just work out of the box for you nw.
 
 All of these should be in the Nix Devshell if you want a simple easy
 way of just getting them all immediately.
-

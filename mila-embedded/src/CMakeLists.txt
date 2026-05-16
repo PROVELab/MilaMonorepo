@@ -40,6 +40,7 @@ if(CMAKE_MCU_ESP_BUILD)
     # message(SEND_ERROR "CMAKE_MCU_ESP_BUILD is set, using MCU ESP build configuration")
     # Recursively collect sources under mcu/ (makes stuff easier)
     file(GLOB_RECURSE MCU_SRC
+        FOLLOW_SYMLINKS
         CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/espBase/*.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/mcu/*.c"
