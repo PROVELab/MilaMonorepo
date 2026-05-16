@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-pub const DEFAULT_CRUISE_TARGET_RPM: u32 = 250;
-
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub enum DriveMode {
     #[serde(rename = "Reverse")]
