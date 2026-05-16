@@ -22,7 +22,7 @@ pub fn vsr_definition_dirs() -> Vec<PathBuf> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
     vec![
         manifest_dir.join("defs"),
-        manifest_dir.join("../../mila-embedded/src/mcu/motor_h300/vsr_defs"),
+        manifest_dir.join("../../motor_h300/vsr_defs"),
     ]
 }
 

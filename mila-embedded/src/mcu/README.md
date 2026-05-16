@@ -5,9 +5,12 @@ than just reading sensor data and sending it over CAN.
 
 ## Submodule
 To run the motor controller code, you need to also clone the submodule.
+It lives at the repo root as `motor_h300/`; firmware-facing C sources live
+under `motor_h300/firmware/`. The `src/mcu/motor_h300/` path is kept as
+symlinks for the existing MCU build and include paths.
 The easiest way to do this (if you have already cloned this repo) is to run
 ```
-git submodule sync --recursive && git submodule update --recursive
+git submodule sync --recursive && git submodule update --init --recursive motor_h300
 ```
 
 If you make changes to the motor code in the subrepo, make sure to commit them,
