@@ -14,8 +14,10 @@ interface Props {
   brakePct: number | null;
   cruiseTargetRpm: number | null;
   onDriveModeChange: (mode: DriveMode) => void;
-  onCruiseDown: () => void;
-  onCruiseUp: () => void;
+  onCruiseDecrease10: () => void;
+  onCruiseDecrease50: () => void;
+  onCruiseIncrease10: () => void;
+  onCruiseIncrease50: () => void;
 }
 
 function EmptyChartsPanel() {
@@ -39,8 +41,10 @@ export function DriveView({
   brakePct,
   cruiseTargetRpm,
   onDriveModeChange,
-  onCruiseDown,
-  onCruiseUp,
+  onCruiseDecrease10,
+  onCruiseDecrease50,
+  onCruiseIncrease10,
+  onCruiseIncrease50,
 }: Props) {
   const [activeCenterIndex, setActiveCenterIndex] = useState(0);
   const activeCenter = CENTER_VIEWS[activeCenterIndex];
@@ -74,8 +78,10 @@ export function DriveView({
           <CruiseControlPanel
             active={true}
             targetRpm={cruiseTargetRpm}
-            onMinus={onCruiseDown}
-            onPlus={onCruiseUp}
+            onDecrease10={onCruiseDecrease10}
+            onDecrease50={onCruiseDecrease50}
+            onIncrease10={onCruiseIncrease10}
+            onIncrease50={onCruiseIncrease50}
           />
         )}
       </div>

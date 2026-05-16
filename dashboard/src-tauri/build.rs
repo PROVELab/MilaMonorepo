@@ -1,11 +1,16 @@
 use std::{env, path::PathBuf};
 
-use vsr::{construct_vsr::load_all_vsr_substructs, proto_gen::write_proto_file};
+use vsr::{
+    construct_vsr::{load_all_vsr_substructs, vsr_definition_dirs},
+    proto_gen::write_proto_file,
+};
 
 fn main() {
     tauri_build::build();
 
-    println!("cargo:rerun-if-changed=../../autogen/vsr/defs");
+    for dir in vsr_definition_dirs() {
+        println!("cargo:rerun-if-changed={}", dir.display());
+    }
     println!("cargo:rerun-if-changed=../../autogen/vsr/templates/vsr.proto.j2");
 
     let substructs = load_all_vsr_substructs().expect("failed to load VSR defs");

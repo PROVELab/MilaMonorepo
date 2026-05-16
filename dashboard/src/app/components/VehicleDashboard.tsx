@@ -22,8 +22,10 @@ export function VehicleDashboard() {
     framesReceived,
     lastFrameAgeSeconds,
     changeDriveMode,
-    nudgeCruiseUp,
-    nudgeCruiseDown,
+    decreaseCruiseBy10,
+    decreaseCruiseBy50,
+    increaseCruiseBy10,
+    increaseCruiseBy50,
     engageEmergencyStop,
   } = useVehicleTelemetry(180);
   const [activeView, setActiveView] = useState<DashboardViewId>("drive");
@@ -127,17 +129,21 @@ export function VehicleDashboard() {
         brakePct={snapshot.brakePct}
         cruiseTargetRpm={cruiseTargetRpm}
         onDriveModeChange={changeDriveMode}
-        onCruiseDown={nudgeCruiseDown}
-        onCruiseUp={nudgeCruiseUp}
+        onCruiseDecrease10={decreaseCruiseBy10}
+        onCruiseDecrease50={decreaseCruiseBy50}
+        onCruiseIncrease10={increaseCruiseBy10}
+        onCruiseIncrease50={increaseCruiseBy50}
       />
     );
   }, [
     activeView,
     changeDriveMode,
     cruiseTargetRpm,
+    decreaseCruiseBy10,
+    decreaseCruiseBy50,
     driveMode,
-    nudgeCruiseDown,
-    nudgeCruiseUp,
+    increaseCruiseBy10,
+    increaseCruiseBy50,
     snapshot.liveTextLogs,
     snapshot.motorRpm,
     snapshot.pedalPct,

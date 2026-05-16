@@ -4,7 +4,7 @@ use prost_reflect::{
 };
 use std::sync::OnceLock;
 
-use crate::types::{DriveMode, RequestedMotorCommand, DEFAULT_CRUISE_TARGET_RPM};
+use crate::types::{DriveMode, RequestedMotorCommand};
 
 pub const VSR_MESSAGE_FULL_NAME: &str = "vsr.VehicleStatusRegister";
 pub const DRIVE_MODE_MESSAGE_FULL_NAME: &str = "vsr.DriveMode";
@@ -60,11 +60,9 @@ pub fn encode_motor_command(command: RequestedMotorCommand) -> Result<Vec<u8>, S
         DriveMode::Drive => ("drive", None),
         DriveMode::CruiseControl => (
             "cruise_control",
-            Some(
-                command
-                    .cruise_target_rpm
-                    .unwrap_or(DEFAULT_CRUISE_TARGET_RPM),
-            ),
+            Some(command.cruise_target_rpm.ok_or_else(|| {
+                "cruise-control commands must include cruiseTargetRpm".to_string()
+            })?),
         ),
     };
 
