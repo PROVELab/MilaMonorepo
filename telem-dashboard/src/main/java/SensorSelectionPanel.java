@@ -13,6 +13,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.awt.dnd.*;
 import java.awt.image.BufferedImage;
 
@@ -43,77 +45,91 @@ public class SensorSelectionPanel extends JPanel {
     }
     private static HashMap<TelemetryLookup.DataKey, JPanel> sensorStatus = new HashMap<>();
 
+    // Helper record to hold data for sorting
+    private record SensorDisplayItem(String title, TelemetryLookup.DataKey key) {}
+
     public SensorSelectionPanel(TelemetryLookup lookup) {
-    // Let rows grow to fit however many datapoints you have
-    setLayout(new GridLayout(0, 1));
+        // Let rows grow to fit however many datapoints you have
+        setLayout(new GridLayout(0, 1));
 
-    // One flat iteration over all telemetry channels
-    for (TelemetryLookup.DataKey key : lookup.allDataKeys()) {
-        // Resolve metadata and a friendly title
-        TelemetryLookup.DataInfo dp = lookup.getDataInfo(key).orElse(null);
-        if (dp == null) continue; // CSV could be malformed; skip defensively
+        List<SensorDisplayItem> displayItems = new ArrayList<>();
 
-        String title = lookup.titleFor(key); // e.g., "<nodeName>.<dataName>"
+        // First, collect all sensor display items
+        for (TelemetryLookup.DataKey key : lookup.allDataKeys()) {
+            // Resolve metadata and a friendly title
+            TelemetryRecords.DataInfo dp = lookup.getDataInfo(key).orElse(null);
+            if (dp == null) continue; // CSV could be malformed; skip defensively
 
-        // Build the row widget
-        JPanel miniElement = new JPanel(new BorderLayout());
-        miniElement.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+            String title = lookup.titleFor(key); // e.g., "vitals.HBTiming"
+            displayItems.add(new SensorDisplayItem(title, key));
+        }
 
-        JLabel sensorLabel = new JLabel(title);
-        miniElement.add(sensorLabel, BorderLayout.CENTER);
+        // Sort the collected items alphabetically by title
+        displayItems.sort(Comparator.comparing(SensorDisplayItem::title));
 
-        // Status indicator (default green)
-        JPanel statusIndicator = new JPanel();
-        statusIndicator.setPreferredSize(new Dimension(25, 10));
-        statusIndicator.setBackground(new Color(76, 175, 80));
-        // CHANGED: key the map by the tuple identity
-        sensorStatus.put(key, statusIndicator);
-        miniElement.add(statusIndicator, BorderLayout.EAST);
+        // Now, iterate through the sorted items to build and add them to the panel
+        for (SensorDisplayItem item : displayItems) {
+            TelemetryLookup.DataKey key = item.key();
+            String title = item.title();
 
-        // Helpful tooltip
-        miniElement.setToolTipText(
-            "nodeId=" + key.nodeId() + ", frameIdx=" + key.frameIndex() + ", dpIdx=" + key.dataIndex()
-        );
+            // Build the row widget
+            JPanel miniElement = new JPanel(new BorderLayout());
+            miniElement.setBorder(BorderFactory.createLineBorder(Color.BLACK));
 
-        // Drag setup (Variant B with drag image)
-        final int nodeId  = key.nodeId();
-        final int frameIdx = key.frameIndex();
-        final int dpIdx    = key.dataIndex();
-        final String nodeName = lookup.getNodeById(nodeId).map(TelemetryLookup.Node::nodeName).orElse("node" + nodeId);
+            JLabel sensorLabel = new JLabel(title);
+            miniElement.add(sensorLabel, BorderLayout.CENTER);
 
-        DragSource ds = new DragSource();
-        ds.createDefaultDragGestureRecognizer(sensorLabel, DnDConstants.ACTION_COPY, dge -> {
-            try {
-                // Render the miniElement as a drag image (optional but nice)
-                BufferedImage img = new BufferedImage(
-                    miniElement.getWidth(), miniElement.getHeight(), BufferedImage.TYPE_INT_ARGB
-                );
-                Graphics2D g2 = img.createGraphics();
-                miniElement.printAll(g2);
-                g2.dispose();
+            // Status indicator (default green)
+            JPanel statusIndicator = new JPanel();
+            statusIndicator.setPreferredSize(new Dimension(25, 10));
+            statusIndicator.setBackground(new Color(76, 175, 80));
+            sensorStatus.put(key, statusIndicator);
+            miniElement.add(statusIndicator, BorderLayout.EAST);
 
-                Image dragImage = Toolkit.getDefaultToolkit().createImage(img.getSource());
-                Point dragOffset = new Point(0, 0);
+            // Helpful tooltip
+            miniElement.setToolTipText(
+                "nodeId=" + key.nodeId() + ", frameIdx=" + key.frameIndex() + ", dpIdx=" + key.dataIndex()
+            );
 
-                // Your DnD payload should carry nodeId/frameIdx/dpIdx
-                DataInfoRef ref  = new DataInfoRef(nodeName, nodeId, frameIdx, dpIdx);
-                DataInfoTransferable xfer = new DataInfoTransferable(ref);
+            // Drag setup (Variant B with drag image)
+            final int nodeId  = key.nodeId();
+            final int frameIdx = key.frameIndex();
+            final int dpIdx    = key.dataIndex();
+            final String nodeName = lookup.getNodeById(nodeId).map(TelemetryRecords.Node::nodeName).orElse("node" + nodeId);
 
-                ds.startDrag(dge, DragSource.DefaultCopyDrop, dragImage, dragOffset, xfer, new DragSourceAdapter(){});
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        });
+            DragSource ds = new DragSource();
+            ds.createDefaultDragGestureRecognizer(sensorLabel, DnDConstants.ACTION_COPY, dge -> {
+                try {
+                    // Render the miniElement as a drag image (optional but nice)
+                    BufferedImage img = new BufferedImage(
+                        miniElement.getWidth(), miniElement.getHeight(), BufferedImage.TYPE_INT_ARGB
+                    );
+                    Graphics2D g2 = img.createGraphics();
+                    miniElement.printAll(g2);
+                    g2.dispose();
 
-        // Add the new element to the panel!
-        add(miniElement);
+                    Image dragImage = Toolkit.getDefaultToolkit().createImage(img.getSource());
+                    Point dragOffset = new Point(0, 0);
+
+                    // Your DnD payload should carry nodeId/frameIdx/dpIdx
+                    DataInfoRef ref  = new DataInfoRef(nodeName, nodeId, frameIdx, dpIdx);
+                    DataInfoTransferable xfer = new DataInfoTransferable(ref);
+
+                    ds.startDrag(dge, DragSource.DefaultCopyDrop, dragImage, dragOffset, xfer, new DragSourceAdapter(){});
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+
+            // Add the new element to the panel!
+            add(miniElement);
+        }
     }
-}
 
 
 
     //Setter method to change the status indicator of the sensors. key = nodeName + "." + dataInfo.dataName()
-    public static void setStatusIndicator(TelemetryLookup lookup, TelemetryLookup.DataKey key, TelemetryLookup.DataInfo dataInfo, double value) {
+    public static void setStatusIndicator(TelemetryLookup lookup, TelemetryLookup.DataKey key, TelemetryRecords.DataInfo dataInfo, double value) {
         // Normal (green): within [min, max]
         boolean inNormal = value >= dataInfo.min() && value <= dataInfo.max();
 

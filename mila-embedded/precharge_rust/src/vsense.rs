@@ -73,14 +73,12 @@ pub async fn voltage_reader_task(
     // 1. Configure and Initialize I2C
     // ------------------------------------------------
     let i2c_config = I2cConfig::default();
-    // i2c_config.sda_pullup = true; // Turn on the "Life Support" pull-ups
-    // i2c_config.scl_pullup = true;
 
     let mut i2c = I2c::new(
         i2c_peri,
         scl,
         sda,
-        I2cIrqs,     // Using the local interrupts
+        I2cIrqs,     
         tx_dma, 
         rx_dma,
         Hertz(10_000),
@@ -95,23 +93,38 @@ pub async fn voltage_reader_task(
         
         if i2c.write(addr7, &[cfg1]).await.is_ok() {
             let mut rx = [0u8; 3];
+            let mut success = false;
             
-            // Poll for RDY=0
-            loop {
-                if i2c.read(addr7, &mut rx).await.is_ok() {
-                    let status = rx[2];
-                    if (status & 0x80) == 0 { break; } 
+            // Poll for RDY=0 with a 100ms timeout
+            for _ in 0..20 {
+                match i2c.read(addr7, &mut rx).await {
+                    Ok(_) => {
+                        let status = rx[2];
+                        if (status & 0x80) == 0 { 
+                            success = true;
+                            break; 
+                        } 
+                    }
+                    Err(_) => {
+                        // I2C bus error, break to avoid an infinite loop
+                        rprintln!("VSENSE I2C read error on CH1");
+                        break; 
+                    }
                 }
                 Timer::after(Duration::from_millis(5)).await;
             }
 
-            let code = i16::from_be_bytes([rx[0], rx[1]]) as i32;
-            let uV: i64 = (code as i64 * 625) / 10;
-            let mc_adc_mV: i32 = (uV / 1000) as i32;
-            let mc_bus_mV = adc_to_bus_mV_ch(mc_adc_mV, 1);
-            MC_BUS_MV.store(mc_bus_mV as u32, Ordering::Relaxed);
-            
-            rprintln!("VSENSE: CH1 Raw: {} mV -> Bus: {} mV", mc_adc_mV, mc_bus_mV);
+            if success {
+                let code = i16::from_be_bytes([rx[0], rx[1]]) as i32;
+                let uV: i64 = (code as i64 * 625) / 10;
+                let mc_adc_mV: i32 = (uV / 1000) as i32;
+                let mc_bus_mV = adc_to_bus_mV_ch(mc_adc_mV, 1);
+                MC_BUS_MV.store(mc_bus_mV as u32, Ordering::Relaxed);
+                
+                rprintln!("VSENSE: CH1 Raw: {} mV -> Bus: {} mV", mc_adc_mV, mc_bus_mV);
+            } else {
+                rprintln!("VSENSE Error: CH1 RDY timeout or I2C read failure");
+            }
         } else {
             rprintln!("VSENSE I2C Error: Device not responding on CH1");
         }
@@ -121,27 +134,61 @@ pub async fn voltage_reader_task(
         
         if i2c.write(addr7, &[cfg2]).await.is_ok() {
             let mut rx = [0u8; 3];
+            let mut success = false;
             
-            // Poll for RDY=0
-            loop {
-                if i2c.read(addr7, &mut rx).await.is_ok() {
-                    let status = rx[2];
-                    if (status & 0x80) == 0 { break; } 
+            // Poll for RDY=0 with a 100ms timeout
+            for _ in 0..20 {
+                match i2c.read(addr7, &mut rx).await {
+                    Ok(_) => {
+                        let status = rx[2];
+                        if (status & 0x80) == 0 { 
+                            success = true;
+                            break; 
+                        } 
+                    }
+                    Err(_) => {
+                        // I2C bus error, break to avoid an infinite loop
+                        rprintln!("VSENSE I2C read error on CH2");
+                        break; 
+                    }
                 }
                 Timer::after(Duration::from_millis(5)).await;
             }
 
-            let code = i16::from_be_bytes([rx[0], rx[1]]) as i32;
-            let uV: i64 = (code as i64 * 625) / 10;
-            let bat_adc_mV: i32 = (uV / 1000) as i32;
-            let bat_bus_mV = adc_to_bus_mV_ch(bat_adc_mV, 2);
-            BAT_BUS_MV.store(bat_bus_mV as u32, Ordering::Relaxed);
+            if success {
+                let code = i16::from_be_bytes([rx[0], rx[1]]) as i32;
+                let uV: i64 = (code as i64 * 625) / 10;
+                let bat_adc_mV: i32 = (uV / 1000) as i32;
+                let bat_bus_mV = adc_to_bus_mV_ch(bat_adc_mV, 2);
+                BAT_BUS_MV.store(bat_bus_mV as u32, Ordering::Relaxed);
 
-            rprintln!("VSENSE: CH2 Raw: {} mV -> Bus: {} mV", bat_adc_mV, bat_bus_mV);
+                rprintln!("VSENSE: CH2 Raw: {} mV -> Bus: {} mV", bat_adc_mV, bat_bus_mV);
+            } else {
+                rprintln!("VSENSE Error: CH2 RDY timeout or I2C read failure");
+            }
         } else {
             rprintln!("VSENSE I2C Error: Device not responding on CH2");
         }
-        NEW_VOLTAGE_SIGNAL.signal(()); // Notify waiters that new voltage data is available
+        
+        NEW_VOLTAGE_SIGNAL.signal(()); // Notify waiters that new voltage data is available (even if stale due to an error)
+        
+        //ADC reset check. 0V likely means a reset is needed:
+        let current_bat_mv = BAT_BUS_MV.load(Ordering::Relaxed);
+        
+        if current_bat_mv == 0 {
+            rprintln!("VSENSE Warning: Battery reads 0V! Sending General Call Reset to ADC...");
+            
+            // I2C General Call Address is 0x00, Reset Command is 0x06
+            if i2c.write(0x00, &[0x06]).await.is_err() {
+                rprintln!("VSENSE Error: Failed to send I2C reset command.");
+            } else {
+                rprintln!("VSENSE: ADC Reset sent successfully.");
+            }
+            
+            // Give the MCP3422 a brief moment to reboot before the next loop
+            Timer::after(Duration::from_millis(10)).await;
+        }
+
         // Sleep for 1 second before doing it again
         Timer::after(Duration::from_secs(1)).await;
     }

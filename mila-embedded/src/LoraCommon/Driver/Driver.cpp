@@ -296,7 +296,7 @@ static bool handleRXInterrupt(uint32_t irq){
 
     // 2. Range Validation (Sanity Check)
     if (driver_info.recvPacket.dataSize <= 0 || driver_info.recvPacket.dataSize > 256) {
-        ESP_LOGE(TAG, "Invalid packet length detected: %u", driver_info.recvPacket.dataSize);
+        ESP_LOGE(TAG, "Invalid packet length detected: %zu", driver_info.recvPacket.dataSize);
         return false;   //ignore packet;
     }
 
@@ -370,6 +370,7 @@ int16_t LoraTransmit(const driverSendPacket* packet, const uint64_t timerExpireT
     }
     exitStandBy();
     int16_t state = RADIOLIB_LORA_DETECTED; //indicate timeout by default
+    ESP_LOGI(TAG, "starting transmit");
 
     while(esp_timer_get_time() < timerExpireTime_us){ 
         //Thorough scan of all activity, interrupts TX/RX
@@ -500,11 +501,10 @@ bool waitForTXDone(uint8_t numPacketTimes) {
         if (info != NULL) {
             //this happens like basically every time an interrupt is triggered
             //the IO pin seems to go high before the irq is ready
-            ESP_LOGD(TAG, "Woke up for non-TX_DONE IRQ: 0x%04lX while waiting for TX to complete.", info->recvPacket.irqFlags);
+            ESP_LOGD(TAG, "Woke up for non-TX_DONE IRQ: 0x%04zX while waiting for TX to complete.", info->recvPacket.irqFlags);
         }
         current_time = esp_timer_get_time();
     }
     ESP_LOGE(TAG, "Timed out waiting for TX_DONE.");
     return false; // Timeout
 }
-

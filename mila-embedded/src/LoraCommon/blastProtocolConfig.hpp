@@ -1,6 +1,7 @@
 #pragma once
 #include "Driver/Config.hpp"   //maxLoraPacketSize, driverPacket
 #include <stddef.h>
+    
 //TX burst and queue configuration
 #define maxPacketGroupSize 16
 //
@@ -19,11 +20,11 @@ namespace FrameTrack {
     constexpr uint8_t frameNumMask  = 0b00001111;
     constexpr uint8_t burstSizeMask = 0b11110000;
 
-    constexpr void set_frameNum(tx_frameTrack_t& input, uint8_t frameNum) {
+    inline void set_frameNum(tx_frameTrack_t& input, uint8_t frameNum) {
         input &= ~frameNumMask;
         input |= (frameNum & frameNumMask);
     }
-    constexpr void set_burstSize(tx_frameTrack_t& input, uint8_t burstSize) {
+    inline void set_burstSize(tx_frameTrack_t& input, uint8_t burstSize) {
         input &= ~burstSizeMask;
         input |= ((burstSize & 0x0F) << 4);
     }
@@ -78,3 +79,8 @@ namespace txFlagMasks {
         firstBurstMask = 8
     };
 }
+
+static_assert(std::is_same_v<uint8_t, unsigned char> || 
+              std::is_same_v<uint8_t, char>, 
+              "This code uses uint8_t to alias other types. " 
+              "If its not a unsigned char or chart, this is UB");

@@ -1,5 +1,6 @@
 import javax.swing.*;
 import javax.swing.border.LineBorder;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import java.awt.*;
@@ -10,6 +11,8 @@ public class MainFrame extends JFrame {
 
     private boolean isNightMode = true;
     private final MainPanel mainPanel;
+    private CanParser canParser;
+    private final JButton serialButton = new JButton();
 
     public void toggleNightMode() {
         try {
@@ -35,6 +38,20 @@ public class MainFrame extends JFrame {
         ImageIcon icon = new ImageIcon(MainFrame.class.getResource(iconName));
         Image image = icon.getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH);
         return new ImageIcon(image);
+    }
+
+    public void setCanParser(CanParser parser) {
+        this.canParser = parser;
+    }
+
+    public void setSerialStatus(boolean connected) {
+        if (connected) {
+            serialButton.setBackground(new Color(0, 170, 0)); // A shade of green
+            serialButton.setToolTipText("Serial Port: Connected");
+        } else {
+            serialButton.setBackground(Color.RED);
+            serialButton.setToolTipText("Serial Port: Disconnected. Click to reconnect.");
+        }
     }
 
     private final JToggleButton addSensorButton = new JToggleButton();
@@ -78,6 +95,23 @@ public class MainFrame extends JFrame {
             nightModeButton.setIcon(getNightModeIcon());
         });
 
+        // Serial Port Button
+        try {
+            ImageIcon serialIcon = new ImageIcon(MainFrame.class.getResource("/serial-port-svgrepo-com.png"));
+            Image serialImage = serialIcon.getImage().getScaledInstance(30, 30, Image.SCALE_SMOOTH);
+            serialButton.setIcon(new ImageIcon(serialImage));
+        } catch (Exception e) {
+            serialButton.setText("COM"); // Fallback text
+        }
+        serialButton.setOpaque(true);
+        serialButton.setBorder(new EmptyBorder(5,5,5,5));
+        setSerialStatus(false); // Initial state is disconnected
+        serialButton.addActionListener(e -> {
+            if (canParser != null) {
+                canParser.restartSerialConnection();
+            }
+        });
+
         // slider for how many data to show
         JSlider slider = new JSlider(JSlider.HORIZONTAL, 0, 100, 10);
         slider.setMajorTickSpacing(10);
@@ -118,6 +152,8 @@ public class MainFrame extends JFrame {
         buttonPanel.add(nightModeButton);
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(sliderButton);
+        buttonPanel.add(Box.createVerticalStrut(10));
+        buttonPanel.add(serialButton);
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(addSensorButton);
 

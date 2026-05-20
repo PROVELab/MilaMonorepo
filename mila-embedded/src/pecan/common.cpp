@@ -1,10 +1,13 @@
 #include "../programConstants.h"
 #include "pecan.h"
-#include "esp_log.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h> // memcpy
+#include <memory>
+#include <type_traits>
+#include <assert.h>
 
 static const char* TAG = "PecanCommon";
 
@@ -18,7 +21,7 @@ void setSensorID(CANPacket* p, uint8_t sensorId) { p->data[0] = sensorId; }
 int16_t defaultPacketRecv(CANPacket* p) {
     char buf[48];
     // Print the header
-    snprintf(buf, sizeof(buf), "Default recv: id %ld\n with data:", p->id);
+    snprintf(buf, sizeof(buf), "Default recv: id %" PRIi32 "\n with data:", p->id);
     flexiblePrint(buf);
 
     // Print each data element
@@ -78,12 +81,13 @@ void pecan_unpack(int32_t* dest, const uint8_t* src, const simpleDataPoint* fiel
     *bitIndex += field_info->bits;
 }
 
-int16_t pecan_pack(uint32_t* dest, int32_t value, const simpleDataPoint* field_info) {
-    if (!dest || !field_info) {
-        return 1; // Error
+void pecan_pack(uint8_t* dest_buffer, int8_t* bit_index, int32_t value, const simpleDataPoint* field_info) {
+    if (!dest_buffer || !bit_index || !field_info) {
+        return;
     }
-    *dest = formatValue(value, field_info->min, field_info->max);
-    return 0; // Success
+    uint32_t formatted_val = formatValue(value, field_info->min, field_info->max);
+    copyValueToData(&formatted_val, dest_buffer, *bit_index, field_info->bits);
+    *bit_index += field_info->bits;
 }
 
 // returns value constrained to min of min, and max of max
@@ -92,14 +96,18 @@ int32_t squeeze(int32_t value, int32_t min, int32_t max) { return (value < min) 
 uint32_t formatValue(int32_t value, int32_t min, int32_t max) { return (uint32_t) (squeeze(value, min, max) - min); }
 
 // copies the first numBits of value into target starting at startBit of target
+// requirement: target bits in target should be 0. value should fit within numBits
+                //^it just ors the data in.         //^it does not mask out extra bits
 int16_t copyValueToData(uint32_t* value, uint8_t* target, int8_t startBit, int8_t numBits) { 
-    if (numBits <= 0 || startBit < 0 || startBit + numBits > 64) return 1; // function called in invalid circumstance
+    if (numBits <= 0 || startBit < 0 || startBit + numBits > 64) return 1;
 
-    // Treat target and source as 64-bit integers
-    uint64_t* target64 = (uint64_t*) target;
-    uint64_t source = (uint64_t) (*value) & ((1ULL << numBits) - 1); // Mask the relevant bits from value
+    // To avoid strict aliasing violations
+    uint64_t target_val;
+    memcpy(&target_val, target, sizeof(target_val));
+    uint64_t source_val = ((uint64_t)(*value)) & ((1ULL << numBits) - 1);
+    target_val |= (source_val << startBit);
 
-    *target64 |= (source << startBit); // Shift the masked value to the correct position and set it in target
+    memcpy(target, &target_val, sizeof(target_val));
     return 0;
 }
 
@@ -107,12 +115,11 @@ int16_t copyValueToData(uint32_t* value, uint8_t* target, int8_t startBit, int8_
 int16_t copyDataToValue(uint32_t* target, const uint8_t* data, int8_t startBit, int8_t numBits) { 
     if (numBits <= 0 || startBit < 0 || startBit + numBits > 64) return 1;
 
-    // Treat target as a 64-bit integer (for up to 8 bytes)
-    uint64_t* target64 = (uint64_t*) data;                   // Cast target to uint64_t pointer
-    uint64_t mask = ((1ULL << numBits) - 1) << startBit;     // Create a mask for the desired bit range
-    uint64_t extractedBits = (*target64 & mask) >> startBit; // Extract and shift the relevant bits
+    uint64_t data_val;
+    memcpy(&data_val, data, sizeof(data_val));
 
-    *target = (int32_t) extractedBits; // Update the value with the extracted bits
+    uint64_t mask = (1ULL << numBits) - 1;
+    *target = (uint32_t)((data_val >> startBit) & mask);
     return 0;
 }
 
@@ -138,3 +145,8 @@ bool matchID(uint32_t id, uint32_t mask) { // check if the 7 bits of node ID mus
 bool matchFunction(uint32_t id, uint32_t mask) {     // mask should contain 4 bit functoin code in bits 7-10.
     return getFunctionId(id) == getFunctionId(mask); // only compares the functionCodes
 }
+
+static_assert(std::is_same_v<uint8_t, unsigned char> || 
+              std::is_same_v<uint8_t, char>, 
+              "pecan uses uint8_t to alias other types. " 
+              "If its not a unsigned char or chart, this is UB");

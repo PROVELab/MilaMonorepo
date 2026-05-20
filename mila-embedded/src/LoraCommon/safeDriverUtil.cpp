@@ -9,8 +9,8 @@
 #include "safeDriverUtil.hpp"
 #include "../LoraCommon/Driver/Driver.hpp"
 #include "LoraErrLog.hpp"
-
-const char* TAG = "safeDriverUtil";
+ 
+static const char* TAG = "safeDriverUtil";
 
 
 result safeWaitForRecv(driverRecvPacket*& packet, const uint64_t timerExpireTime_us){

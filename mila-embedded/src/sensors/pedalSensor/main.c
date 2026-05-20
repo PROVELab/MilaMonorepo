@@ -11,6 +11,8 @@
 #include "../common/sensorHelper.hpp"      //used for compliance with vitals and sending data
 #include "myDefines.hpp"       //contains #define statements specific to this node like myId.
 #include "../../espBase/debug_esp.h"
+#include "esp_log.h"
+static const char* TAG = "SensorMain";
 //add declerations to allocate space for additional tasks here as needed
 StaticTask_t receiveMSG_Buffer;
 StackType_t receiveMSG_Stack[STACK_SIZE]; //buffer that the task will use as its stack
@@ -19,64 +21,35 @@ StackType_t receiveMSG_Stack[STACK_SIZE]; //buffer that the task will use as its
 //In the function, return an int32_t with the corresponding data
 int32_t collect_pedalPowerReadingmV(bool* cancelFrameSend){
     int32_t pedalPowerReadingmV = 6000;
-	mutexPrint("collecting pedalPowerReadingmV\n");
+	ESP_LOGI(TAG, "collecting pedalPowerReadingmV");
     return pedalPowerReadingmV;
 }
 
 int32_t collect_pedalReadingOne(bool* cancelFrameSend){
     int32_t pedalReadingOne = 30;
-	mutexPrint("collecting pedalReadingOne\n");
+	ESP_LOGI(TAG, "collecting pedalReadingOne");
     return pedalReadingOne;
 }
 
 int32_t collect_pedalReadingTwo(bool* cancelFrameSend){
     int32_t pedalReadingTwo = 30;
-	mutexPrint("collecting pedalReadingTwo\n");
+	ESP_LOGI(TAG, "collecting pedalReadingTwo");
     return pedalReadingTwo;
 }
 
 int32_t collect_brakeReading(bool* cancelFrameSend){
     int32_t brakeReading = -1;
-	mutexPrint("collecting brakeReading\n");
+	ESP_LOGI(TAG, "collecting brakeReading");
     return brakeReading;
 }
 
 int32_t collect_SDIO_det_pin(bool* cancelFrameSend){
     int32_t SDIO_det_pin = 0;
-	mutexPrint("collecting SDIO_det_pin\n");
+	ESP_LOGI(TAG, "collecting SDIO_det_pin");
     return SDIO_det_pin;
 }
 
 void receiveMSG(){  //task handles recieving Messages
-	PCANListenParamsCollection plpc={ .arr={{0}}, .defaultHandler = defaultPacketRecv, .size = 0, };
-	sensorInit(&plpc,NULL); //vitals Compliance
-
-	//declare CanListenparams here, each param has 3 entries:
-	//When recv msg with id = 'listen_id' according to matchtype (or 'mt'), 'handler' is called.
-	
-//task calls the appropriate ListenParams function when a CAN message is recieved
-	for(;;){
-		while(waitPackets(&plpc) != NOT_RECEIVED);
-		taskYIELD();
-	}
-}
-
-void app_main(void){
-	base_ESP_init();
-	pecanInit config={.nodeId= myId, .pin1= defaultPin, .pin2= defaultPin};
-	pecan_CanInit(config);   //initialize CAN
-
-	//Declare tasks here as needed
-	TaskHandle_t recieveHandler = xTaskCreateStaticPinnedToCore(  //recieves CAN Messages 
-		receiveMSG,       /* Function that implements the task. */
-		"msgRecieve",          /* Text name for the task. */
-		STACK_SIZE,      /* Number of indexes in the xStack array. */
-		( void * ) 1,    /* Task Parameter. Must remain in scope or be constant!*/ 
-		tskIDLE_PRIORITY,/* Priority at which the task is created. */
-		receiveMSG_Stack,          /* Array to use as the task's stack. */
-		&receiveMSG_Buffer,   /* Variable to hold the task's data structure. */
-		tskNO_AFFINITY);  //assign to either core
-}void receiveMSG(){  //task handles recieving Messages
 	PCANListenParamsCollection plpc={ .arr={{0}}, .defaultHandler = defaultPacketRecv, .size = 0, };
 	sensorInit(&plpc,NULL); //vitals Compliance
 

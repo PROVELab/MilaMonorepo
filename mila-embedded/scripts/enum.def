@@ -9,6 +9,7 @@ global enum: specialIDs = {
     telemetryID = 4
 }
 global: nodeIDSizeBits = 7
+global: slowestNodeCount = 3
 
 //set motor controller ID = 1.
 global enum: functionCodes = {
@@ -24,22 +25,6 @@ global enum: functionCodes = {
 }
 
 # mark for "pecan packet" is not set
-
-# #warningCode flags # # 
-global: nonCriticalWarning= 0b010 
-global: CriticalWarning = 0b100 
-global: warningTypeMask = 0b111
-
-#the above flags takes up the first 11 bits:
-global: warningNodeFlagIndex = 11
-global: warningFrameFlagIndex=18
-#After the flags, we have identify the problematic frame and data point
-# setting maxFrameCnt = 8 (2^3=8)
-global: maxFrameCntBits=3
-# setting max number of data in a given frame to 8 (2^3=8)
-global: warningDataFlagIndex=21
-global: maxDataInFrameBits=3
-# #    # #
 
 global enum: vitalsCommands = {
     lowPowerLora = 0
@@ -75,8 +60,10 @@ global enum: prechargeState = {
     Off =       2
 }
 #
-global enum: extrapolationTrigger = {
-    extrap10 = 0,
-    extrap5 = 1,
-    doubleCritical = 2
+global enum: errorTrigger = {
+    warning_nonCritical = 0,
+    singleCritical = 1,
+    extrap5 = 2,
+    extrap10 = 3,
+    confirmedCritical = 4
 }

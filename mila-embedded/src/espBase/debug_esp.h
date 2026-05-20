@@ -16,8 +16,6 @@ extern "C" { // Ensure C linkage
 
 void base_ESP_init();
 // mutexPrint
-void mutexPrint(const char* str);
-extern SemaphoreHandle_t printfMutex;
 
 // tracing functionality to give warning for free or alloc.
 #include "esp_heap_caps.h"

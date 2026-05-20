@@ -1,16 +1,29 @@
 #pragma once
 #include <stdint.h>
+#include <stddef.h>
 
+#ifdef __cplusplus
+#include <type_traits>
+static_assert(std::is_same_v<uint8_t, unsigned char> || 
+              std::is_same_v<uint8_t, char>, 
+              "The driver code uses uint8_t to alias other types. " 
+              "If its not a unsigned char or chart, this is UB");
+#else
+// C11 Equivalent
+_Static_assert(
+    _Generic((uint8_t)0, 
+        unsigned char: 1, 
+        char: 1, 
+        default: 0
+    ), 
+    "The driver code uses uint8_t to alias other types. "
+    "If its not a unsigned char or char, this is UB"
+);
+#endif
 
 #define maxLoraPacketSize 255
 
-#ifdef __cplusplus
-    #define FN_CONSTEXPR constexpr
-#else
-    #define FN_CONSTEXPR
-#endif
-
-struct __attribute__((packed)) driverRecvPacket{
+typedef struct __attribute__((packed)) {
     size_t dataSize;
     uint8_t data[maxLoraPacketSize];
 
@@ -19,27 +32,27 @@ struct __attribute__((packed)) driverRecvPacket{
     float SNR; 
     size_t irqFlags;  //set on interrupt, protocol can decide what to do with it
     //
-};
+} driverRecvPacket;
 
-struct __attribute__((packed)) driverSendPacket{
-    size_t dataSize;
-    uint8_t data[maxLoraPacketSize];
-};
+typedef struct __attribute__((packed)) {
+    size_t dataSize;    //dataSize must be < maxLoraPacketSize
+    uint8_t* data; 
+} driverSendPacket;
 
 
 // Definitions for input choices
-enum class BoardType {
+typedef enum {
     Ebyte_SX1262,
     Wio_SX1262
-};
+} BoardType;
 
-enum class TestMode {
+typedef enum {
     lowPower,
-    highPower 
-};
+    highPower
+} TestMode;
 
 // The Configuration Struct
-struct RadioConfig {
+typedef struct {
     // --- LoRa / Link Defaults ---
     float Freq_MHz;
     float BW_KHz;
@@ -53,10 +66,10 @@ struct RadioConfig {
     uint8_t pa_duty;
     uint8_t hp_max;
     uint8_t regulator_target_power;
-};
+} RadioConfig;
 
-FN_CONSTEXPR RadioConfig getStandardConfig(const BoardType board, const TestMode mode) {
-    RadioConfig cfg;
+inline RadioConfig getStandardConfig(const BoardType board, const TestMode mode) {
+    RadioConfig cfg = {};
 
     // 1. Apply Fixed Defaults
     cfg.Freq_MHz = 915.0f;  //Lora Frequency
@@ -67,21 +80,21 @@ FN_CONSTEXPR RadioConfig getStandardConfig(const BoardType board, const TestMode
     cfg.preambleLength = 8; //standard preamble length
 
     // 2. Calculate TCXO Voltage (Board Dependent)
-    if (board == BoardType::Ebyte_SX1262) {
+    if (board == Ebyte_SX1262) {
         cfg.tcxo_voltage = 1.8f;
     } else {
         cfg.tcxo_voltage = 2.2f; // Wio safe value
     }
 
     // 3. Calculate Power Brackets (Mode Dependent)
-    if (mode == TestMode::lowPower) {   //for testing on a desk. range will be terrible!
+    if (mode == lowPower) {   //for testing on a desk. range will be terrible!
         cfg.pa_duty = 2;
         cfg.hp_max = 2;
         cfg.regulator_target_power = 8;        
     } 
     else {
         // High Power Operation (for use on car)
-        if (board == BoardType::Ebyte_SX1262) { //Ebyte need 17 feet space (in final setup)
+        if (board == Ebyte_SX1262) { //Ebyte need 17 feet space (in final setup)
             //need >17 feet distance
             cfg.pa_duty = 4;
             cfg.hp_max = 7;
@@ -96,7 +109,7 @@ FN_CONSTEXPR RadioConfig getStandardConfig(const BoardType board, const TestMode
     return cfg;
 }
 
-struct RadioPinout {
+typedef struct {
     int sclk;
     int miso;
     int mosi;
@@ -104,11 +117,10 @@ struct RadioPinout {
     int nrst;
     int dio1;
     int busy;
-};
+} RadioPinout;
 
-FN_CONSTEXPR RadioPinout getRadioPins() {
-    return RadioPinout {
-        // IO pins for SPI bus. Put 100 ohm resistors between SPI pin and chip for EBYTE. (datasheet says 200 ohm, i dont beleive it.)
+inline RadioPinout getRadioPins() {
+    RadioPinout pins = {
         .sclk = 25,
         .miso = 26,
         .mosi = 27,
@@ -119,6 +131,7 @@ FN_CONSTEXPR RadioPinout getRadioPins() {
         .dio1 = 34, //interrupt trigger
         .busy = 35  //indicates when chip is busy processing
     };
+    return pins;
 }
 
 

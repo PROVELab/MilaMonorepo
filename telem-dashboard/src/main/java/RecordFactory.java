@@ -44,10 +44,22 @@ public class RecordFactory {
                             "Missing value for field " + name + " in " + recordClass.getSimpleName()
                         );
                     }
+                    //GEMINI should now support a type of "boolean"
                     if (type == int.class || type == Integer.class) {
                         args[i] = Integer.parseInt(raw);
                     } else if (type == String.class) {
                         args[i] = raw;
+                    } else if (type == boolean.class || type == Boolean.class) {
+                        String lowerRaw = raw.trim().toLowerCase();
+                        if (lowerRaw.equals("true") || lowerRaw.equals("1")) {
+                            args[i] = true;
+                        } else if (lowerRaw.equals("false") || lowerRaw.equals("0")) {
+                            args[i] = false;
+                        } else {
+                            throw new IllegalArgumentException(
+                                "Invalid boolean value '" + raw + "' for field " + name + ". Expected 'true', 'false', '0', or '1'."
+                            );
+                        }
                     } else {
                         throw new IllegalArgumentException(
                             "Unsupported field type: " + type.getName()

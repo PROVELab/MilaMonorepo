@@ -1,13 +1,12 @@
 #ifndef IMU_DATA_H
 #define IMU_DATA_H
-//defines constants specific to IMU#include "../common/sensorHelper.hpp"
-#include<stdint.h>
+//defines constants specific to IMU
+#include <stdint.h>
+#include <stdbool.h>
 #define myId 9
 #define numFrames 3
 #define node_numData 12
 
-
-#define node_numData 12
 int32_t collect_IMU_temp_F(bool* cancelFrameSend);
 int32_t collect_radiator_temp_F(bool* cancelFrameSend);
 int32_t collect_humiditySense_temp_F(bool* cancelFrameSend);

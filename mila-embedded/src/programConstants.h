@@ -11,14 +11,10 @@
 #define nullID  0		//  0
 #define pointsPerData 10		// 10
 #define nodeIDSizeBits  7		//  7
-#define nonCriticalWarning 2		//  0b010
-#define CriticalWarning  4		//  0b100
-#define warningTypeMask  7		//  0b111
-#define warningNodeFlagIndex  11		//  11
-#define warningFrameFlagIndex 18		// 18
-#define maxFrameCntBits 3		// 3
-#define warningDataFlagIndex 21		// 21
-#define maxDataInFrameBits 3		// 3
+#define slowestNodeCount  3		//  3
+#define nodeCount 5		// 5
+#define maxFrameCntBits 2		// 2
+#define maxDataInFrameBits 4		// 4
 
 // global enum specialIDs
 typedef enum {
@@ -74,11 +70,13 @@ typedef enum {
 	Off = 2	/* 2 */
 } prechargeState;
 
-// global enum extrapolationTrigger
+// global enum errorTrigger
 typedef enum {
-	extrap10 = 0,	/* 0 */
-	extrap5 = 1,	/* 1 */
-	doubleCritical = 2	/* 2 */
-} extrapolationTrigger;
+	warning_nonCritical = 0,	/* 0 */
+	singleCritical = 1,	/* 1 */
+	extrap5 = 2,	/* 2 */
+	extrap10 = 3,	/* 3 */
+	confirmedCritical = 4	/* 4 */
+} errorTrigger;
 
 #endif

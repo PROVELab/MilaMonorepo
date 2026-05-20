@@ -21,6 +21,16 @@ class msgField:
     min: int = 0
     max: int | None = None  #if not set, will assume unsigned and set max = 2^bits - 1
     enum: str | bool | None = None # If str, use as enum name. If True, use field.name.
+    plottable: bool = False
+    # Telemetry properties for plottable fields, to be written to telemetry.csv
+    minWarning: int | None = None
+    maxWarning: int | None = None
+    minCritical: int | None = None
+    maxCritical: int | None = None
+    crit_count_max: int | None = None
+    startingValue: int | None = None
+    flags: int | None = None
+
 
 #check if callable(value)
 
@@ -46,60 +56,60 @@ def get_maxDataCntBits():
 # Fixed means script will infer the size based on msgFields declared.
 # Custom means the size can vary. a "payload" field is inferred at the end of any byteCount: CUSTOM msg.
 vitals_to_telem = [
-    {"name": "HBTiming", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
+    {"name": "HBTiming", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 3000, #expected every second
         "msgFields": [
-            msgField(name="slowestNode1_ID", bits=7),
-            msgField(name="slowestNode1_time", bits=10),
-            msgField(name="slowestNode2_ID", bits=7),
-            msgField(name="slowestNode2_time", bits=10),
-            msgField(name="slowestNode3_ID", bits=7),
-            msgField(name="slowestNode3_time", bits=10),
+            msgField(name="slowestNode1_ID", bits=7, plottable=True, maxWarning=100), #should be <100ms to respond to HB
+            msgField(name="slowestNode1_time", bits=10, plottable=True),
+            msgField(name="slowestNode2_ID", bits=7, plottable=True, maxWarning=100),
+            msgField(name="slowestNode2_time", bits=10, plottable=True),
+            msgField(name="slowestNode3_ID", bits=7, plottable=True, maxWarning=100),
+            msgField(name="slowestNode3_time", bits=10, plottable=True),
         ]
      },
-    {"name": "HBStatus", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
+    {"name": "HBStatus", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 3000, #expected every second
         "msgFields": [
             msgField(name="HBMask", bits=get_nodeCount)
         ]
     },
-    {"name": "BusStatus", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
+    {"name": "BusStatus", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 3000, #expected every second
         "msgFields": [
-            msgField(name = "TWAI_STATE", enum = True), 
-            msgField(name="TWAI_TX_Err_Cnt", bits=8),
-            msgField(name="TWAI_RX_Err_Cnt", bits=8),
-            msgField(name="TWAI_Err_Cnt", bits=12),
-            msgField(name="failed_TX_Cnt", bits=12),
-            msgField(name="RX_Overrun_Cnt", bits=11),
-            msgField(name="RX_Missed_Cnt", bits=11),
-            msgField(name="RX_Recv_Queue_Cnt", bits=4)
+            msgField(name = "TWAI_STATE", enum = True),     #TODO: add reaspmable warning values here
+            msgField(name="TWAI_TX_Err_Cnt", bits=8, min=-10, max=245, plottable=True),
+            msgField(name="TWAI_RX_Err_Cnt", bits=8, plottable=True),
+            msgField(name="TWAI_Err_Cnt", bits=12, plottable=True),
+            msgField(name="failed_TX_Cnt", bits=12, plottable=True),
+            msgField(name="RX_Overrun_Cnt", bits=11, plottable=True),
+            msgField(name="RX_Missed_Cnt", bits=11, plottable=True),
+            msgField(name="RX_Recv_Queue_Cnt", bits=4, plottable=True)
         ]
      },
-    {"name": "vitalsErr", "mask_bits": PACK_MINIMUM_BITS, "byteCount": CUSTOM, #Lora errors, can be variable length, as are 2 byte errors with 1 byte count of how mnany
+    {"name": "vitalsErr", "mask_bits": PACK_MINIMUM_BITS, "byteCount": CUSTOM, "dataTimeout": 0, #Lora errors, can be variable length, as are 2 byte errors with 1 byte count of how mnany
         "msgFields": [
             msgField(name="numErrors", bits=8)
             #followed by numErrors repetitions of:
             #   msgField(name="errorCode", bits=16)
         ]
     },
-    {"name": "dataWarning", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
+    {"name": "dataWarning", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 0,
         "msgFields": [
-            msgField(name="isCritical", bits=1),
             msgField(name="data_too_high", bits=1),
-            msgField(name="extrapolationTrigger", enum=True),
+            msgField(name="extrapolationDueToTimeout", bits=1),
+            msgField(name="errorTrigger", enum=True),
             msgField(name="nodeID", bits=7),
             msgField(name="frameID", bits=get_maxFrameCntBits),
             msgField(name="dataID", bits=get_maxDataCntBits),
         ]
     },
-    {"name": "nodeStatus", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
+    {"name": "nodeStatus", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 0,
         "msgFields": [
             msgField(name="nodeID", bits=7),
             msgField(name="statusUpdates", enum=True)
         ]
     },
-    {"name": "unknownCanPacket", "mask_bits": PACK_MINIMUM_BITS, "byteCount": CUSTOM},
+    {"name": "unknownCanPacket", "mask_bits": PACK_MINIMUM_BITS, "byteCount": CUSTOM, "dataTimeout": 0},
         #payload contains standard CAN packet packing (a bit TBD atm)
 
-    {"name" : "CANDataFrame", "mask_bits": PACK_MINIMUM_BITS,  "byteCount": CUSTOM,
+    {"name" : "CANDataFrame", "mask_bits": PACK_MINIMUM_BITS,  "byteCount": CUSTOM, "dataTimeout": 0,
         "msgFields": [
             msgField(name="nodeID", bits=7),
             #payload contains frameID, followed by packed data.

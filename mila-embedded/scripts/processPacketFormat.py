@@ -1,6 +1,6 @@
 import math
-from packetFormat import vitals_to_telem, telem_to_vitals, setPacketParameters, PACK_MINIMUM_BITS
-from parseFile import globalEnums
+from packetFormat import vitals_to_telem, telem_to_vitals, setPacketParameters, PACK_MINIMUM_BITS, get_maxDataCntBits, get_maxFrameCntBits
+from parseFile import globalEnums, globalDefines, globalDefine
 
 def preprocess_packets(nodeCount, maxFrameCnt, maxDataCnt):
     """
@@ -9,6 +9,10 @@ def preprocess_packets(nodeCount, maxFrameCnt, maxDataCnt):
     This function modifies the vitals_to_telem and telem_to_vitals lists in-place.
     """
     setPacketParameters(nodeCount, maxFrameCnt, maxDataCnt)
+
+    globalDefines.append(globalDefine("nodeCount", nodeCount, nodeCount))
+    globalDefines.append(globalDefine("maxFrameCntBits", get_maxFrameCntBits(), get_maxFrameCntBits()))
+    globalDefines.append(globalDefine("maxDataInFrameBits", get_maxDataCntBits(), get_maxDataCntBits()))
 
     # --- Pre-process vitals_to_telem ---
     for msg in vitals_to_telem:

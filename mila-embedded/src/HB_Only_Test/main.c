@@ -49,6 +49,15 @@ void terminalTask(void* pvParameters) {
                 message.id = combinedID(2, vitalsID);
                 sendPacket(&message);
                 ESP_LOGI(TAG, "disabling precharge!");
+            } else if (c == 'v'){
+                CANPacket message = {0};
+                setRTR(&message);
+                message.id = combinedID(3, vitalsID);
+                sendPacket(&message);
+                ESP_LOGI(TAG, "viewing precharge!");
+            }
+            else {
+                ESP_LOGW(TAG, "Unknown command: '%c'", c);
             }
         }
         

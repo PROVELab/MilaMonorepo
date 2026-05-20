@@ -3,11 +3,6 @@
 
 #include "blastProtocolConfig.hpp"
 
-#ifdef __cplusplus
-extern "C" { //Need C linkage since ESP uses C "C"
-#endif
-
-
 //error codes used on TX side by telem/vitals for logging errors
 //Positive = Our error Codes. negative = RadioLib error codes
 
@@ -55,8 +50,3 @@ void logErr(const char* TAG, int16_t err);
 
 //only for TX side atm.
 uint8_t getErrorPacket(int16_t* errPacket);
-
-
-#ifdef __cplusplus
-}  // End extern "C"
-#endif

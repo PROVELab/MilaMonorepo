@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "esp_log.h"
 #include <stdbool.h>
 #include <string.h>
 // Declare Timers for data collection and sending
@@ -32,13 +33,7 @@ int32_t checkBus_myId = myId;                  // parameter passed to check_bus_
 #include "CAN.h"
 #endif
 
-#ifdef SENSOR_ESP_BUILD
-#define flexiblePrint(str) mutexPrint(str)
-#elif defined(SENSOR_ARDUINO_BUILD)
-#define flexiblePrint(str) Serial.print(str)
-#else
-#error "Unknown build environment"
-#endif
+static const char* TAG = "SensorHelper";
 
 #include <stdint.h>
 
@@ -59,7 +54,9 @@ void sendFrame(TimerHandle_t xTimer) {
 void sendFrame(int8_t frameNum) {
 #endif
     if (frameNum < 0 || frameNum >= numFrames) {
-        flexiblePrint("attempted to send out of bounds frame. not sending!\n");
+#ifdef SENSOR_ESP_BUILD
+        ESP_LOGE(TAG, "attempted to send out of bounds frame. not sending!");
+#endif
     }
 
     int8_t frameNumData = myframes[frameNum].numData;
@@ -72,13 +69,13 @@ void sendFrame(int8_t frameNum) {
         //Any datapoint can request to cancel sending the entire frame by setting sendFrame to 0
         int32_t data = mydataCollectors[collectorFuncIndex + i](&sendFrame); // collects the data point
         if(sendFrame == false){
-            flexiblePrint("data collector requested to cancel frame send\n");
+#ifdef SENSOR_ESP_BUILD
+            ESP_LOGI(TAG, "data collector requested to cancel frame send");
+#endif
             return; //skip sending this frame
         }
-        simpleDataPoint info = myframes[frameNum].dataInfo[i];
-        uint32_t unsignedConstrained = formatValue(data, info.min, info.max); 
-        copyValueToData(&unsignedConstrained, tempData, currBit, info.bits);
-        currBit += info.bits;
+        simpleDataPoint* info = &myframes[frameNum].dataInfo[i];
+        pecan_pack(tempData, &currBit, data, info);
     }
 
     // send the packet
@@ -114,7 +111,9 @@ template <> struct GenerateFunctions<1> {
 //^Creates listen param for heartbeats, and creates tasks for collecting data, and Bus State Monitoring
 int8_t sensorInit(PCANListenParamsCollection* plpc,
                   void* ts) { // void* ts = PScheduler for arduino, may be NULL otherwise
-    flexiblePrint("initializing\n");
+#ifdef SENSOR_ESP_BUILD
+    ESP_LOGI(TAG, "initializing");
+#endif
 
 #ifdef SENSOR_ESP_BUILD
     for (int i = 0; i < numFrames; i++) { // create timers for sendingData
@@ -135,7 +134,7 @@ int8_t sensorInit(PCANListenParamsCollection* plpc,
         if (xTimerStart(dataCollection_Timers[i], pdMS_TO_TICKS(1000)) ==
             pdFAIL) { // no time crunch yet, but if this isnt starting we want to be notified, instead of it to running
                       // forever
-            mutexPrint("warning, unable to start a timer");
+            ESP_LOGE(TAG, "unable to start a timer");
             while (1);
         }
     }
@@ -146,7 +145,7 @@ int8_t sensorInit(PCANListenParamsCollection* plpc,
     // schedules dataCollection + frame Sends:
     for (int i = 0; i < numFrames; i++) {
         sched->scheduleTask(sendFrameHandlers[i], myframes[i].frequency);
-        flexiblePrint("scheduling");
+        Serial.print("scheduling");
     }
 #endif
     vitalsInit(plpc, myId); // creates listen param for heartbeats

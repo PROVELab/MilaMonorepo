@@ -64,6 +64,24 @@ pub extern "C" fn contactorsRemoveLatch(_p: *mut CANPacket) -> i16 {
     0
 }
 
+#[no_mangle]
+pub extern "C" fn viewPrecharge(_p: *mut CANPacket) -> i16 {
+    // Read the current state from the atomic variable
+    let state_val = CONTACTOR_STATE.load(Ordering::Relaxed);
+    
+    // Map the u8 value to a readable string based on PrechargeState repr
+    let state_str = match state_val {
+        0 => "Off",
+        1 => "Precharging",
+        2 => "On",
+        _ => "Unknown",
+    };
+
+    rprintln!("Current Precharge State: {} ({})", state_str, state_val);
+    
+    0 // Return 0 to satisfy the i16 return type
+}
+
 // ==========================================
 // 2. HELPER LOG FUNCTION
 // ==========================================
@@ -158,10 +176,10 @@ pub async fn contactor_control_task(
             PrechargeState::On => {
                 //check if safe to go on
 
-                match with_timeout(Duration::from_millis(1500), get_voltages_fresh()).await {
+                match with_timeout(Duration::from_millis(2500), get_voltages_fresh()).await {
                     Ok((v_bat, v_mc)) => {
-                        if v_mc < (v_bat * 8) / 10 {
-                            current_state = PrechargeState::Precharging;
+                        if (v_mc < (v_bat * 90) / 100) || v_mc < 100000{    //20V for now, up to 100V later
+                            current_state = PrechargeState::Off;
                             rprintln!("not precharged yet. returning to precharge (vbat: {} mV, vmotor: {} mV)", v_bat, v_mc);
                             continue;
                         }

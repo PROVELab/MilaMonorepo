@@ -11,14 +11,10 @@ public final class Constants {
     public static final int nullID  = 0;		//  0
     public static final int pointsPerData = 10;		// 10
     public static final int nodeIDSizeBits  = 7;		//  7
-    public static final int nonCriticalWarning = 2;		//  0b010
-    public static final int CriticalWarning  = 4;		//  0b100
-    public static final int warningTypeMask  = 7;		//  0b111
-    public static final int warningNodeFlagIndex  = 11;		//  11
-    public static final int warningFrameFlagIndex = 18;		// 18
-    public static final int maxFrameCntBits = 3;		// 3
-    public static final int warningDataFlagIndex = 21;		// 21
-    public static final int maxDataInFrameBits = 3;		// 3
+    public static final int slowestNodeCount  = 3;		//  3
+    public static final int nodeCount = 5;		// 5
+    public static final int maxFrameCntBits = 2;		// 2
+    public static final int maxDataInFrameBits = 4;		// 4
 
 	// global enum specialIDs
 	public static final class specialIDs {
@@ -81,12 +77,14 @@ public final class Constants {
 		public static final int Off = 2;	// 2
 	}
 
-	// global enum extrapolationTrigger
-	public static final class extrapolationTrigger {
-		private extrapolationTrigger() {}
-		public static final int extrap10 = 0;	// 0
-		public static final int extrap5 = 1;	// 1
-		public static final int doubleCritical = 2;	// 2
+	// global enum errorTrigger
+	public static final class errorTrigger {
+		private errorTrigger() {}
+		public static final int warning_nonCritical = 0;	// 0
+		public static final int singleCritical = 1;	// 1
+		public static final int extrap5 = 2;	// 2
+		public static final int extrap10 = 3;	// 3
+		public static final int confirmedCritical = 4;	// 4
 	}
 
 	public static final int[] nodeIDs = new int[]{ 3, 8, 9, 10, 11 };

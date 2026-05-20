@@ -21,17 +21,17 @@ def ACCESS(fields, name):
 
 # A copy of each of these will be made for every dataPoint
 dataPoint_fields = [                                                    
-    {"name": "minCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
-    {"name": "maxCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
-    {"name": "min",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False},
-    {"name": "max",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False},
-    {"name": "minWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
-    {"name": "maxWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False},
-    {"name": "startingValue",   "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals"], "isSet": False},
-    {"name": "crit_count_max",  "type": "uint8_t", "expectation": "optional",    "value": 0,  "node": ["vitals, telemetry"], "isSet": False},  #how many consecutive criticals (after removing outliers) before considered in critical range? default is 1 if unsepecified and a critical range is set. 0 if not critical at all
-    {"name": "enum",            "type": "str",     "expectation": "optional",    "value": None, "node": ["vitals", "sensor", "telemetry"], "isSet": False}, # If set, min/max/bits are derived from this enum
-    {"name": "crit_count",      "type": "uint8_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False},
-    {"name": "bits",            "type": "int8_t",  "expectation": "optional",    "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},
+    {"name": "min",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "max",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "bits",            "type": "int8_t",  "expectation": "optional",    "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "minCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "maxCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "minWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "maxWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "startingValue",   "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False},
+    {"name": "crit_count_max",  "type": "uint8_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},  #how many consecutive criticals (after removing outliers) before considered in critical range? default is 1 if unsepecified and a critical range is set. 0 if not critical at all
+    {"name": "enum",            "type": "str",     "expectation": "optional",    "value": None, "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False}, # If set, min/max/bits are derived from this enum
+    {"name": "crit_count",      "type": "uint8_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": True},
 ]
 
 # A copy of each of these will be made for every CANFrame
@@ -44,6 +44,7 @@ CANFrame_fields = [
     {"name": "dataLocation",    "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # never needs to be changed
     {"name": "consecutiveMisses","type": "int8_t", "expectation": "optional",   "value": 0, "node": ["vitals"], "isSet": False},
     {"name": "dataTimeout",     "type": "int32_t","expectation": "required",    "value": 0, "node": ["vitals", "telemetry"], "isSet": False},     # Must be specified
+    {"name": "enableTelemCallback","type": "boolean","expectation": "optional",  "value": 0, "node": ["telemetry"], "isSet": False},
     {"name": "frequency",       "type": "int32_t","expectation": "required",    "value": 0, "node": ["sensor"], "isSet": False}
 ]
 #A copy of each of these will be made for every sensor node
@@ -101,23 +102,17 @@ def validate_datapoint(dp, dataName, node_id):
 
     # Check overall range is valid.
     if not (min_value < max_value):
-        print(f"Error: For {dataName} (node {node_id}): \
-              Overall range invalid: min ({min_value}) must be less than max ({max_value}).")
-        while(1): pass
+        raise ValueError(f"For {dataName} (node {node_id}): Overall range invalid: min ({min_value}) must be less than max ({max_value}).")
     # Check that bit_length is appropriate,Compute the number of bits required for the range.
     req = math.log2(max_value - min_value + 1)
     required_bits = math.ceil(req)
     if bit_length != required_bits:
-        print(f"Warning: For {dataName} (node {node_id}): Bit length {bit_length} \
-              does not match the required {required_bits} for range size ({max_value} - {min_value}).")
-        while(1): pass
+        raise ValueError(f"For {dataName} (node {node_id}): Bit length {bit_length} does not match the required {required_bits} for range size ({max_value} - {min_value}).")
     # Check that ranges are within in max and min
     if (min_value<INT_MIN):
-        print(f"Warning: For {dataName} (node {node_id}): minValue less than INT_MIN.")
-        while(1): pass
+        raise ValueError(f"For {dataName} (node {node_id}): minValue less than INT_MIN.")
     if (max_value>INT_MAX):
-        print(f"Warning: For {dataName} (node {node_id}): maxValue more than INT_MAX.")
-        while(1): pass
+        raise ValueError(f"For {dataName} (node {node_id}): maxValue more than INT_MAX.")
 
     #set ranges so that they will be ignored if they were not set.
     #note: with current system, warning/critical ranges will be triggered on exclusive comparisons.
@@ -140,29 +135,23 @@ def validate_datapoint(dp, dataName, node_id):
             crit_count_max=1
             ACCESS(dp, "crit_count_max")["value"]= crit_count_max
         if crit_count_max == 0:
-            print(f"Error: For {dataName} (node {node_id}): crit_count_max shouldn't be zero when critical range is specified.")
-            while(1): pass
+            raise ValueError(f"For {dataName} (node {node_id}): crit_count_max shouldn't be zero when critical range is specified.")
     else:
         if crit_count_max_Set:
-            print(f"Error: For {dataName} (node {node_id}): crit_count_max specified without critical range.")
-            while(1): pass
+            raise ValueError(f"For {dataName} (node {node_id}): crit_count_max specified without critical range.")
     
     if crit_count_max < 0  or crit_count_max > 255:
-        print(f"Error: For critical data: {dataName} (node {node_id}): crit_count_max not in uint8_t range.")
-        while(1): pass
+        raise ValueError(f"For critical data: {dataName} (node {node_id}): crit_count_max not in uint8_t range.")
 
     # Check range ordering.
     if(minWarningSet and minWarning<min_value or (maxWarningSet and maxWarning>max_value)):
-        print(f"Warning: For {dataName} (node {node_id}): warningRange outside of given range")
-        while(1): pass
+        raise ValueError(f"For {dataName} (node {node_id}): warningRange outside of given range")
     if(minCriticalSet and minCritical<min_value or (maxCriticalSet and maxCritical>max_value)):
-        print(f"Warning: For {dataName} (node {node_id}): critical outside of given range")
-        while(1): pass
+        raise ValueError(f"For {dataName} (node {node_id}): critical outside of given range")
     if(minWarningSet and minCriticalSet and minWarning<minCritical \
         or (maxWarningSet and maxCriticalSet and maxWarning>maxCritical)
     ):
-        print(f"Warning: For {dataName} (node {node_id}): warningRange outside of critical range")
-        while(1): pass
+        raise ValueError(f"For {dataName} (node {node_id}): warningRange outside of critical range")
 
 
     #check startingVal
@@ -183,7 +172,17 @@ def updateEntries(parsedFields, fields):
                 if field["expectation"] == "dontSpecify":
                     raise ValueError(f"Specified a locked field: '{name}'")
                 else:
-                    field["value"] = value
+                    # Handle boolean type conversion from string to int (0 or 1)
+                    if field["type"] == "boolean":
+                        lower_value = str(value).strip().lower()
+                        if lower_value == "true" or lower_value == "1":
+                            field["value"] = 1
+                        elif lower_value == "false" or lower_value == "0":
+                            field["value"] = 0
+                        else:
+                            raise ValueError(f"Invalid boolean value '{value}' for field '{name}'. Expected 'true', 'false', '0', or '1'.")
+                    else:
+                        field["value"] = value
                     ACCESS(fields, name)["isSet"] = True
                 break # Found it, no need to check other fields
         if not found:
@@ -200,7 +199,7 @@ def eval_int_expr(expr: str) -> int:
       "0b11<<3", "4<<1", "0xF>>2", "-(0b101<<2)", "vitalsID", "prechargeID | 1"
     and returns the evaluated integer. It looks up names in globalDefines and globalEnums.
     """
-    
+
     # Build a context for name lookups
     name_context = {}
     for define in globalDefines:
@@ -212,7 +211,7 @@ def eval_int_expr(expr: str) -> int:
 
     node = ast.parse(expr, mode="eval")
 
-    def _eval(n):
+    def _eval(n):       
         if isinstance(n, ast.Expression):
             return _eval(n.body)
 
@@ -267,7 +266,7 @@ def eval_int_expr(expr: str) -> int:
 
 def expression_to_int(input_str):
     # This function now becomes a simple wrapper around eval_int_expr
-    raw = str(input_str).strip()
+    raw = str(input_str).strip().replace("::", ".")
     try:
         return eval_int_expr(raw)
     except (ValueError, SyntaxError, NameError) as e:

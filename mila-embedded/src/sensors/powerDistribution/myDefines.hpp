@@ -1,13 +1,12 @@
 #ifndef powerDistribution_DATA_H
 #define powerDistribution_DATA_H
-//defines constants specific to powerDistribution#include "../common/sensorHelper.hpp"
-#include<stdint.h>
+//defines constants specific to powerDistribution
+#include <stdint.h>
+#include <stdbool.h>
 #define myId 10
 #define numFrames 2
 #define node_numData 7
 
-
-#define node_numData 7
 int32_t collect_LV_Battery_mV(bool* cancelFrameSend);
 int32_t collect_LV_Battery_mA(bool* cancelFrameSend);
 int32_t collect_CoolantPumpAvgCurrent_mA(bool* cancelFrameSend);

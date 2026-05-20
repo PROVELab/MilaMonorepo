@@ -47,7 +47,7 @@ typedef struct {
     enum MATCH_TYPE mt;
 } CANListenParam;
 
-typedef struct __attribute__((packed)) {
+typedef struct {
     int32_t min;
     int32_t max;
     int8_t bits; // Moved to bottom to reduce potential for mis-aligned accesses
@@ -80,14 +80,14 @@ typedef struct {
 void pecan_unpack(int32_t* dest, const uint8_t* src, const simpleDataPoint* field_info, int8_t* bitIndex);
 
 /**
- * @brief Packs a single data field into a uint32_t, applying min/max constraints.
+ * @brief Packs a single data field into a destination buffer, applying min/max constraints and bit packing.
  *
- * @param dest A pointer to a uint32_t to store the formatted value.
+ * @param dest_buffer The destination byte buffer to pack into.
+ * @param bit_index A pointer to the current bit index in the destination buffer. This will be incremented by the function.
  * @param value The raw int32_t value to pack.
  * @param field_info A pointer to a simpleDataPoint describing the field's constraints.
- * @return 0 on success, 1 on error (e.g., value out of bounds after squeezing).
  */
-int16_t pecan_pack(uint32_t* dest, int32_t value, const simpleDataPoint* field_info);
+void pecan_pack(uint8_t* dest_buffer, int8_t* bit_index, int32_t value, const simpleDataPoint* field_info);
 
 void flexiblePrint(const char* str);
 

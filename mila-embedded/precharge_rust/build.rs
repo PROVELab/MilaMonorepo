@@ -1,11 +1,19 @@
 // build.rs
 
+use std::env;
+
 fn main() {
-    // 1. Compile C code (Add programConstants.c if you have one, or just the header path)
+    // Read the sensor target from the environment (default to pedalSensor if not set)
+    let sensor_node = env::var("SENSOR_NODE").unwrap_or_else(|_| "pedalSensor".to_string());
+    
+    // Pass it as a rustc cfg so you can do #[cfg(sensor = "pedalSensor")] in Rust if needed
+    println!("cargo:rustc-cfg=sensor=\"{}\"", sensor_node);
+    
+    let static_dec_path = format!("generated_rust/{}/sensorStaticDec.cpp", sensor_node);
+    
     cc::Build::new()
         .file("../src/pecan/common.cpp")
-        // If programConstants has a .c file, add it here too:
-        // .file("c_src/programConstants.c")
+        .file(static_dec_path)
         .include("c_src")
         .flag("-std=c++23")
         .flag("-mcpu=cortex-m4")

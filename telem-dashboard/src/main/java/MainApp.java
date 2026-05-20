@@ -30,7 +30,9 @@ public class MainApp {
                 System.out.println("parsing");
 
                 // Parse Can Messages, and update UI for them
-                CanParser parser = new CanParser(lookup, notifications, mainPanel);
+                CanParser parser = new CanParser(lookup, notifications, mainPanel, frame);
+
+                frame.setVisible(true);
 
             } catch (IOException e) {
                 e.printStackTrace();

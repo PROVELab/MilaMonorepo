@@ -11,6 +11,7 @@ extern "C" {
 
 void processReceivedData(uint8_t* data, size_t len);
 
+//MOVE me to callbacks header when ready to stop auto-generating that
 void forwardCANPacket(
     uint32_t targetNodeId,
     uint32_t can_mask_val,
@@ -18,7 +19,7 @@ void forwardCANPacket(
     const simpleDataPoint* fields,
     uint8_t num_fields,
     uint8_t packet_type,
-    const void* args_ptr,
+    const int32_t* args_data,
     const uint8_t* raw_telem_packet,
     size_t telem_packet_len,
     int8_t* telem_bit_idx_ptr

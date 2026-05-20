@@ -35,7 +35,7 @@ void checkBusStatus(void* pvParameters) {
                 ESP_LOGW(TAG, "Bus-off detected, initiating recovery");
                 if (twai_initiate_recovery() != ESP_OK) {
                     ESP_LOGE(TAG, "invalid recovery attempting to reboot. This should never happen");
-                    // esp_restart();
+                    esp_restart();
                 }
 
             } else if (alerts & TWAI_ALERT_BUS_RECOVERED) {
@@ -157,6 +157,8 @@ int16_t waitPackets(PCANListenParamsCollection* plpc) {
     return NOT_RECEIVED;
 }
 
+#define MAX_CAN_TRANSMIT_ATTEMPTS 50
+
 void sendPacket(CANPacket* p) {
     if (p->dataSize > MAX_SIZE_PACKET_DATA) {
         ESP_LOGE(TAG, "Packet Too Big");
@@ -189,11 +191,13 @@ void sendPacket(CANPacket* p) {
             ESP_LOGW(TAG, "error sending Can: %d", err);
         }
         transmitAttemptCount += 1;
-    } while (err != ESP_OK && transmitAttemptCount != 50);
+    } while (err != ESP_OK && transmitAttemptCount < MAX_CAN_TRANSMIT_ATTEMPTS);
 
-    if (transmitAttemptCount == 50) {
-        ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms. attempting reboot");
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms.");
+        //driver should hopefully restart.. no reboot for now (likely not ideal in final code)
         // esp_restart();
+        // TODO: Perhaps add a means to uninstall and reinstall the TWAI DRIVER here.
     }
     // in current implementation, will always return ESP_OK.
     return;

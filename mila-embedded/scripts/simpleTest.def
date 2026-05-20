@@ -1,7 +1,7 @@
 #node Definitions
 #Update the pedal to no longer be critical when pressed for final use. ts for testing rn
 
-node: id=prechargeID, name=precharge, board=esp
+node: id=prechargeID, name=precharge, board=rust
 CANFrame: frequency=100, dataTimeout=500
 battery_V: bitLength=10, min=-100, max=923, minWarning=120, minCritical=80, startingValue=0
 motor_V: bitLength=10, min=-100, max=923,  minWarning=120, minCritical=80, startingValue=0
@@ -22,7 +22,7 @@ SDIO_det_pin: bitLength=1, min=0, max=1, minWarning=0, startingValue=0
 
 node: id=9, name=IMU, board=esp
 
-CANFrame: frequency=100, dataTimeout=500
+CANFrame: frequency=100, dataTimeout=500, enableTelemCallback=true
 IMU_temp_F: bitLength=10, min=-100, max=923, startingValue=67
 radiator_temp_F: bitLength=10, min=-100, max=923, startingValue=67
 humiditySense_temp_F: bitLength=10, min=-100, max=923, startingValue=67

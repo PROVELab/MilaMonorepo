@@ -1,9 +1,11 @@
 import os
-from parseFile import parse_config, _parse_enums_and_defines, globalDefines, globalEnums
+from parseFile import parse_config, _parse_enums_and_defines, globalDefines, globalEnums, dataPoint_fields, CANFrame_fields
 from genSensors import createSensors 
 from genVitals import createVitals
-from genTelemetry import createTelemetry 
-from genPacketSend import createPacketSendFiles
+from genTelemetry import createTelemetry, createTelemetryParser, createTelemetryRecords, get_telem_path
+from genPacketSend import createPacketSendFiles, _assign_prefix_free_masks
+from genCallbacks import generate_cpp_callbacks, generate_java_visitor_dispatcher, generate_single_java_callback_skeleton
+from genCANCallbacks import create_can_frame_callbacks
 from processPacketFormat import preprocess_packets
 from packetFormat import vitals_to_telem, telem_to_vitals
 
@@ -24,6 +26,8 @@ def pretty_print_vitals(vitals_nodes):  #useful for debugging
                         print(f"    {j + 1}. {json.dumps(sub_field, indent=6)}")
             else:
                 print(f"  {field['name']} ({field['type']}): {field['value']}")
+
+from genUtils import interactive_file_gen
 
 if __name__ == "__main__":
     # Get the directory of the current script
@@ -67,14 +71,66 @@ if __name__ == "__main__":
     vitals_node_dir = os.path.normpath(vitals_node_dir)
     os.makedirs(vitals_node_dir, exist_ok=True)
 
+    # New callbacks directory for C++
+    vitals_callbacks_dir = os.path.join(vitals_node_dir, "callbacks")
+    os.makedirs(vitals_callbacks_dir, exist_ok=True)
+
     # --- Pre-process Packet Formats (after parsing config) ---
     print("\nPre-processing packet formats...")
     preprocess_packets(nodeCount, maxFrameCnt, maxDataCnt)
     print("Done.")
+    
+    # --- Assign masks ---
+    mapping_path = os.path.join(generated_code_dir, "mask_mappings.txt")
+    with open(mapping_path, 'w') as map_file:
+        map_file.write("--- Vitals to Telem ---\n")
+        map_file.write("Packet Name -> Assigned Mask\n\n")
 
+        # Add packet_idx for Java generator before sorting for mask assignment
+        for i, packet in enumerate(vitals_to_telem):
+            packet['packet_idx'] = i
+
+        _assign_prefix_free_masks(vitals_to_telem, map_file, "vitals-to-telem")
+    
+        map_file.write("\n\n--- Telem to Vitals ---\n")
+        map_file.write("Packet Name -> Assigned Mask\n\n")
+        _assign_prefix_free_masks(telem_to_vitals, map_file, "telem-to-vitals")
+    
     createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, script_dir, generated_code_dir, telem_to_vitals, globalEnums)
     createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, globalDefines, vitals_helper_dir)
-    createTelemetry(vitalsNodes, "telemetryDashboard.csv", generated_code_dir, nodeNames, dataNames)
-
+    createTelemetry(vitalsNodes, "telemetryDashboard.csv", generated_code_dir, nodeIds, nodeNames, dataNames, vitals_to_telem, globalDefines)
+    
+    createTelemetryParser(vitals_to_telem, globalEnums)
+    createTelemetryRecords(dataPoint_fields, CANFrame_fields)
+    
     createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir, nodeNames, nodeIds, vitals_to_telem, telem_to_vitals, globalEnums)
+
+    # --- Generate Callback Skeletons (interactively) ---
+    print("\n--- Generating Callback Skeletons ---")
+    
+    # Java Callbacks
+    java_dir = get_telem_path()
+
+    # 1. Generate the fully-generated dispatcher. This file should not be user-edited.
+    java_dispatcher_path = os.path.join(java_dir, 'java', 'GeneratedPacketVisitor.java')
+    generate_java_visitor_dispatcher(java_dispatcher_path, vitals_to_telem)
+
+    # 2. Generate individual, user-editable skeletons for each packet, checking for existence.
+    java_callbacks_dir = os.path.join(java_dir, 'java', 'callbacks')
+    os.makedirs(java_callbacks_dir, exist_ok=True)
+    for packet in vitals_to_telem:
+        skeleton_path = os.path.join(java_callbacks_dir, f"On{packet['name']}Packet.java")
+        if not os.path.exists(skeleton_path):
+            # This file is a user-editable skeleton, so we only generate it if it doesn't exist.
+            generate_single_java_callback_skeleton(skeleton_path, packet)
+        # If it already exists, do nothing to preserve user changes.
+
+    # C++ Callbacks
+    cpp_callbacks_path = os.path.join(vitals_callbacks_dir, "vitalsRecvCallbacks.cpp")
+    interactive_file_gen(cpp_callbacks_path, "C++ Vitals Recv Callbacks", generate_cpp_callbacks, telem_to_vitals)
+
+    # CAN Frame Callbacks (Java)
+    print("\n--- Generating CAN Frame Callback Skeletons ---")
+    create_can_frame_callbacks(vitalsNodes, nodeNames, nodeIds, dataNames)
+
     print("Done.")

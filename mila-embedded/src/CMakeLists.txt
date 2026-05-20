@@ -3,23 +3,43 @@
 list(APPEND EXTRA_COMPONENT_DIRS icm20948)
 
 if(CMAKE_VITALS_ESP_BUILD)
-    file(GLOB VITALS_HELPER_FILES "vitalsNode/vitalsHelper/*")
-    file(GLOB VITALS_ROOT_FILES   "vitalsNode/*")
-    file(GLOB LORA_COMMON_FILES   "LoraCommon/*")
-    file(GLOB LORA_DRIVER_FILES   "LoraCommon/Driver/*")
-    file(GLOB LORA_TX_FILES       "telemetryTX/*")
-
-    # 2. Define SRC_FILES with explicit paths and append the globbed lists
-    set(SRC_FILES 
+    #     file(GLOB TX_LORA_SRC
+    #     #Need pecan
+    #     "sensors/${SENS_DIR}/*.c"
+    #     "sensors/${SENS_DIR}/*.cpp"
+    #     #
+    #     "telemetryTX/*.c"
+    #     "telemetryTX/*.cpp"
+    #     "LoraCommon/*.c"
+    #     "LoraCommon/*.cpp"
+    #     "LoraCommon/Driver/*.c"
+    #     "LoraCommon/Driver/*.cpp"
+    # )
+    # set(SRC_FILES
+    #     ${TX_LORA_SRC}
+    # )
+    file(GLOB VITALS_SRC
+        "vitalsNode/*.c"
+        "vitalsNode/*.cpp"
+        "vitalsNode/vitalsHelper/*.c"
+        "vitalsNode/vitalsHelper/*.cpp"
+        "vitalsNode/callbacks/*.c"
+        "vitalsNode/callbacks/*.cpp"
         "pecan/common.cpp"
         "pecan/espSpecific.c"
+        "pecan/vitalsInit.c"
         "espBase/debug_esp.c"
-        ${VITALS_HELPER_FILES}
-        ${VITALS_ROOT_FILES}
-        ${LORA_COMMON_FILES}
-        ${LORA_DRIVER_FILES}
-        ${LORA_TX_FILES}
+        "telemTX/*.c"
+        "telemTX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
     )
+    set(SRC_FILES
+        ${VITALS_SRC}
+    )
+
     # message(SEND_ERROR "SRC_FILES for VITALS_BUILD: ${SRC_FILES}")
 endif()
 
@@ -33,7 +53,6 @@ if(CMAKE_HB_ONLY_BUILD)
 endif()
 
 if(CMAKE_SENSOR_ESP_BUILD)  #CMAKE_SENSOR_ESP_BUILD <- Assumed
-    # message(SEND_ERROR "Path is set to: ${DECPath}")
 
     file(GLOB SENSOR_SRC_FILES
         "sensors/${SENS_DIR}/*.c"
@@ -56,7 +75,7 @@ endif()
 if(CMAKE_MCU_ESP_BUILD)
     # message(SEND_ERROR "CMAKE_MCU_ESP_BUILD is set, using MCU ESP build configuration")
     # Recursively collect sources under mcu/ (makes stuff easier)
-    file(GLOB_RECURSE MCU_SRC
+    file(GLOB_RECURSE MCU_SRC_BASE
         CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/espBase/*.c"
         "${CMAKE_CURRENT_SOURCE_DIR}/mcu/*.c"
@@ -66,24 +85,29 @@ if(CMAKE_MCU_ESP_BUILD)
 
         "${CMAKE_CURRENT_SOURCE_DIR}/sensors/common/sensorHelper.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/sensors/powerSensor/espPower.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/sensors/pedalSensor/*.c"
+    )
+    file(GLOB MCU_SENSOR_SRC
+        "${CMAKE_CURRENT_SOURCE_DIR}/sensors/${SENS_DIR}/*.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sensors/${SENS_DIR}/*.cpp"
     )
 
     # If you also want to include other existing files outside mcu/, add them here:
     set(SRC_FILES
-        ${MCU_SRC} ${SRC_FILES}
+        ${MCU_SRC_BASE} ${MCU_SENSOR_SRC} ${SRC_FILES}
     )
 endif()
 
-if(CMAKE_TELEM_TX)
+if(CMAKE_TELEM_TX_BENCHMARK)
 
     file(GLOB TX_LORA_SRC
         #Need pecan
         "sensors/${SENS_DIR}/*.c"
         "sensors/${SENS_DIR}/*.cpp"
         #
-        "telemetryTX/*.c"
-        "telemetryTX/*.cpp"
+        telemTXBenchmark/*.c
+        telemTXBenchmark/*.cpp
+        "telemTX/*.c"
+        "telemTX/*.cpp"
         "LoraCommon/*.c"
         "LoraCommon/*.cpp"
         "LoraCommon/Driver/*.c"
@@ -94,26 +118,49 @@ if(CMAKE_TELEM_TX)
     )
 endif()
 
-if(CMAKE_TELEM_RX)
-    file(GLOB TX_LORA_SRC
+if(CMAKE_TELEM_RX_MAIN)
+    file(GLOB_RECURSE RX_LORA_SRC
         #Need pecan
-        "sensors/${SENS_DIR}/*.c"
-        "sensors/${SENS_DIR}/*.cpp"
+        # "sensors/${SENS_DIR}/*.c"
+        # "sensors/${SENS_DIR}/*.cpp"
         #
-        "telemetryRX/**.c"
-        "telemetryRX/**.cpp"
+        "telemRXMain/*.c"
+        "telemRXMain/*.cpp"
+        "telemRX/*.c"
+        "telemRX/*.cpp"
         "LoraCommon/*.c"
         "LoraCommon/*.cpp"
         "LoraCommon/Driver/*.c"
         "LoraCommon/Driver/*.cpp"
     )
     set(SRC_FILES
-        ${TX_LORA_SRC}
+        ${RX_LORA_SRC}
     )
 endif()
+
+if(CMAKE_TELEM_RX_BENCHMARK)
+    file(GLOB_RECURSE RX_LORA_SRC
+        #Need pecan
+        # "sensors/${SENS_DIR}/*.c"
+        # "sensors/${SENS_DIR}/*.cpp"
+        #
+        "telemRXBenchmark/*.c"
+        "telemRXBenchmark/*.cpp"
+        "telemRX/*.c"
+        "telemRX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
+    )
+    set(SRC_FILES
+        ${RX_LORA_SRC}
+    )
+endif()
+
 
 if(CMAKE_TELEM_Listen)
-    file(GLOB RX_LORA_SRC
+    file(GLOB_RECURSE RX_LORA_SRC
         "LoraSimpleListen/*.c"
         "LoraSimpleListen/*.cpp"
         "LoraCommon/*.c"
@@ -127,7 +174,7 @@ if(CMAKE_TELEM_Listen)
 endif()
 
 if(CMAKE_TELEM_SIMPLE_TRANSMIT)
-    file(GLOB SIMPLE_TX_LORA_SRC
+    file(GLOB_RECURSE SIMPLE_TX_LORA_SRC
         "LoraTestTransmit/*.c"
         "LoraTestTransmit/*.cpp"
         # "LoraCommon/*.c"

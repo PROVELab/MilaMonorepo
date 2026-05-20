@@ -11,7 +11,7 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
 
     numMissingIDs=0
     # Define the file path (this joins the path with the filename)
-    file_path = os.path.join(vitals_dir, 'vitalsStaticDec.cpp')
+    file_path = os.path.join(vitals_dir, 'vitalsStaticDec.c')
     print("generating\n")
     with open(file_path, 'w') as f:
         f.write(
@@ -35,10 +35,7 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
                     for field in dataPoint_fields:
                         if "vitals" in field["node"] and field['name'] != 'enum':
                             evaluated_value = expression_to_int(ACCESS(dataPoint, field['name'])['value'])
-                            if field['name'] == 'crit_count':
-                                fields.append(f".{field['name']}={{ {evaluated_value} }}") # Brace-init for std::atomic
-                            else:
-                                fields.append(f".{field['name']}={evaluated_value}")
+                            fields.append(f".{field['name']}={evaluated_value}")
                     f.write("    {" + ", ".join(fields) + "},\n")
                 f.write("};\n\n")
 
@@ -65,14 +62,9 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
         f.write("// vitalsData *nodes;\n")
         f.write(f"vitalsNode nodes [{len(vitalsNodes)}]={{\n")
         for nodeIndex, node in enumerate(vitalsNodes):
-            NODE_fields = []
-            for field in vitalsNode_fields:
-                if field["name"] not in {"CANFrames"}:
-                    value = ACCESS(node, field['name'])['value']
-                    if field.get('Atomic'):
-                        NODE_fields.append(f".{field['name']}={{ {value} }}") # Brace-init for std::atomic
-                    else:
-                        NODE_fields.append(f".{field['name']}={value}")
+            NODE_fields = [f".{field['name']}={ACCESS(node, field['name'])['value']}"
+                            for field in vitalsNode_fields if field["name"] not in {"CANFrames"}]
+                            #^ Exclude CANFrames, as that is handled specially below
             f.write(f"    {{{', '.join(NODE_fields)}, .CANFrames=n{nodeIndex}}},\n")
         f.write("};\n")
 
@@ -95,21 +87,37 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
     with open(structs_file_path, "w") as f:
         f.write("#ifndef VITALS_STRUCTS_H\n")
         f.write("#define VITALS_STRUCTS_H\n\n")
+        f.write("#include <stdio.h>\n")
         f.write("#include <stdint.h>\n")
-        f.write('#include <atomic>\n')
+        f.write('#include <stdatomic.h>\n')
+        f.write('#include <stddef.h> // For offsetof\n')
         f.write("#include \"../../programConstants.h\"\n")
+        f.write('#include "pecan/pecan.h" // For simpleDataPoint\n#include <stdbool.h> // For bool type\n\n')
         f.write("#define R10(x) {x,x,x,x,x,x,x,x,x,x}\n\n")
+
+        # Add a cross-compatible static assert macro
+        f.write("#if defined(__cplusplus)\n")
+        f.write("#define STATIC_ASSERT(cond, msg) static_assert((cond), msg)\n")
+        f.write("#else\n")
+        f.write("#define STATIC_ASSERT(cond, msg) _Static_assert((cond), msg)\n")
+        f.write("#endif\n\n")
 
         # DataPoint struct definition
         f.write("typedef struct {\n")
         for field in dataPoint_fields:
-            if field['name'] != 'enum':
-                # Handle atomic crit_count specifically for C++
-                if field['name'] == 'crit_count':
-                    f.write(f"    std::atomic<{field['type']}> {field['name']};\n")
-                else:
-                    f.write(f"    {field['type']} {field['name']};\n")
+            if field['name'] != 'enum': # 'enum' is a pseudo-field for the generator
+                f.write("    ")
+                if field['Atomic'] == True:
+                    f.write("_Atomic ")
+                c_type = "bool" if field['type'] == "boolean" else field['type']
+                f.write(f"{c_type} {field['name']};\n")
         f.write("} dataPoint;\n\n")
+
+        # This ensures that dataPoint can be safely cast to simpleDataPoint for pecan_unpack.
+        f.write("// This ensures that dataPoint can be safely cast to simpleDataPoint for pecan_unpack.\n")
+        f.write("STATIC_ASSERT(offsetof(dataPoint, min) == offsetof(simpleDataPoint, min), \"min offset mismatch\");\n")
+        f.write("STATIC_ASSERT(offsetof(dataPoint, max) == offsetof(simpleDataPoint, max), \"max offset mismatch\");\n")
+        f.write("STATIC_ASSERT(offsetof(dataPoint, bits) == offsetof(simpleDataPoint, bits), \"bits offset mismatch\");\n\n")
 
         # CANFrame struct definition
         f.write("typedef struct {\n")
@@ -120,8 +128,9 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
             elif field['name'] == "CANFrames":
                 f.write("    CANFrame *CANFrames; /* Replaced list with CANFrame pointer */\n")
             else:
-                # For other fields, write them as usual
-                f.write(f"    {field['type']} {field['name']};\n")
+                # Use 'bool' for boolean types
+                c_type = "bool" if field['type'] == "boolean" else field['type']
+                f.write(f"    {c_type} {field['name']};\n")
         
         # Manually insert the custom 'data' field
         f.write("    int32_t (*data)[10]; /* Init to [data points per data =10] [numData for this frame] */\n")
@@ -134,10 +143,11 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
                 f.write("    CANFrame *CANFrames; \n")  #Write CANFrames field manually as pointer
             else:
                 # For other fields, write them as usual
-                if(field.get('Atomic') == True) :
-                    f.write(f"    std::atomic<{field['type']}> {field['name']};\n")
-                else:
-                    f.write(f"    {field['type']} {field['name']};\n")
+                f.write("    ")
+                if(field['Atomic'] == True) : 
+                    f.write("_Atomic ");
+                
+                f.write(f"{field['type']} {field['name']};\n")
         f.write("} vitalsNode;\n\n")
 
         # End of header guards

@@ -36,14 +36,14 @@ use crate::ffi::{
 };
 
 
-mod hw;
-use crate::hw::{sendPacket, waitPackets};
+mod pecan;
+use crate::pecan::{sendPacket, waitPackets};
 
 mod vsense;
 use crate::vsense::voltage_reader_task;
 
 mod contactors;
-use crate::contactors::{contactor_control_task, contactorsOn, contactorsOff};
+use crate::contactors::{contactor_control_task, contactorsOn, contactorsOff, viewPrecharge};
 
 mod HBLED;
 use crate::HBLED::HBLED_task;
@@ -126,7 +126,7 @@ async fn main(spawner: Spawner) {
         pin2: -1,
     };
     // // We call this directly. Note: In original code this set a global NODE_ID.
-    crate::hw::pecan_CanInit(cfg, &spawner, p.CAN1, p.PA11, p.PA12).await;
+    crate::pecan::pecan_CanInit(cfg, &spawner, p.CAN1, p.PA11, p.PA12).await;
 
     let mut listen_collection: PCANListenParamsCollection = unsafe { core::mem::zeroed() };
 
@@ -154,6 +154,14 @@ async fn main(spawner: Spawner) {
             mt: MATCH_TYPE_MATCH_EXACT,
         };
         addParam(&mut listen_collection as *mut _, disablePC);
+
+        let listen_id = combinedID(3, vitalsID);
+        let viewPC = CANListenParam {
+            listen_id,
+            handler: Some(viewPrecharge),
+            mt: MATCH_TYPE_MATCH_EXACT,
+        };
+        addParam(&mut listen_collection as *mut _, viewPC);
     }
 
     spawner.spawn(HBLED_task(p.PA3)).unwrap();

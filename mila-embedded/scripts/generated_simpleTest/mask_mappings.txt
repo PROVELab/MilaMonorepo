@@ -5,10 +5,10 @@ CANDataFrame (1 bits): 0 (0b0)
 HBStatus (3 bits): 4 (0b100)
 BusStatus (4 bits): 10 (0b1010)
 HBTiming (5 bits): 22 (0b10110)
-dataWarning (7 bits): 92 (0b1011100)
-nodeStatus (7 bits): 93 (0b1011101)
-unknownCanPacket (8 bits): 188 (0b10111100)
-vitalsErr (8 bits): 189 (0b10111101)
+dataWarning (6 bits): 46 (0b101110)
+nodeStatus (7 bits): 94 (0b1011110)
+unknownCanPacket (8 bits): 190 (0b10111110)
+vitalsErr (8 bits): 191 (0b10111111)
 
 
 --- Telem to Vitals ---

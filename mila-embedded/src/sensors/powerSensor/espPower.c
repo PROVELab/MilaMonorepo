@@ -7,11 +7,11 @@
 #include "esp_check.h"
 #include "esp_err.h"
 
+#include "esp_log.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_continuous.h"
 
-#include "../../espBase/debug_esp.h" // mutexPrint()
 #include "powerSensor.h"
 
 // ============================================================================
@@ -60,6 +60,8 @@ static struct {
     int enabled_slots;         // how many were valid/enabled
     slot_t slot[MAX_CHANNELS]; // entries stay in the same order as provided
 } S = {0};
+
+static const char* TAG = "espPower";
 
 DMA_ATTR static uint8_t s_adc_read_buf[ADC_READ_BUF_BYTES];
 
@@ -112,9 +114,7 @@ static bool init_calibration_for_slot(int idx) {
         .bitwidth = defaultBitWidth,
     };
     if (adc_cali_create_scheme_curve_fitting(&cfg_cf, &S.slot[idx].cali_h) == ESP_OK) {
-        char b[96];
-        snprintf(b, sizeof(b), "ADC calibration: curve-fitting enabled (slot=%d)\n", idx);
-        mutexPrint(b);
+        ESP_LOGI(TAG, "ADC calibration: curve-fitting enabled (slot=%d)", idx);
         return true;
     }
 #endif
@@ -128,9 +128,7 @@ static bool init_calibration_for_slot(int idx) {
 #endif
     };
     if (adc_cali_create_scheme_line_fitting(&cfg_lf, &S.slot[idx].cali_h) == ESP_OK) {
-        char b[96];
-        snprintf(b, sizeof(b), "ADC calibration: line-fitting enabled (slot=%d)\n", idx);
-        mutexPrint(b);
+        ESP_LOGI(TAG, "ADC calibration: line-fitting enabled (slot=%d)", idx);
         return true;
     }
 #endif
@@ -152,11 +150,11 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
     }
 
     if (!configs || num_channels <= 0 || num_channels > MAX_CHANNELS) {
-        mutexPrint("initializeSelfPower: bad args or too many channels\n");
+        ESP_LOGE(TAG, "initializeSelfPower: bad args or too many channels");
         return;
     }
     if (S.initialized) {
-        mutexPrint("SelfPower already initialized\n");
+        ESP_LOGW(TAG, "SelfPower already initialized");
         return;
     }
 
@@ -179,7 +177,7 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
         sl->cali_h = NULL;
 
         if (c->R1 <= 0 || c->R2 <= 0) {
-            mutexPrint("Invalid R1/R2 divider values\n");
+            ESP_LOGE(TAG, "Invalid R1/R2 divider values for slot %d", i);
             continue;
         }
 
@@ -191,7 +189,7 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
             ok = gpio_to_adc2_channel(c->ADCPin, &ch);
         }
         if (!ok) {
-            mutexPrint("ADC GPIO invalid for selected ADC unit\n");
+            ESP_LOGE(TAG, "ADC GPIO %d invalid for selected ADC unit", c->ADCPin);
             continue;
         }
 
@@ -209,7 +207,7 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
     }
 
     if (S.enabled_slots == 0) {
-        mutexPrint("No valid ADC channels to configure\n");
+        ESP_LOGE(TAG, "No valid ADC channels to configure");
         return;
     }
 
@@ -219,7 +217,7 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
         .conv_frame_size = ADC_CONV_FRAME_BYTES,
     };
     if (adc_continuous_new_handle(&hcfg, &S.adc_h) != ESP_OK) {
-        mutexPrint("adc_continuous_new_handle failed\n");
+        ESP_LOGE(TAG, "adc_continuous_new_handle failed");
         return;
     }
 
@@ -232,11 +230,11 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
         .adc_pattern = patterns,
     };
     if (adc_continuous_config(S.adc_h, &cfg) != ESP_OK) {
-        mutexPrint("adc_continuous_config failed\n");
+        ESP_LOGE(TAG, "adc_continuous_config failed");
         return;
     }
     if (adc_continuous_start(S.adc_h) != ESP_OK) {
-        mutexPrint("adc_continuous_start failed\n");
+        ESP_LOGE(TAG, "adc_continuous_start failed");
         return;
     }
 
@@ -305,10 +303,13 @@ void collectSelfPowerAllmV(int32_t* out_vin_mV, selfPowerStatus_t* out_statuses)
         }
 
         for (uint32_t i = 0; i + sizeof(adc_digi_output_data_t) <= got; i += sizeof(adc_digi_output_data_t)) {
-            const adc_digi_output_data_t* d = (const adc_digi_output_data_t*) &s_adc_read_buf[i];
-            int slot = channel_to_slot(d->type1.channel);
+            // To avoid strict-aliasing violations and potential unaligned access,
+            // safely copy the data from the byte buffer into a local struct.
+            adc_digi_output_data_t d;
+            memcpy(&d, &s_adc_read_buf[i], sizeof(adc_digi_output_data_t));
+            int slot = channel_to_slot(d.type1.channel);
             if (slot >= 0) {
-                sum[slot] += d->type1.data;
+                sum[slot] += d.type1.data;
                 cnt[slot]++;
             }
         }
@@ -361,9 +362,7 @@ void selfPowerStatusCheck(const selfPowerStatus_t* statuses, int num_channels, i
     for (int i = 0; i < num_channels; ++i) {
         const selfPowerStatus_t s = statuses[i];
         if (s == NOTHING_TO_READ || s == READ_FAILURE) {
-            // char buffer[64];
-            // sprintf(buffer, "SelfPower channel %d read failed\n", i);
-            // mutexPrint(buffer);
+            ESP_LOGW(TAG, "SelfPower channel %d read failed with status %d", i, s);
             sendStatusUpdate(s, id);
         }
         if (s == INIT_FAILURE) any_init_failure = true;

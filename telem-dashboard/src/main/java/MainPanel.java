@@ -72,7 +72,7 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
         ((AbstractRenderer) plot.getRenderer()).setAutoPopulateSeriesStroke(false);
         plot.getDomainAxis().setLabel("Time (s)");
         NumberAxis yAxis = (NumberAxis) plot.getRangeAxis();
-        Optional<TelemetryLookup.DataInfo> inf= lookup.getDataInfo(key);
+        Optional<TelemetryRecords.DataInfo> inf= lookup.getDataInfo(key);
         if(inf.isEmpty()){
             System.out.println("unable to find dataInfo for a chart that needs to be displayed! Quitting");
             System.exit(1);
@@ -118,7 +118,7 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
 
                 var dpOpt = lookup.getDataInfo(key);
                 if (dpOpt.isEmpty()) { dtde.dropComplete(false); return; }
-                TelemetryLookup.DataInfo dp = dpOpt.get();
+                TelemetryRecords.DataInfo dp = dpOpt.get();
 
                 XYSeries ser = seriesByRef.get(key); // series was created in step (1)
                 if (ser == null) { // shouldn't happen, but handle defensively

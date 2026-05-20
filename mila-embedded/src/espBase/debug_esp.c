@@ -3,19 +3,10 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include <stdio.h>
+#include "esp_log.h"
 
-SemaphoreHandle_t printfMutex;
-StaticSemaphore_t printfMutexBuffer;
 static TaskHandle_t heapWarnTask;
-
-void mutexPrint(const char* str) {
-    if (xSemaphoreTake(printfMutex, portMAX_DELAY)) {
-        printf("%s\n", str);         // Call the non-reentrant function safely.
-        xSemaphoreGive(printfMutex); // Release the mutex.
-    } else {
-        printf("cant print, in deadlock!\n");
-    }
-}
+static const char* TAG = "DebugESP";
 
 #define WARN_ALLOC (1u << 0)
 #define WARN_FREE  (1u << 1)
@@ -49,20 +40,14 @@ static void warning_on_alloc_task(void* arg) {
     for (;;) {
         // Wait for any bits to be set; clear all bits on exit
         xTaskNotifyWait(0, UINT32_MAX, &flags, portMAX_DELAY);
-        if (flags & WARN_ALLOC) { mutexPrint("Warning: allocating memory!\n"); }
-        if (flags & WARN_FREE) { mutexPrint("Warning: freeing memory!\n"); }
+        if (flags & WARN_ALLOC) { ESP_LOGW(TAG, "Allocating memory!"); }
+        if (flags & WARN_FREE) { ESP_LOGW(TAG, "Freeing memory!"); }
     }
 }
 
 // just initializes printfMutex (for mutexPrint) and heap tracking (to ensure we follow prove no dynamic allocation
 // principles)
 void base_ESP_init(void) {
-    printfMutex = xSemaphoreCreateMutexStatic(&printfMutexBuffer);
-    if (printfMutex == NULL) {
-        printf("Failed to create printfMutex\n");
-        while (1);
-        return;
-    }
     // Small stack is fine; it only prints.
     (void) xTaskCreate(warning_on_alloc_task, "heap_warn", 1024, NULL, 1, &heapWarnTask);
 }

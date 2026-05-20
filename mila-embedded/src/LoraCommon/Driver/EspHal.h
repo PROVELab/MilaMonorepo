@@ -68,14 +68,12 @@ class EspHal : public RadioLibHal {
       // 1. Ignore if not connected
       if(this->interruptNum == RADIOLIB_NC) return;
 
-      // 2. Remove the specific interrupt handler for this pin
+      // 2. Remove the specific interrupt handler for this pin. This is safer than
+      // gpio_uninstall_isr_service(), which affects all GPIO interrupts in the system.
       gpio_isr_handler_remove((gpio_num_t)this->interruptNum);
 
-      // 3. Disable the interrupt trigger type for this pin
+      // 3. Optionally, disable the interrupt trigger type for this pin.
       gpio_set_intr_type((gpio_num_t)this->interruptNum, GPIO_INTR_DISABLE);
-
-      // 4. Uninstall the global ISR service (See warning below!)
-      gpio_uninstall_isr_service(); 
     }
 
     void delay(unsigned long ms) override { vTaskDelay(pdMS_TO_TICKS(ms)); }
