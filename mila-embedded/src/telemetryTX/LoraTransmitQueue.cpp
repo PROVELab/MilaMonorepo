@@ -1,6 +1,8 @@
 
 #include "LoraTransmitQueue.hpp"
 #include "../LoraCommon/LoraErrLog.hpp"
+#include "../LoraCommon/lz4.h"                  // Needed for setting workspace and compressed buffer 
+#include "../LoraCommon/lz4Compression.hpp"     // Needed to perform compression
 
 static const char* TAG = "TX_Queue";
 
@@ -139,12 +141,12 @@ void TXQueue::insertErrorFrame(driverSendPacket burstBuffer[maxPacketGroupSize],
     numPackets++;
 }
 
-//returns size of the burstBuffer. not thread safe (only call from one spot..)
+// returns size of the burstBuffer. not thread safe (only call from one spot..)
 uint8_t TXQueue::refreshBurstBuffer(driverSendPacket burstBuffer[maxPacketGroupSize], uint8_t startIndex) {
     uint8_t numPackets = startIndex;
     size_t totalPacketSize = 0;
     insertErrorFrame(burstBuffer, numPackets);
-    
+
     do{
         while(numPackets < maxPacketGroupSize && 
             priorityQueue.popFrame(burstBuffer[numPackets].data, totalPacketSize) )
@@ -164,6 +166,11 @@ uint8_t TXQueue::refreshBurstBuffer(driverSendPacket burstBuffer[maxPacketGroupS
             xSemaphoreTake(wakeSignal, portMAX_DELAY);  //wait for a packet
         }
     }  while(numPackets == 0); 
+
+    // Run LZ4 Compression on the burstBuffer packets
+    for (int i = 0; i < numPackets; i++) {
+        compressPacket(&burstBuffer[i]);
+    }
 
     return numPackets;
 }

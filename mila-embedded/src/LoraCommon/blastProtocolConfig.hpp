@@ -75,6 +75,7 @@ namespace txFlagMasks {
         ackParityMask = 1,
         errorPacketMask = 2,
         priorityPacketMask = 4,
-        firstBurstMask = 8
+        firstBurstMask = 8,
+        compressedPacketMask = 16  // Consider adding this flag for indicating compression -Brady
     };
 }

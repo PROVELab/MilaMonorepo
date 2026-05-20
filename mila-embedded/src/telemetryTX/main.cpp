@@ -43,7 +43,7 @@ void loraSendTask(void* pvParameters){
 
 void loraMonitorTask(void* pvParameters){
     ESP_LOGI(TAG, "Lora Monitor Task started");
-    RadioConfig cfg = getStandardConfig(BoardType::Ebyte_SX1262, TestMode::highPower);
+    RadioConfig cfg = getStandardConfig(BoardType::Ebyte_SX1262, TestMode::lowPower);
     for(;;){
         //monitor for crashes
         char* errMsg = NULL;

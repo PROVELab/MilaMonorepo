@@ -12,6 +12,7 @@
 #include "../LoraCommon/safeDriverUtil.hpp"
 #include "../LoraCommon/Driver/Driver.hpp"
 #include "../LoraCommon/LoraErrLog.hpp"
+#include "../LoraCommon/lz4Compression.hpp"
 
 static const char* TAG = "RX_AwaitData";
 
@@ -42,6 +43,15 @@ ProtocolState awaitData(){
         // timerExpireTime_us = startTime + timeout_duration_us;
         driverRecvPacket* packet;
         result res = safeWaitForRecv(packet, timerExpireTime_us);
+        
+        // LZ4 Decompression
+        if (res == Success) {
+            if (((TXProtocolPacket*)packet->data)->flags & txFlagMasks::compressedPacketMask) {
+                decompressPacket((driverSendPacket*)packet);
+            }   
+        } 
+
+        
         switch(res){
             case Crashed:
                 return crashed;
