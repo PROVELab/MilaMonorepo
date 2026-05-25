@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 
 #include "../LoraCommon/LoraProtocol.h"
+#include "../LoraCommon/blastProtocolConfig.hpp"
 #include <inttypes.h>
 #include "lz4.h"
 #include <string.h>

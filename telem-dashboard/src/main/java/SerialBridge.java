@@ -3,11 +3,12 @@ import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public final class SerialBridge implements AutoCloseable {
     private final String portName;
     private final int baud;
-    private final Consumer<byte[]> onMessageRecv;
+    private final Function<byte[], Integer> onMessageRecv;
     private final Consumer<byte[]> onMessageInvalid;
     private final Consumer<Boolean> onStatusChange;
 
@@ -17,7 +18,7 @@ public final class SerialBridge implements AutoCloseable {
     private volatile boolean running = false;
 
     public SerialBridge(String portName, int baud,
-                        Consumer<byte[]> onMessageRecv,
+                        Function<byte[], Integer> onMessageRecv,
                         Consumer<byte[]> onMessageInvalid,
                         Consumer<Boolean> onStatusChange) {
         this.portName = portName;
@@ -163,23 +164,60 @@ public final class SerialBridge implements AutoCloseable {
                 continue; // Re-run the loop, SOF will now be at the start of the buffer.
             }
 
-            // SOF is at the head. Now, parse the C++ frame format.
-            // C++ sends: SOF(1) + CSUM(2) + PAYLOAD(12) = 15 bytes total.
-            final int CPP_FRAME_SIZE = 15;
-            if (len < CPP_FRAME_SIZE) {
-                break; // Not enough data for a full frame yet.
+            // SOF is at the head. Now, parse the variable-length C++ frame format.
+            // C++ sends: [SOF(1)][LEN(2)][PAYLOAD(N)][CSUM(2)]
+            final int MIN_FRAME_LEN = 1 + 2 + 0 + 2; // SOF + len + (empty payload) + checksum
+            if (len < MIN_FRAME_LEN) {
+                break; // Not enough data for even the smallest frame.
             }
 
-            // The C++ checksum is bytes 1 and 2 (after SOF)
-            int recvChk = (get(1) & 0xFF) | ((get(2) & 0xFF) << 8);
+            // Get payload length (bytes 1 and 2 after SOF, Little Endian)
+            int payloadLen = (get(1) & 0xFF) | ((get(2) & 0xFF) << 8);
 
-            // The C++ payload is the 12 bytes after the checksum
-            byte[] payload = new byte[12];
-            copyOut(payload, 0, 3, 12);
-            int calcChk = inetChecksum16(payload, 0, payload.length);
+            // Sanity check on length to prevent huge buffer allocation or reading past buffer
+            if (payloadLen < 0 || payloadLen > RX_CAP * 2) { // Allow slightly larger than buffer for robustness, but not insane
+                System.out.println("[SerialBridge warning] Insane payload length: " + payloadLen + ". Discarding SOF.");
+                drop(1); // Drop bad SOF and retry
+                continue;
+            }
+
+            int frameTotalLen = 1 + 2 + payloadLen + 2; // SOF + len_bytes + payload + csum_bytes
+            if (len < frameTotalLen) {
+                break; // Not enough data for the full frame yet.
+            }
+
+            // We have a full frame. Extract payload.
+            byte[] payload = new byte[payloadLen];
+            copyOut(payload, 0, 1 + 2, payloadLen); // copy from after SOF and length bytes
+
+            // Extract checksum from the end of the frame
+            int csumOffset = 1 + 2 + payloadLen;
+            int recvChk = (get(csumOffset) & 0xFF) | ((get(csumOffset + 1) & 0xFF) << 8);
+
+            // Calculate checksum on the extracted payload
+            int calcChk = inetChecksum16(payload, 0, payloadLen);
 
             if (calcChk == recvChk) {
-                onMessageRecv.accept(payload);
+                // The payload from LoRa can contain multiple smaller data packets.
+                // We loop, calling the parser on the remaining payload until it's all consumed.
+                int totalBytesConsumed = 0;
+                while (totalBytesConsumed < payload.length) {
+                    byte[] remainingPayload = new byte[payload.length - totalBytesConsumed];
+                    System.arraycopy(payload, totalBytesConsumed, remainingPayload, 0, remainingPayload.length);
+
+                    // The callback must return the number of bytes it consumed from the start of the slice.
+                    int consumed = onMessageRecv.apply(remainingPayload);
+
+                    if (consumed > 0) {
+                        totalBytesConsumed += consumed;
+                    } else {
+                        // Parser consumed 0 bytes, indicating an error or end of parsable data.
+                        if (remainingPayload.length > 0) {
+                            System.err.println("[SerialBridge] Parser stalled. Discarding " + remainingPayload.length + " remaining bytes of payload.");
+                        }
+                        break; // Exit loop to avoid getting stuck.
+                    }
+                }
             } else {
                 System.out.println(String.format(
                         "[SerialBridge warning] Checksum failed for C++ frame: got=0x%04X expected=0x%04X. Discarding SOF and retrying.",
@@ -187,7 +225,7 @@ public final class SerialBridge implements AutoCloseable {
                 drop(1); // Drop just the bad SOF and try to re-sync
                 continue;
             }
-            drop(CPP_FRAME_SIZE); // Drop the successfully processed frame
+            drop(frameTotalLen); // Drop the successfully processed frame
         }
     }
 

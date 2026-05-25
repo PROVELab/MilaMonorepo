@@ -27,7 +27,8 @@ global enum: functionCodes = {
 # mark for "pecan packet" is not set
 
 global enum: vitalsCommands = {
-    lowPowerLora = 0
+    lowPowerLora = 0,
+    highPowerLora = 1
 }
 
 #LatchOn forces precharge on, overriding vitals. avoid using unless needed

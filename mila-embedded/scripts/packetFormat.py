@@ -128,7 +128,7 @@ telem_to_vitals = [
         "msgFields": [
             msgField(name="vitalsCommands", enum=True)
         ]},
-    {"name": "set_telem_update_frequency", "targetNode": "vitals", "name": "set_telem_update_frequency_divider", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
+    {"name": "set_telem_update_frequency", "targetNode": "vitals", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
         "msgFields": [
             msgField(name="divider", bits=4) #the divider for telemetry update frequency.
     ]},

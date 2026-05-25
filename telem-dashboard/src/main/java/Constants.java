@@ -41,6 +41,7 @@ public final class Constants {
 	public static final class vitalsCommands {
 		private vitalsCommands() {}
 		public static final int lowPowerLora = 0;	// 0
+		public static final int highPowerLora = 1;	// 1
 	}
 
 	// global enum prechargeCommands

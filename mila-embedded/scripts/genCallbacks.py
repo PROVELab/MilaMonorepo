@@ -1,9 +1,11 @@
 import os
 from packetFormat import CUSTOM
 
-def generate_java_visitor_dispatcher(output_path, vitals_to_telem_packets):
+def generate_java_visitor_dispatcher(output_dir, vitals_to_telem_packets):
+    os.makedirs(os.path.dirname(output_dir), exist_ok=True)
+    output_path = os.path.join(output_dir, 'GeneratedPacketVisitor.java')
     """
-    Generates a fully-generated Java PacketVisitor implementation that
+    Generates a fully-generated Java `PacketVisitor implementation that
     delegates to user-editable handlers in the 'callbacks' package.
     """
     print(f"Generating Java visitor dispatcher at {os.path.relpath(output_path)}...")
@@ -14,8 +16,8 @@ def generate_java_visitor_dispatcher(output_path, vitals_to_telem_packets):
         f.write(" * It implements the PacketVisitor and delegates each packet to a handler\n")
         f.write(" * in the 'callbacks' package. Skeletons for those handlers are generated\n")
         f.write(" * once and are safe for user modification.\n")
-        f.write(" */\n")
-        f.write("public class GeneratedPacketVisitor implements TelemetryParser.PacketVisitor {\n\n")
+        f.write(" */\n\n")
+        f.write("public class GeneratedPacketVisitor implements TelemetryParserLUT.PacketVisitor {\n\n")
         f.write("    private final TelemetryLookup lookup;\n")
         f.write("    private final NotificationPanel notifications;\n")
         f.write("    private final MainPanel mainPanel;\n\n")
@@ -26,15 +28,22 @@ def generate_java_visitor_dispatcher(output_path, vitals_to_telem_packets):
         f.write("    }\n\n")
 
         for msg in vitals_to_telem_packets:
-            class_name = f"TelemetryParser.{msg['name']}Packet"
+            class_name = f"TelemetryParserLUT.{msg['name']}Packet"
             handler_class = f"On{msg['name']}Packet"
+            is_custom = msg.get("byteCount") is CUSTOM
+            return_type = "int" if is_custom else "void"
+            extra_params = ", BitStream stream" if is_custom else ""
+
             f.write(f"    @Override\n")
-            f.write(f"    public void visit({class_name} p) {{\n")
-            f.write(f"        new {handler_class}().handle(p, mainPanel, notifications, lookup);\n")
+            f.write(f"    public {return_type} visit({class_name} p{extra_params}) {{\n")
+            if is_custom:
+                f.write(f"        return new {handler_class}().handle(p, stream, mainPanel, notifications, lookup);\n")
+            else:
+                f.write(f"        new {handler_class}().handle(p, mainPanel, notifications, lookup);\n")
             f.write("    }\n\n")
 
         f.write("    @Override\n")
-        f.write("    public void visit(TelemetryParser.ParsedPacket p) {\n")
+        f.write("    public void visit(TelemetryParserLUT.ParsedPacket p) {\n")
         f.write("        // Fallback for unhandled packets\n")
         f.write("    }\n")
         f.write("}\n")
@@ -45,7 +54,11 @@ def generate_single_java_callback_skeleton(output_path, packet):
     """
     packet_name = packet['name']
     class_name = f"On{packet_name}Packet"
-    packet_class_name = f"TelemetryParser.{packet_name}Packet"
+    packet_class_name = f"TelemetryParserLUT.{packet_name}Packet"
+    is_custom = packet.get("byteCount") is CUSTOM
+    return_type = "int" if is_custom else "void"
+    extra_params = ", BitStream stream" if is_custom else ""
+    return_statement = "        return 0; // Return number of bytes consumed from custom payload\n" if is_custom else ""
 
     print(f"Generating initial Java callback skeleton for {packet_name} at {os.path.relpath(output_path)}...")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -54,9 +67,12 @@ def generate_single_java_callback_skeleton(output_path, packet):
         f.write(f" * This is a user-editable file for handling {packet_name} packets.\n")
         f.write(" * It is generated once and will not be overwritten.\n")
         f.write(" */\n")
+        if is_custom:
+            f.write("import java.nio.ByteBuffer;\nimport java.nio.ByteOrder;\n\n")
         f.write(f"public class {class_name} {{\n\n")
-        f.write(f"    public void handle({packet_class_name} p, MainPanel mainPanel, NotificationPanel notifications, TelemetryLookup lookup) {{\n")
+        f.write(f"    public {return_type} handle({packet_class_name} p{extra_params}, MainPanel mainPanel, NotificationPanel notifications, TelemetryLookup lookup) {{\n")
         f.write(f"        // TODO: Implement any additional logic for {packet_name}\n")
+        f.write(return_statement)
         f.write("    }\n\n")
         f.write("}\n")
 

@@ -1,5 +1,12 @@
 import javax.swing.*;
 import com.formdev.flatlaf.FlatDarkLaf;
+
+import application.UI.MainFrame;
+import application.UI.MainPanel;
+import application.UI.NotificationPanel;
+import application.UI.SensorSelectionPanel;
+import lookup.TelemetryLookup;
+
 import java.io.IOException;
 import java.io.InputStream;
 

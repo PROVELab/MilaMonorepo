@@ -37,7 +37,8 @@ typedef enum {
 
 // global enum vitalsCommands
 typedef enum {
-	lowPowerLora = 0	/* 0 */
+	lowPowerLora = 0,	/* 0 */
+	highPowerLora = 1	/* 1 */
 } vitalsCommands;
 
 // global enum prechargeCommands

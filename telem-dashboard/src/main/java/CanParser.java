@@ -1,12 +1,22 @@
 import java.util.Map;
-import java.util.Optional;
-import java.io.IOException;
+import java.io.EOFException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.io.IOException;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.Timer;
+
+import application.UI.MainFrame;
+import application.UI.MainPanel;
+import application.UI.NotificationPanel;
+import application.UI.SensorSelectionPanel;
+import lookup.TelemetryLookup;
+import presentation.BitStream;
+import presentation.TelemetryParser;
+
 import javax.swing.SwingUtilities;
 
 //Parses Can messages and updates display. Also formats user messages to Can before sending to telem
@@ -18,6 +28,7 @@ public class CanParser {
     private final MainFrame mainFrame;
     private SerialBridge sb;
     private final GeneratedPacketVisitor packetCallbacks;
+    private final CommandParser commandParser;
     private final GeneratedCANFrameVisitor canFrameCallbacks;
     private final Map<TelemetryLookup.FrameKey, Timer> timeoutTimers = new ConcurrentHashMap<>();
 
@@ -29,8 +40,12 @@ public class CanParser {
         this.packetCallbacks = new GeneratedPacketVisitor(lookup, notifications, mainPanel);
         this.canFrameCallbacks = new GeneratedCANFrameVisitor(lookup, notifications, mainPanel);
 
+        // Create the command parser and install it into the notification panel
+        this.commandParser = new CommandParser(this.notifications, this::sendCommand);
+        this.notifications.setCommandPanel(this.commandParser);
+
         System.out.println("Can init");
-        final String portName = "/dev/ttyACM0"; final int baud = 115200;
+        final String portName = "/dev/ttyUSB0"; final int baud = 115200;
 
         // Pass the status update callback to the SerialBridge
         this.sb = new SerialBridge(portName, baud, this::onMessageRecv, this::logInvalidFrame, this::updateSerialStatus);
@@ -45,20 +60,18 @@ public class CanParser {
 
         mainFrame.setCanParser(this);
 
-        //Take user commands
-        notifications.setOnCommandSubmit(cmd -> {
-            buildPayloadFromCommand(cmd).ifPresent(payload -> {
-                try {
-                    if (sb.isConnected()) {
-                        sb.sendMessage(payload);
-                    } else {
-                        TelemetryUpdate("Cannot send command: Serial port not connected.", NotificationPanel.Status.CRITICAL);
-                    }
-                } catch (IOException e) {
-                    TelemetryUpdate("Failed to send command: " + e.getMessage(), NotificationPanel.Status.CRITICAL);
-                }
-            });
-        });
+    }
+
+    private void sendCommand(byte[] payload) {
+        try {
+            if (sb.isConnected()) {
+                sb.sendMessage(payload);
+            } else {
+                TelemetryUpdate("Cannot send command: Serial port not connected.", NotificationPanel.Status.CRITICAL);
+            }
+        } catch (IOException e) {
+            TelemetryUpdate("Failed to send command: " + e.getMessage(), NotificationPanel.Status.CRITICAL);
+        }
     }
 
     // New method to handle status updates from SerialBridge
@@ -90,37 +103,6 @@ public class CanParser {
         }).start();
     }
 
-    private Optional<byte[]> buildPayloadFromCommand(String input) {
-        if (input == null) return Optional.empty();
-        input = input.trim();
-
-        if (input.startsWith("updateValue")) {
-            String numStr = input.substring("updateValue".length()).trim();
-            Optional<Integer> parsed = parseInt32(numStr);
-            if (parsed.isEmpty()) return Optional.empty();
-
-            int value = parsed.get();
-            byte[] msg = new byte[8];
-            // Pack the integer into the first 4 bytes (little-endian)
-            msg[0] = (byte) (value);
-            msg[1] = (byte) (value >> 8);
-            msg[2] = (byte) (value >> 16);
-            msg[3] = (byte) (value >> 24);
-
-            return Optional.of(msg);
-        }
-        TelemetryUpdate("unable to interpret provided user command", NotificationPanel.Status.WARNING);
-        return Optional.empty();
-    }
-
-    private static Optional<Integer> parseInt32(String s) {
-        if (s == null || s.isEmpty()) return Optional.empty();
-        try { return Optional.of(Integer.parseInt(s.replace("_",""))); // signed decimal
-        } catch (NumberFormatException e) {
-            return Optional.empty();
-        }
-    }
-
     private void logInvalidFrame(byte[] payload) {
         java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(payload).order(java.nio.ByteOrder.LITTLE_ENDIAN);
         int id   = bb.getInt();
@@ -136,132 +118,129 @@ public class CanParser {
             nodeId, functionCode, extendedId, data));
     }    
 
-    private void onMessageRecv(byte[] loraPayload) {
+    private int onMessageRecv(byte[] loraPayload) {
         if (loraPayload == null || loraPayload.length == 0) {
             TelemetryUpdate("onMessageRecv got empty payload!", NotificationPanel.Status.WARNING);
-            return;
+            return 0;
         }
 
-        List<TelemetryParser.ParsedPacket> packets = TelemetryParser.parse(loraPayload, this.lookup);
-        for (TelemetryParser.ParsedPacket packet : packets) {
-            if (packet instanceof TelemetryParser.CANDataFramePacket) {
-                processCANDataFrame((TelemetryParser.CANDataFramePacket) packet);
+        // This method is now called in a loop by SerialBridge.
+        // It should parse ONE packet from the start of the payload and return its length in bytes.
+        // The visitor is passed in to handle custom payload parsing.
+        TelemetryParserLUT.ParseResult result = TelemetryParser.parseSinglePacket(loraPayload, this.lookup, this.notifications, this.packetCallbacks); // Use static TelemetryParser
+
+        if (result != null && result.packet != null) {
+            // The packet's fixed fields are parsed, and its custom payload (if any)
+            // has been parsed by the visitor during the call above.
+            // Now, we can process the fully-formed packet.
+            TelemetryParserLUT.ParsedPacket packet = result.packet;
+            if (packet instanceof TelemetryParserLUT.CANDataFramePacket p) {
+                processCANDataFrame(p);
             } else {
+                // This branch handles special, non-CAN packets (like HBTimingPacket, vitalsErr, etc.)
+                // that are still defined in TelemetryParser and have plottable data associated with the 'vitals' node.
                 processPlottablePacket(packet);
             }
-            packet.accept(this.packetCallbacks);
+            return result.bytesConsumed;
+        }
+        return 0;
+    }
+
+    private void processCANDataFrame(TelemetryParserLUT.CANDataFramePacket p) {
+        BitStream payloadStream = new BitStream(ByteBuffer.wrap(p.payload).order(ByteOrder.LITTLE_ENDIAN));
+        int nodeId = p.nodeID();
+
+        try {
+            TelemetryRecords.Node nodeInfo = lookup.getNodeById(nodeId);
+            TelemetryRecords.CANFrame frame = lookup.lookupFrameFromStream(payloadStream, nodeInfo);
+            int frameIndex = frame.frameIndex();
+
+           
+            int[] parsedValues = new int[frame.numData()];
+
+            for (int i = 0; i < frame.numData(); i++) {
+                TelemetryRecords.DataInfo dataInfo = lookup.getDataInfo(nodeId, frameIndex, i);
+
+                if (dataInfo.bitLength() < 0 || dataInfo.bitLength() > 32) {
+                    TelemetryUpdate("Invalid bitLength for CAN data. Node: " + nodeId + " Frame: " + frameIndex + " DataIndex: " + i, NotificationPanel.Status.WARNING);
+                    return;
+                }
+
+                int rawValue;
+                if (dataInfo.bitLength() > 0) {
+                    rawValue = payloadStream.read(dataInfo.bitLength());
+                } else {
+                    TelemetryUpdate("DataInfo bitLength is 0, (something is probably cooked). node: " + nodeId + " Frame: " + frameIndex + " DataIndex: " + i, NotificationPanel.Status.WARNING);
+                    rawValue = 0;
+                }
+                // The value is sent using offset-binary encoding (original_value - min). To decode, we just add min back.
+                // We must promote the rawValue to a long using a mask to correctly handle the full 32-bit unsigned range,
+                // as Java's `int` is signed. This ensures the addition is correct even when the unsigned value from C
+                // would be interpreted as a negative number in Java. The final result is cast back to int, which is safe
+                // because the original value was a signed 32-bit int.
+                parsedValues[i] = (int) ((rawValue & 0xFFFFFFFFL) + dataInfo.min());
+            }
+            processAndPlotData(nodeId, frameIndex, parsedValues);
+        } catch (NoSuchElementException e) {
+            TelemetryUpdate("CAN data lookup failed for node " + nodeId + ". Frame may be unknown or malformed. error msg: " + e.getMessage(), NotificationPanel.Status.WARNING);
+        } catch (EOFException e) {
+            TelemetryUpdate("CAN data stream ended prematurely for node " + nodeId + ".", NotificationPanel.Status.WARNING);
+        } catch (IllegalArgumentException e) {
+            TelemetryUpdate("Invalid argument while parsing CAN data for node " + nodeId + ": " + e.getMessage(), NotificationPanel.Status.WARNING);
         }
     }
 
-    private void processCANDataFrame(TelemetryParser.CANDataFramePacket p) {
-        BitStream payloadStream = new BitStream(ByteBuffer.wrap(p.payload).order(ByteOrder.LITTLE_ENDIAN));
-        int frameIndex = (int) payloadStream.read(Constants.maxFrameCntBits);
-        int nodeId = p.nodeID();
-        
-        processAndPlotCANData(nodeId, frameIndex, payloadStream);
-    }
-
-    private void processPlottablePacket(TelemetryParser.ParsedPacket packet) {
+    private void processPlottablePacket(TelemetryParserLUT.ParsedPacket packet) {
         int nodeId = Constants.specialIDs.vitalsID;
         int frameIndex = packet.packetIndex;
-
-        var frameOpt = lookup.getFrame(nodeId, frameIndex);
-        if (frameOpt.isEmpty()) {
-            TelemetryUpdate("processPlottablePacket from unknown vitalsID/frameIndex: " + nodeId + "/" + frameIndex,
-                    NotificationPanel.Status.WARNING);
-            return;
-        }
-        TelemetryRecords.CANFrame frame = frameOpt.get();
-
-        if (frame.dataTimeout() > 0) {
-            onFrameReceivedResetTimer(nodeId, frameIndex, frame.dataTimeout());
-        }
-
         int[] values = packet.getValues();
-        if (values.length != frame.numData()) {
-            TelemetryUpdate("Mismatched field count for " + packet.packetName, NotificationPanel.Status.CRITICAL);
-            return;
-        }
-
-        for (int i = 0; i < frame.numData(); i++) {
-            TelemetryLookup.DataKey dataKey = new TelemetryLookup.DataKey(nodeId, frameIndex, i);
-            var dataInfoOpt = lookup.getDataInfo(dataKey);
-            if (dataInfoOpt.isEmpty()) {
-                TelemetryUpdate("Missing DataInfo for plottable packet. Node: " + nodeId + " Frame: " + frameIndex + " DataIndex: " + i,
-                        NotificationPanel.Status.WARNING);
-                continue;
-            }
-            TelemetryRecords.DataInfo dataInfo = dataInfoOpt.get();
-            
-            int dataValue = values[i];
-
-            checkDataValue(dataKey, dataInfo, dataValue);
-            if (!mainPanel.addDataPoint(nodeId, frameIndex, i, dataValue)) {
-                TelemetryUpdate("Failed to add data point to main panel. Node: " + nodeId + " Frame: " + frameIndex
-                        + " DataIndex: " + i + " Value: " + dataValue, NotificationPanel.Status.WARNING);
-            }
-        }
+        processAndPlotData(nodeId, frameIndex, values);
     }
 
-    private void processAndPlotCANData(int nodeId, int frameIndex, BitStream dataStream) {
-        var frameOpt = lookup.getFrame(nodeId, frameIndex);
-        if (frameOpt.isEmpty()) {
-            TelemetryUpdate("Transmit Data from unknown nodeId/frameIndex: " + nodeId + "/" + frameIndex,
-                    NotificationPanel.Status.WARNING);
-            return;
-        }
-        TelemetryRecords.CANFrame frame = frameOpt.get();
 
-        if (frame.dataTimeout() > 0) {
-            onFrameReceivedResetTimer(nodeId, frameIndex, frame.dataTimeout());
-        }
+    /**
+     * The shared logic for processing a fully parsed frame of data values.
+     * This method handles timer resets, data validation, plotting, and invoking CAN frame callbacks.
+     * @param nodeId The node ID for the frame.
+     * @param frameIndex The frame index for the frame.
+     * @param values The array of parsed integer data values for the frame.
+     */
+    private void processAndPlotData(int nodeId, int frameIndex, int[] values) {
+        try {
+            TelemetryRecords.CANFrame frame = lookup.getFrame(nodeId, frameIndex);
 
-        int[] parsedValues = new int[frame.numData()];
+            if (frame.dataTimeout() > 0) { onFrameReceivedResetTimer(nodeId, frameIndex, frame.dataTimeout()); }
 
-        for (int i = 0; i < frame.numData(); i++) {
-            TelemetryLookup.DataKey dataKey = new TelemetryLookup.DataKey(nodeId, frameIndex, i);
-            var dataInfoOpt = lookup.getDataInfo(dataKey);
-            if (dataInfoOpt.isEmpty()) {
-                TelemetryUpdate("Missing DataInfo for a data indicated to exist by frame's numData value."
-                        + " Node: " + nodeId + " Frame: " + frameIndex + " DataIndex: " + i,
-                        NotificationPanel.Status.WARNING);
-                return;
-            }
-            TelemetryRecords.DataInfo dataInfo = dataInfoOpt.get();
-
-            if (dataInfo.bitLength() < 0 || dataInfo.bitLength() > 32) {
-                TelemetryUpdate("DataInfo has invalid bitLength. Node: " + nodeId + " Frame: " + frameIndex
-                        + " DataIndex: " + i + " bitLength: " + dataInfo.bitLength(),
-                        NotificationPanel.Status.WARNING);
+            if (values.length != frame.numData()) {
+                TelemetryUpdate("Mismatched data count for frame. Node: " + nodeId + " Frame: " + frameIndex
+                        + ". Expected " + frame.numData() + ", got " + values.length, NotificationPanel.Status.CRITICAL);
                 return;
             }
 
-            if (!dataStream.hasRemaining()) {
-                 TelemetryUpdate("Data stream ended prematurely. Node: " + nodeId + " Frame: " + frameIndex,
-                        NotificationPanel.Status.WARNING);
-                return;
+            for (int i = 0; i < frame.numData(); i++) {
+                TelemetryLookup.DataKey dataKey = new TelemetryLookup.DataKey(nodeId, frameIndex, i);
+                TelemetryRecords.DataInfo dataInfo = lookup.getDataInfo(dataKey);
+
+                int dataValue = values[i];
+
+                checkDataValue(dataKey, dataInfo, dataValue);
+                if (!mainPanel.addDataPoint(nodeId, frameIndex, i, dataValue)) {
+                    TelemetryUpdate("Failed to add data point to main panel. Node: " + nodeId + " Frame: " + frameIndex
+                            + " DataIndex: " + i + " Value: " + dataValue, NotificationPanel.Status.WARNING);
+                }
             }
 
-            long rawValue = dataStream.read(dataInfo.bitLength());
-            if (dataInfo.min() < 0 && (dataInfo.bitLength() < 64) && (rawValue & (1L << (dataInfo.bitLength() - 1))) != 0) {
-                rawValue |= -1L << dataInfo.bitLength();
+            if (frame.enableTelemCallback()) {
+                CANFrameParser.ParsedCANFrame canPacket = CANFrameParser.createPacket(nodeId, frameIndex, values);
+                if (canPacket != null) {
+                    canPacket.accept(this.canFrameCallbacks);
+                }
             }
-            int dataValue = (int) rawValue + dataInfo.min();
-
-            parsedValues[i] = dataValue;
-
-            checkDataValue(dataKey, dataInfo, dataValue);
-            if (!mainPanel.addDataPoint(nodeId, frameIndex, i, dataValue)) {
-                TelemetryUpdate("Failed to add data point to main panel. Node: " + nodeId + " Frame: " + frameIndex
-                        + " DataIndex: " + i + " Value: " + dataValue, NotificationPanel.Status.WARNING);
-            }
-        }
-
-        if (frame.enableTelemCallback() == true) {
-            CANFrameParser.ParsedCANFrame packet = CANFrameParser.createPacket(nodeId, frameIndex, parsedValues);
-            if (packet != null) {
-                packet.accept(this.canFrameCallbacks);
-            }
+        } catch (NoSuchElementException e) {
+            String nodeName = lookup.getNodeNameOpt(nodeId).orElse("ID " + nodeId);
+            String msg = String.format("Failed to process data for %s (frameIndex=%d): Lookup failed. %s",
+                                       nodeName, frameIndex, e.getMessage());
+            TelemetryUpdate(msg, NotificationPanel.Status.WARNING);
         }
     }
 
@@ -277,31 +256,33 @@ public class CanParser {
 
     private void onFrameTimeout(TelemetryLookup.FrameKey key) {
         // Get the expected timeout from the lookup table to make the message more informative.
-        int expectedTimeout = lookup.getFrame(key.nodeId(), key.frameIndex())
-                                .map(TelemetryRecords.CANFrame::dataTimeout)
-                                .orElse(0);
+        try {
+            int expectedTimeout = lookup.getFrame(key.nodeId(), key.frameIndex()).dataTimeout();
+            String nodeName = lookup.getNodeName(key.nodeId());
+            String msg = String.format("Missing frame: %s (frameIndex=%d). Expected every ~%dms.",
+                            nodeName,
+                            key.frameIndex(),
+                            expectedTimeout);
 
-        String nodeName = lookup.getNodeName(key.nodeId()).orElse("ID " + key.nodeId());
-
-        // Construct a message similar to the old one. The "overdue by" amount was an
-        // artifact of the old polling mechanism and isn't directly applicable here,
-        // as the timer fires precisely when the timeout occurs.
-        String msg = String.format("Missing frame: %s (frameIndex=%d). Expected every ~%dms.",
-                                   nodeName,
-                                   key.frameIndex(),
-                                   expectedTimeout);
-
-        TelemetryUpdate(msg, NotificationPanel.Status.WARNING);
+            TelemetryUpdate(msg, NotificationPanel.Status.WARNING);
+        } catch (NoSuchElementException e) {
+            TelemetryUpdate("Frame timeout for unknown frame. exception: " + e.getMessage(), NotificationPanel.Status.WARNING);            
+        }
     }
     
     private void checkDataValue(TelemetryLookup.DataKey key, TelemetryRecords.DataInfo info, int value) {
-        // TODO: Implement user's checkDataValue logic if it exists.
-        // This is a placeholder.
+        String title = lookup.titleFor(key);
         if (value < info.minCritical() || value > info.maxCritical()) {
-            // ... post critical warning
+            String msg = String.format("CRITICAL: %s is %d (out of range [%d, %d])",
+                                       title, value, info.minCritical(), info.maxCritical());
+            TelemetryUpdate(msg, NotificationPanel.Status.CRITICAL);
         } else if (value < info.minWarning() || value > info.maxWarning()) {
-            // ... post warning
+            String msg = String.format("WARNING: %s is %d (out of range [%d, %d])",
+                                       title, value, info.minWarning(), info.maxWarning());
+            TelemetryUpdate(msg, NotificationPanel.Status.WARNING);
         }
+        // Also update the sensor status indicator in the left panel
+        SensorSelectionPanel.setStatusIndicator(lookup, key, info, value);
     }
 
     // ================= Helpers ==============//

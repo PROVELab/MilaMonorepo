@@ -14,7 +14,7 @@ vitalsErr (8 bits): 191 (0b10111111)
 --- Telem to Vitals ---
 Packet Name -> Assigned Mask
 
-set_telem_update_frequency_divider (4 bits): 0 (0b0000)
+set_telem_update_frequency (4 bits): 0 (0b0000)
 prechargeCommand (6 bits): 4 (0b000100)
 genericVitalsCommand (7 bits): 10 (0b0001010)
 forward_packet (8 bits): 22 (0b00010110)

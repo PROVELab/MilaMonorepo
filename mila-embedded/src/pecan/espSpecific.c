@@ -196,7 +196,7 @@ void sendPacket(CANPacket* p) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms.");
         //driver should hopefully restart.. no reboot for now (likely not ideal in final code)
-        // esp_restart();
+        esp_restart();
         // TODO: Perhaps add a means to uninstall and reinstall the TWAI DRIVER here.
     }
     // in current implementation, will always return ESP_OK.

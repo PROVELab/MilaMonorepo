@@ -32,7 +32,10 @@ static driverRecvPacket packet;
 static RXProtocolPacket protocolPacket;      //using protocolPacket to get alignment of header.
 
 void loraRecvTask(void* pvParameters){
-        ESP_LOGI(TAG, "Lora Read Task started");
+    
+    ESP_LOGI(TAG, "Lora Read Task started");
+    xTaskCreateStatic(loraMonitorTask, "Lora_Monitor_Task", LORA_TASK_SIZES, NULL, 1, LORA_Monitor_Stack, &LORA_Monitor_Buffer);
+
     for(;;){
         if(protocolRecv(&packet)) {
             //print some info about the packet
@@ -47,6 +50,5 @@ void loraRecvTask(void* pvParameters){
             vTaskDelay(pdMS_TO_TICKS(2000)); //wait a bit before trying again to avoid spamming logs, esp if driver is trying to reboot
         }
     }
-    xTaskCreateStatic(loraMonitorTask, "Lora_Monitor_Task", LORA_TASK_SIZES, NULL, 1, LORA_Monitor_Stack, &LORA_Monitor_Buffer);
 
 }

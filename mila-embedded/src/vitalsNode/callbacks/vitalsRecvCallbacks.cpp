@@ -20,9 +20,9 @@ void ongenericVitalsCommand(genericVitalsCommand_args_t args) {
     // TODO: Implement logic for genericVitalsCommand
 }
 
-void onset_telem_update_frequency_divider(set_telem_update_frequency_divider_args_t args) {
-    ESP_LOGI(TAG, "Callback onset_telem_update_frequency_divider called. divider: %" PRId32, args.divider);
-    // TODO: Implement logic for set_telem_update_frequency_divider
+void onset_telem_update_frequency(set_telem_update_frequency_args_t args) {
+    ESP_LOGI(TAG, "Callback onset_telem_update_frequency called. divider: %" PRId32, args.divider);
+    // TODO: Implement logic for set_telem_update_frequency
 }
 
 void onprechargeCommand(prechargeCommand_args_t args) {

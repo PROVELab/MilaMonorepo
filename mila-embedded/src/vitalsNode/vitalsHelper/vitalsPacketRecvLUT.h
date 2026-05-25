@@ -25,12 +25,12 @@ typedef struct __attribute__((packed)) {
 
 void ongenericVitalsCommand(genericVitalsCommand_args_t args);
 
-// ----- set_telem_update_frequency_divider -----
+// ----- set_telem_update_frequency -----
 typedef struct __attribute__((packed)) {
     int32_t divider;
-} set_telem_update_frequency_divider_args_t;
+} set_telem_update_frequency_args_t;
 
-void onset_telem_update_frequency_divider(set_telem_update_frequency_divider_args_t args);
+void onset_telem_update_frequency(set_telem_update_frequency_args_t args);
 
 // ----- prechargeCommand -----
 typedef union {

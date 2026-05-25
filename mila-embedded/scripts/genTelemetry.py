@@ -11,14 +11,13 @@ def get_telem_path():
     java_dir = os.path.normpath(java_dir)
     return java_dir
 
-def createTelemetryRecords(dataPoint_fields, CANFrame_fields):
+def createTelemetryRecords(dataPoint_fields, CANFrame_fields, records_path):
     """
     Generates TelemetryRecords.java with record definitions based on
     fields marked for 'telemetry' in parseFile.py.
     """
-    java_dir = get_telem_path()
-    records_path = os.path.join(java_dir, 'java', 'TelemetryRecords.java')
     os.makedirs(os.path.dirname(records_path), exist_ok=True)
+    records_path = os.path.join(records_path, 'TelemetryRecords.java') # Ensure records_path is correct
 
     def to_java_type(c_type):
         if 'int' in c_type:
@@ -37,7 +36,8 @@ def createTelemetryRecords(dataPoint_fields, CANFrame_fields):
         # --- Node Record ---
         f.write("    public record Node(\n")
         f.write("        int nodeID,\n")
-        f.write("        String nodeName\n")
+        f.write("        String nodeName,\n")
+        f.write("        int numFrames\n")
         f.write("    ) {}\n\n")
 
         # --- CANFrame Record ---
@@ -80,30 +80,35 @@ def createTelemetryParser(vitals_to_telem, globalEnums):
         f.write("import java.nio.ByteBuffer;\n")
         f.write("import java.nio.ByteOrder;\n")
         f.write("import java.util.ArrayList;\n")
+        f.write("import java.util.Optional;\n")
         f.write("import java.util.Comparator;\n")
         f.write("import java.util.List;\n")
 
-        f.write("\npublic final class TelemetryParser {\n\n")
-        f.write("    private TelemetryParser() {}\n\n")
+        f.write("public final class TelemetryParserLUT {\n\n")
+        f.write("    private TelemetryParserLUT() {}\n\n")
 
-        # --- Generate Visitor for dispatch ---
         f.write("    public interface PacketVisitor {\n")
         for msg in vitals_to_telem:
-            f.write(f"        void visit({msg['name']}Packet p);\n")
+            is_custom = msg.get("byteCount") is CUSTOM
+            return_type = "int" if is_custom else "void"
+            extra_params = ", BitStream stream" if is_custom else ""
+            f.write(f"        {return_type} visit({msg['name']}Packet p{extra_params});\n")
         f.write("        void visit(ParsedPacket p); // Fallback for unhandled packets\n")
         f.write("    }\n\n")
-
-        # --- Generate Packet Data Classes ---
-        f.write("    public static abstract class ParsedPacket {\n")
-        f.write("        public final String packetName;\n")
-        f.write("        public int packetIndex;\n")
-        f.write("        protected ParsedPacket(String name) { this.packetName = name; }\n")
-        f.write("        public abstract void accept(PacketVisitor visitor);\n")
-        f.write("        public abstract int[] getValues();\n")
-        f.write("        @Override\n")
-        f.write("        public String toString() { return packetName; }\n")
+        f.write("    public static abstract class ParsedPacket {\n") # Moved to TelemetryParserLUT
+        f.write("        public final String packetName;\n") # Moved to TelemetryParserLUT
+        f.write("        public int packetIndex;\n") # Moved to TelemetryParserLUT
+        f.write("        protected ParsedPacket(String name) { this.packetName = name; }\n") # Moved to TelemetryParserLUT
+        f.write("        public abstract int accept(PacketVisitor visitor, BitStream stream);\n") # Moved to TelemetryParserLUT
+        f.write("        public abstract int[] getValues();\n") # Moved to TelemetryParserLUT
+        f.write("        @Override\n") # Moved to TelemetryParserLUT
+        f.write("        public String toString() { return packetName; }\n") # Moved to TelemetryParserLUT
+        f.write("    }\n\n") # Moved to TelemetryParserLUT
+        f.write("    public static final class ParseResult {\n")
+        f.write("        public final ParsedPacket packet;\n")
+        f.write("        public final int bytesConsumed;\n")
+        f.write("        public ParseResult(ParsedPacket p, int b) { packet = p; bytesConsumed = b; }\n")
         f.write("    }\n\n")
-
         for msg in vitals_to_telem:
             name = msg["name"]
             fields = msg.get("msgFields", [])
@@ -118,15 +123,15 @@ def createTelemetryParser(vitals_to_telem, globalEnums):
                 f.write(f"        public int {field.name}() {{ return values[{i}]; }}\n")
             f.write("        @Override\n")
             f.write("        public int[] getValues() { return values; }\n")
-            f.write("        @Override\n")
-            f.write("        public void accept(PacketVisitor visitor) { visitor.visit(this); }\n")
+            if msg.get("byteCount") is CUSTOM:
+                f.write("        @Override\n        public int accept(PacketVisitor visitor, BitStream stream) { return visitor.visit(this, stream); }\n")
+            else:
+                f.write("        @Override\n        public int accept(PacketVisitor visitor, BitStream stream) { visitor.visit(this); return 0; }\n")
             f.write("    }\n\n")
-
-        # --- Generate LUT and Parser Logic ---
-        f.write("    private static class LutEntry {\n")
-        f.write("        public final int mask, bits, packetIndex;\n        public final String name;\n        public final boolean isCustom;\n")
+        f.write("    static class LutEntry {\n")
+        f.write("        public final int mask, bits, packetIndex;\n        public final String name;\n        public final boolean isCustom;\n        public final PacketCreator creator;\n")
         f.write("        public LutEntry(int m, int b, String n, boolean c, int pIdx) { mask=m; bits=b; name=n; isCustom=c; packetIndex=pIdx; }\n    }\n\n")
-        f.write("    private static final List<LutEntry> LUT = new ArrayList<>();\n\n")
+        f.write("    static final List<LutEntry> LUT = new ArrayList<>();\n\n")
         f.write("    static {\n")
         for msg in vitals_to_telem:
             name = msg["name"]
@@ -134,97 +139,153 @@ def createTelemetryParser(vitals_to_telem, globalEnums):
             mask_bits = msg["mask_bits"]
             packet_idx = msg['packet_idx']
             is_custom = "true" if msg.get("byteCount") is CUSTOM else "false"
-            
-            f.write(f"        LUT.add(new LutEntry(0x{mask:X}, {mask_bits}, \"{name}\", {is_custom}, {packet_idx}));\n")
+            f.write(f"        LUT.add(new LutEntry(0x{mask:X}, {mask_bits}, \"{name}\", {is_custom}, {packet_idx}, {name}Packet::new));\n")
         f.write("        LUT.sort(Comparator.comparingInt(e -> e.bits)); // Sort ascending by mask length for prefix matching\n")
         f.write("    }\n\n")
-
-        f.write("""
-    public static List<ParsedPacket> parse(byte[] loraPayload, TelemetryLookup lookup) {
-        List<ParsedPacket> packets = new ArrayList<>();
-        BitStream stream = new BitStream(ByteBuffer.wrap(loraPayload).order(ByteOrder.LITTLE_ENDIAN));
-        while (stream.hasRemaining()) {
-            ParsedPacket packet = parseNext(stream, lookup);
-            if (packet != null) {
-                packets.add(packet);
-            } else {
-                if (stream.hasRemaining()) {
-                    System.err.println("Parser failed to find matching packet, stopping.");
-                }
-                break;
-            }
-        }
-        return packets;
-    }
-
-    private static ParsedPacket parseNext(BitStream stream, TelemetryLookup lookup) {
-        LutEntry matchedEntry = null;
-        for (LutEntry entry : LUT) {
-            // All packets are required to have a mask of at least 1 bit.
-            long peeked = stream.peek(entry.bits);
-            if (peeked != -1 && peeked == entry.mask) {
-                matchedEntry = entry;
-                break;
-            }
-        }
-
-        if (matchedEntry == null) {
-            return null;
-        }
-
-        if (matchedEntry.bits > 0) {
-            stream.read(matchedEntry.bits);
-        }
-
-        switch (matchedEntry.name) {""")
-        for msg in vitals_to_telem:
-            name = msg["name"]
-            class_name = f"{name}Packet"
-            fields = msg.get("msgFields", [])
-            num_fields = len(fields)
-            f.write(f"\n            case \"{name}\": {{\n")
-            f.write(f"                {class_name} p = new {class_name}();\n")
-            f.write(f"                p.packetIndex = matchedEntry.packetIndex;\n")
-
-            if name == 'CANDataFrame':
-                f.write(f"                p.values[0] = (int)stream.read({fields[0].bits}); // nodeID\n")
-                f.write("                stream.alignToByte();\n")
-                f.write("                p.payload = stream.readBytes(stream.remainingBytes());\n")
-            else:
-                f.write(f"                for (int i = 0; i < {num_fields}; i++) {{\n")
-                f.write(f"                    java.util.Optional<TelemetryRecords.DataInfo> dataInfoOpt = lookup.getDataInfo(Constants.specialIDs.vitalsID, p.packetIndex, i);\n")
-                f.write(f"                    if (dataInfoOpt.isEmpty()) {{ System.err.println(\"Parser: Missing data info for {name} field \" + i); continue; }}\n")
-                f.write(f"                    TelemetryRecords.DataInfo dataInfo = dataInfoOpt.get();\n")
-                f.write(f"                    if (dataInfo.bitLength() == 0) continue;\n")
-                f.write(f"                    long raw_val = stream.read(dataInfo.bitLength());\n")
-                f.write(f"                    if (dataInfo.min() < 0 && (dataInfo.bitLength() < 64) && (raw_val & (1L << (dataInfo.bitLength() - 1))) != 0) {{ raw_val |= -1L << dataInfo.bitLength(); }}\n")
-                f.write(f"                    p.values[i] = (int)raw_val + dataInfo.min();\n")
-                f.write(f"                }}\n")
-                if msg.get("byteCount") is CUSTOM:
-                    f.write("                stream.alignToByte();\n")
-                    if name == 'vitalsErr':
-                        f.write("                int numErrors = p.values[0];\n")
-                        f.write("                p.payload = stream.readBytes(numErrors * 2);\n")
-                    else:
-                        f.write("                p.payload = stream.readBytes(stream.remainingBytes());\n")
-
-            f.write(f"                return p;\n")
-            f.write(f"            }}")
-        f.write("""
-            default:
-                return null;
-        }
-    }\n""")
+        f.write("    @FunctionalInterface\n")
+        f.write("    interface PacketCreator { TelemetryParserLUT.ParsedPacket create(); }\n\n")
 
         f.write("}\n")
 
-# Created by Chat. dont bother reading, it makes the appropriate CSV for telem dashboard.
-def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, node_names=None, dataNames=None, vitals_to_telem_packets=None, global_defines=None):
+def createTelemetryParserLUT(vitals_to_telem, parser_path):
+    """
+    Generates a Java class responsible for parsing the LoRa telemetry stream.
+    This file contains all auto-generated packet definitions and lookup tables.
+    """
+    os.makedirs(os.path.dirname(parser_path), exist_ok=True)
+    parser_path = os.path.join(parser_path, 'TelemetryParserLUT.java') # Ensure parser_path is correct
+
+    with open(parser_path, "w") as f:
+        # f.write(f"package {java_package_name};\n\n")
+        f.write("import java.nio.ByteBuffer;\n")
+        f.write("import java.nio.ByteOrder;\n")
+        f.write("import java.util.ArrayList;\n")
+        f.write("import java.util.Optional;\n")
+        f.write("import java.util.Comparator;\n")
+        f.write("import java.util.List;\n")
+
+        f.write("public final class TelemetryParserLUT { // Auto-generated. Do not edit.\n\n")
+        f.write("    private TelemetryParserLUT() {} // Private constructor to prevent instantiation\n\n")
+        
+        f.write("    public interface PacketVisitor {\n")
+        for msg in vitals_to_telem:
+            is_custom = msg.get("byteCount") is CUSTOM
+            return_type = "int" if is_custom else "void"
+            extra_params = ", BitStream stream" if is_custom else ""
+            f.write(f"        {return_type} visit({msg['name']}Packet p{extra_params});\n")
+        f.write("        void visit(ParsedPacket p); // Fallback for unhandled packets\n")
+        f.write("    }\n\n")
+        f.write("    public static abstract class ParsedPacket {\n")
+        f.write("        public final String packetName;\n")
+        f.write("        public int packetIndex;\n")
+        f.write("        protected ParsedPacket(String name) { this.packetName = name; }\n")
+        f.write("        public abstract int accept(PacketVisitor visitor, BitStream stream);\n")
+        f.write("        public abstract int[] getValues();\n")
+        f.write("        @Override\n")
+        f.write("        public String toString() { return packetName; }\n")
+        f.write("    }\n\n")
+        f.write("    public static final class ParseResult {\n")
+        f.write("        public final ParsedPacket packet;\n")
+        f.write("        public final int bytesConsumed;\n")
+        f.write("        public ParseResult(ParsedPacket p, int b) { packet = p; bytesConsumed = b; }\n")
+        f.write("    }\n\n")
+        for msg in vitals_to_telem:
+            name = msg["name"]
+            fields = msg.get("msgFields", [])
+            num_fields = len(fields)
+            class_name = f"{name}Packet"
+            f.write(f"    public static class {class_name} extends ParsedPacket {{\n")
+            f.write(f"        public final int[] values = new int[{num_fields}];\n")
+            if msg.get("byteCount") is CUSTOM:
+                f.write("        public byte[] payload;\n")
+            f.write(f"        public {class_name}() {{ super(\"{name}\"); }}\n")
+            for i, field in enumerate(fields):
+                f.write(f"        public int {field.name}() {{ return values[{i}]; }}\n")
+            f.write("        @Override\n")
+            f.write("        public int[] getValues() { return values; }\n")
+            if msg.get("byteCount") is CUSTOM:
+                f.write("        @Override\n        public int accept(PacketVisitor visitor, BitStream stream) { return visitor.visit(this, stream); }\n")
+            else:
+                f.write("        @Override\n        public int accept(PacketVisitor visitor, BitStream stream) { visitor.visit(this); return 0; }\n")
+            f.write("    }\n\n")
+        f.write("    static class LutEntry {\n")
+        f.write("        public final int mask, bits, packetIndex;\n        public final String name;\n        public final boolean isCustom;\n        public final PacketCreator creator;\n")
+        f.write("        public LutEntry(int m, int b, String n, boolean c, int pIdx, PacketCreator creator) { mask=m; bits=b; name=n; isCustom=c; packetIndex=pIdx; this.creator = creator; }\n    }\n\n")
+        f.write("    static final List<LutEntry> LUT = new ArrayList<>();\n\n")
+        f.write("    static {\n")
+        for msg in vitals_to_telem:
+            name = msg["name"]
+            mask = msg["mask"]
+            mask_bits = msg["mask_bits"]
+            packet_idx = msg['packet_idx']
+            is_custom = "true" if msg.get("byteCount") is CUSTOM else "false"
+            f.write(f"        LUT.add(new LutEntry(0x{mask:X}, {mask_bits}, \"{name}\", {is_custom}, {packet_idx}, {name}Packet::new));\n")
+        f.write("        LUT.sort(Comparator.comparingInt(e -> e.bits)); // Sort ascending by mask length for prefix matching\n")
+        f.write("    }\n\n")
+        f.write("    @FunctionalInterface\n")
+        f.write("    interface PacketCreator { TelemetryParserLUT.ParsedPacket create(); }\n\n")
+        f.write("}\n")
+
+def createCommandRecords(telem_to_vitals, globalEnums):
+    """
+    Generates CommandRecords.java with record definitions for all telemetry commands.
+    """
+    java_dir = get_telem_path()
+    records_path = os.path.join(java_dir, 'java', 'CommandRecords.java')
+    os.makedirs(os.path.dirname(records_path), exist_ok=True)
+
+    with open(records_path, "w") as f:
+        f.write("/** Auto-generated file. Do not edit. */\n\n")
+        f.write("import java.util.ArrayList;\n")
+        f.write("import java.util.HashMap;\n")
+        f.write("import java.util.List;\n")
+        f.write("import java.util.Map;\n\n")
+        f.write("public final class CommandRecords {\n")
+        f.write("    private CommandRecords() {}\n\n")
+
+        # --- Record Definitions ---
+        f.write("    public record EnumEntry(String name, int value) {}\n")
+        f.write("    public record CommandField(String name, int bits, int min, int max, String enumName) {}\n")
+        f.write("    public record Command(String name, int mask, int maskBits, boolean isCustom, List<CommandField> fields) {\n")
+        f.write("        @Override public String toString() { return name; }\n")
+        f.write("    }\n\n")
+
+        # --- Static Data Structures ---
+        f.write("    public static final Map<String, List<EnumEntry>> ENUMS = new HashMap<>();\n")
+        f.write("    public static final List<Command> COMMANDS = new ArrayList<>();\n\n")
+
+        # --- Static Initializer ---
+        f.write("    static {\n")
+        # Populate Enums
+        for enum in globalEnums:
+            f.write(f"        List<EnumEntry> {enum.enum_name}_entries = new ArrayList<>();\n")
+            for entry in enum.entries:
+                f.write(f"        {enum.enum_name}_entries.add(new EnumEntry(\"{entry.name}\", {entry.value_int}));\n")
+            f.write(f"        ENUMS.put(\"{enum.enum_name}\", {enum.enum_name}_entries);\n\n")
+
+        # Populate Commands
+        for cmd in telem_to_vitals:
+            f.write(f"        List<CommandField> {cmd['name']}_fields = new ArrayList<>();\n")
+            for field in cmd.get("msgFields", []):
+                final_enum_name = None
+                if isinstance(field.enum, str):
+                    final_enum_name = field.enum
+                elif field.enum is True:
+                    final_enum_name = field.name
+                enum_name_str = f"\"{final_enum_name}\"" if final_enum_name else "null"
+                f.write(f"        {cmd['name']}_fields.add(new CommandField(\"{field.name}\", {field.bits}, {field.min}, {field.max}, {enum_name_str}));\n")
+            is_custom_str = "true" if cmd.get("byteCount") is CUSTOM else "false"
+            f.write(f"        COMMANDS.add(new Command(\"{cmd['name']}\", {cmd['mask']}, {cmd['mask_bits']}, {is_custom_str}, {cmd['name']}_fields));\n\n")
+        f.write("    }\n") # End static initializer
+        f.write("}\n")
+
+def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, node_names=None, num_frames_per_node=None, dataNames=None, vitals_to_telem_packets=None, global_defines=None):
     """
     Builds a denormalized telemetry CSV:
       - 1 row per data point
       - Includes all fields tagged 'telemetry' from CANFrame and dataPoint
       - Adds 'data_name' from a FLAT dataNames list (consumed in traversal order)
+      - Includes numFrames for each node.
     """
     if dataNames is None:
         dataNames = []
@@ -245,6 +306,8 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, n
     header = ["nodeID", "frameIndex", "dataIndex"]
     if node_names is not None:
         header.append("nodeName")
+    if num_frames_per_node is not None:
+        header.append("numFrames")
     header.append("dataName")
     header += frame_fields
     header += [dp_field_map.get(f, f) for f in dp_fields]
@@ -275,6 +338,7 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, n
                         "frameIndex": f_idx,
                         "dataIndex": d_idx,
                         **({"nodeName": node_names[n_idx]} if node_names is not None else {}),
+                        **({"numFrames": num_frames_per_node[n_idx]} if num_frames_per_node is not None else {}),
                         "dataName": data_name,
                         **frame_vals,
                         **dp_vals,
@@ -300,6 +364,7 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, n
                                 "frameIndex": packet_idx,
                                 "dataIndex": field_idx,
                                 "nodeName": "vitals",
+                                "numFrames": len(vitals_to_telem_packets),
                                 "dataName": f"{packet_name}_{field.name}",
                             }
 

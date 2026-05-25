@@ -103,9 +103,7 @@ def _generate_can_callback_skeleton(output_path, packet_name, frame_info, data_n
         f.write("    }\n\n")
         f.write("}\n")
 
-def create_can_frame_callbacks(vitals_nodes, node_names, node_ids, data_names):
-    java_dir = get_telem_path()
-    
+def create_can_frame_callbacks(vitals_nodes, node_names, node_ids, data_names, generation_dir):    
     callback_frames = []
     global_data_idx = 0
     for node_idx, node in enumerate(vitals_nodes):
@@ -124,12 +122,12 @@ def create_can_frame_callbacks(vitals_nodes, node_names, node_ids, data_names):
 
     if not callback_frames: return
 
-    _generate_can_parser(os.path.join(java_dir, 'java', 'CANFrameParser.java'), callback_frames, data_names)
-    _generate_can_visitor_dispatcher(os.path.join(java_dir, 'java', 'GeneratedCANFrameVisitor.java'), callback_frames)
+    _generate_can_parser(os.path.join(generation_dir, 'CANFrameParser.java'), callback_frames, data_names)
+    _generate_can_visitor_dispatcher(os.path.join(generation_dir,'GeneratedCANFrameVisitor.java'), callback_frames)
     
     for frame_info in callback_frames:
         packet_name = f"{frame_info['node_name']}_Frame{frame_info['frame_idx']}"
-        skeleton_path = os.path.join(java_dir, 'java', 'callbacks', 'can', f"On{packet_name}Packet.java")
+        skeleton_path = os.path.join(generation_dir, 'callbacks', 'can', f"On{packet_name}Packet.java")
         if not os.path.exists(skeleton_path):
             print(f"Generating initial CAN callback skeleton for {packet_name}...")
             _generate_can_callback_skeleton(skeleton_path, packet_name, frame_info, data_names)

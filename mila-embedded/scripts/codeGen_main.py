@@ -2,7 +2,7 @@ import os
 from parseFile import parse_config, _parse_enums_and_defines, globalDefines, globalEnums, dataPoint_fields, CANFrame_fields
 from genSensors import createSensors 
 from genVitals import createVitals
-from genTelemetry import createTelemetry, createTelemetryParser, createTelemetryRecords, get_telem_path
+from genTelemetry import createCommandRecords, createTelemetry, createTelemetryParserLUT, createTelemetryRecords, get_telem_path
 from genPacketSend import createPacketSendFiles, _assign_prefix_free_masks
 from genCallbacks import generate_cpp_callbacks, generate_java_visitor_dispatcher, generate_single_java_callback_skeleton
 from genCANCallbacks import create_can_frame_callbacks
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     _parse_enums_and_defines(enum_def_file_path) # This populates globalEnums and globalDefines
 
     print("Parsing node definitions from:", node_def_file_name)
-    (vitalsNodes, nodeNames, boardTypes, dataNames, numData, nodeIds,
+    (vitalsNodes, nodeNames, numFrames, boardTypes, dataNames, numData, nodeIds,
      startingNodeID, missingIDs, nodeCount, frameCount, maxFrameCnt, maxDataCnt) = parse_config(node_def_file_path)
     print("Done parsing.")
 
@@ -98,25 +98,23 @@ if __name__ == "__main__":
     
     createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, script_dir, generated_code_dir, telem_to_vitals, globalEnums)
     createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, globalDefines, vitals_helper_dir)
-    createTelemetry(vitalsNodes, "telemetryDashboard.csv", generated_code_dir, nodeIds, nodeNames, dataNames, vitals_to_telem, globalDefines)
+    createTelemetry(vitalsNodes, "telemetryDashboard.csv", generated_code_dir, nodeIds, nodeNames, numFrames, dataNames, vitals_to_telem, globalDefines)
     
-    createTelemetryParser(vitals_to_telem, globalEnums)
-    createTelemetryRecords(dataPoint_fields, CANFrame_fields)
+    Presentation_path = os.path.join(get_telem_path(), 'java', 'presentation')
+    Lookup_path = os.path.join(get_telem_path(), 'java', 'lookup')
+    Application_path = os.path.join(get_telem_path(), 'java', 'application')
+    createTelemetryParserLUT(vitals_to_telem, Presentation_path)
+    createTelemetryRecords(dataPoint_fields, CANFrame_fields, Lookup_path)
     
     createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir, nodeNames, nodeIds, vitals_to_telem, telem_to_vitals, globalEnums)
 
     # --- Generate Callback Skeletons (interactively) ---
     print("\n--- Generating Callback Skeletons ---")
-    
-    # Java Callbacks
-    java_dir = get_telem_path()
-
     # 1. Generate the fully-generated dispatcher. This file should not be user-edited.
-    java_dispatcher_path = os.path.join(java_dir, 'java', 'GeneratedPacketVisitor.java')
-    generate_java_visitor_dispatcher(java_dispatcher_path, vitals_to_telem)
+    generate_java_visitor_dispatcher(Presentation_path, vitals_to_telem)
 
     # 2. Generate individual, user-editable skeletons for each packet, checking for existence.
-    java_callbacks_dir = os.path.join(java_dir, 'java', 'callbacks')
+    java_callbacks_dir = os.path.join(Application_path, 'callbacks')
     os.makedirs(java_callbacks_dir, exist_ok=True)
     for packet in vitals_to_telem:
         skeleton_path = os.path.join(java_callbacks_dir, f"On{packet['name']}Packet.java")
@@ -124,6 +122,8 @@ if __name__ == "__main__":
             # This file is a user-editable skeleton, so we only generate it if it doesn't exist.
             generate_single_java_callback_skeleton(skeleton_path, packet)
         # If it already exists, do nothing to preserve user changes.
+
+    createCommandRecords(telem_to_vitals, globalEnums)
 
     # C++ Callbacks
     cpp_callbacks_path = os.path.join(vitals_callbacks_dir, "vitalsRecvCallbacks.cpp")

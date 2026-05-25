@@ -7,11 +7,11 @@
 
 // ----- genericVitalsCommand -----
 const simpleDataPoint genericVitalsCommand_fields[1] = {
-    { .bits=1, .min=0, .max=0 },
+    { .bits=1, .min=0, .max=1 },
 };
 
-// ----- set_telem_update_frequency_divider -----
-const simpleDataPoint set_telem_update_frequency_divider_fields[1] = {
+// ----- set_telem_update_frequency -----
+const simpleDataPoint set_telem_update_frequency_fields[1] = {
     { .bits=4, .min=0, .max=15 },
 };
 
@@ -46,17 +46,17 @@ static size_t ongenericVitalsCommand_wrapper(const uint8_t* raw_packet, size_t p
     return 0; // FIXED packets don't consume payload
 }
 
-// Wrapper for set_telem_update_frequency_divider
-static size_t onset_telem_update_frequency_divider_wrapper(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex) {
+// Wrapper for set_telem_update_frequency
+static size_t onset_telem_update_frequency_wrapper(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex) {
     union {
-        set_telem_update_frequency_divider_args_t s;
+        set_telem_update_frequency_args_t s;
         int32_t data_arr[1];
     } u __attribute__((aligned(4)));
 
     for (int i = 0; i < 1; ++i) {
-        pecan_unpack(&u.data_arr[i], raw_packet, &set_telem_update_frequency_divider_fields[i], bitIndex);
+        pecan_unpack(&u.data_arr[i], raw_packet, &set_telem_update_frequency_fields[i], bitIndex);
     }
-    onset_telem_update_frequency_divider(u.s);
+    onset_telem_update_frequency(u.s);
     return 0; // FIXED packets don't consume payload
 }
 
@@ -117,13 +117,13 @@ static size_t onforward_packet_wrapper(const uint8_t* raw_packet, size_t packet_
 
 const uint8_t MAX_RECV_MASK_BITS = 8;
 const RecvPacketLUTEntry recvPacketLUT[] = {
-    { // set_telem_update_frequency_divider
-        .fields = set_telem_update_frequency_divider_fields,
+    { // set_telem_update_frequency
+        .fields = set_telem_update_frequency_fields,
         .num_fields = 1,
         .mask_val = 0,
         .mask_bits = 4,
         .packet_type = RECV_PACKET_TYPE_FIXED,
-        .callback_wrapper = onset_telem_update_frequency_divider_wrapper,
+        .callback_wrapper = onset_telem_update_frequency_wrapper,
     },
     { // prechargeCommand
         .fields = prechargeCommand_fields,

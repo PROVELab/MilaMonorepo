@@ -285,6 +285,7 @@ def parse_config(file_path):
     # Parallel arrays for each node.
     vitalsNodes = []  # stores info for vitals and sensor nodes
     nodeNames = []    # stores the names of each node
+    numFramesArray = []    # stores the number of frames each node has
     boardTypes = []   # stores the board type of each node. atm "esp" or "arduino"
     dataNames = []    # stores the names of each piece of data (organized per node)
     numData = []      # stores number of datapoints each node has
@@ -313,6 +314,7 @@ def parse_config(file_path):
             # Initialize vitalsNode
             vitalsNodes.append(deepcopy(vitalsNode_fields)) #create new vitalsNode entry
             nodeNames.append(node_name)
+            numFramesArray.append(0)
             boardTypes.append(board_type)
             if startingNodeID is None:
                 startingNodeID = node_id
@@ -321,6 +323,7 @@ def parse_config(file_path):
             nodeCount += 1
         # Process a CANFrame
         elif line.startswith("CANFrame"):
+            numFramesArray[-1] += 1
             frameCount+=1
 
             nodeFrames = ACCESS(vitalsNodes[nodeCount - 1], "numFrames")
@@ -390,7 +393,7 @@ def parse_config(file_path):
     maxFrameCount = max(ACCESS(vitalsNodes[i], "numFrames")["value"] for i in range(nodeCount))
     maxDataCount = max(numData)
 
-    return vitalsNodes, nodeNames, boardTypes, dataNames, numData, \
+    return vitalsNodes, nodeNames, numFramesArray, boardTypes, dataNames, numData, \
             node_ids, startingNodeID, missingIDs, nodeCount, frameCount, \
             maxFrameCount, maxDataCount
 
