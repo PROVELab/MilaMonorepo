@@ -10,6 +10,7 @@ def get_telem_path():
 def _generate_can_parser(output_path, callback_frames, data_names):
     with open(output_path, "w") as f:
         f.write("/** Auto-generated file. Do not edit. */\n\n")
+        f.write("package presentation;\n\n")
         f.write("public final class CANFrameParser {\n\n")
         f.write("    private CANFrameParser() {}\n\n")
 
@@ -65,6 +66,11 @@ def _generate_can_parser(output_path, callback_frames, data_names):
 def _generate_can_visitor_dispatcher(output_path, callback_frames):
     with open(output_path, 'w') as f:
         f.write("/** Auto-generated file. Do not edit. */\n\n")
+        f.write("package presentation;\n\n")
+        f.write("import application.UI.MainPanel;\n")
+        f.write("import application.UI.NotificationPanel;\n")
+        f.write("import application.callbacks.can.*;\n")
+        f.write("import lookup.TelemetryLookup;\n\n")
         f.write("public class GeneratedCANFrameVisitor implements CANFrameParser.CANFrameVisitor {\n\n")
         f.write("    private final TelemetryLookup lookup;\n")
         f.write("    private final NotificationPanel notifications;\n")
@@ -94,26 +100,35 @@ def _generate_can_callback_skeleton(output_path, packet_name, frame_info, data_n
         f.write("/**\n * This is a user-editable file for handling CAN frames.\n")
         f.write(" * It is generated once and will not be overwritten.\n")
         f.write(" */\n")
+        f.write("package application.callbacks.can;\n\n")
+        f.write("import application.UI.MainPanel;\n")
+        f.write("import application.UI.NotificationPanel;\n")
+        f.write("import lookup.TelemetryLookup;\n")
+        f.write("import presentation.CANFrameParser;\n\n")
         f.write(f"public class {class_name} {{\n\n")
         f.write(f"    public void handle({packet_class_name} p, MainPanel mainPanel, NotificationPanel notifications, TelemetryLookup lookup) {{\n")
         f.write(f"        // This callback is fired when a CAN frame with 'enableTelemCallback=true' is received.\n")
         f.write(f"        // The data has already been parsed, plotted, and checked for timeouts.\n")
         first_data_name = data_names[frame_info['data_start_idx']] if frame_info['num_data'] > 0 else "yourData"
         f.write(f"        // You can access the data via p.dataName() methods, e.g., p.{first_data_name}()\n")
+        f.write("        \n")
         f.write("    }\n\n")
         f.write("}\n")
 
-def create_can_frame_callbacks(vitals_nodes, node_names, node_ids, data_names, generation_dir):    
+def create_can_frame_callbacks(nodes, callback_dir, visitor_dir):    
     callback_frames = []
     global_data_idx = 0
-    for node_idx, node in enumerate(vitals_nodes):
-        frames = ACCESS(node, "CANFrames")["value"]
+    all_data_names = [name for node in nodes for name in node.data_names]
+
+    for node_info in nodes:
+        node_vitals_data = node_info.vitals_data
+        frames = ACCESS(node_vitals_data, "CANFrames")["value"]
         for frame_idx_in_node, frame in enumerate(frames):
             num_data_in_frame = len(ACCESS(frame, "dataInfo")["value"])
             if ACCESS(frame, "enableTelemCallback")["value"]:
                 callback_frames.append({
-                    "node_id": node_ids[node_idx],
-                    "node_name": node_names[node_idx],
+                    "node_id": node_info.id,
+                    "node_name": node_info.name,
                     "frame_idx": frame_idx_in_node,
                     "num_data": num_data_in_frame,
                     "data_start_idx": global_data_idx,
@@ -122,12 +137,12 @@ def create_can_frame_callbacks(vitals_nodes, node_names, node_ids, data_names, g
 
     if not callback_frames: return
 
-    _generate_can_parser(os.path.join(generation_dir, 'CANFrameParser.java'), callback_frames, data_names)
-    _generate_can_visitor_dispatcher(os.path.join(generation_dir,'GeneratedCANFrameVisitor.java'), callback_frames)
+    _generate_can_parser(os.path.join(visitor_dir, 'CANFrameParser.java'), callback_frames, all_data_names)
+    _generate_can_visitor_dispatcher(os.path.join(visitor_dir,'GeneratedCANFrameVisitor.java'), callback_frames)
     
     for frame_info in callback_frames:
         packet_name = f"{frame_info['node_name']}_Frame{frame_info['frame_idx']}"
-        skeleton_path = os.path.join(generation_dir, 'callbacks', 'can', f"On{packet_name}Packet.java")
+        skeleton_path = os.path.join(callback_dir, 'can', f"On{packet_name}Packet.java")
         if not os.path.exists(skeleton_path):
             print(f"Generating initial CAN callback skeleton for {packet_name}...")
-            _generate_can_callback_skeleton(skeleton_path, packet_name, frame_info, data_names)
+            _generate_can_callback_skeleton(skeleton_path, packet_name, frame_info, all_data_names)

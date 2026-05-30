@@ -18,13 +18,9 @@ if(CMAKE_VITALS_ESP_BUILD)
     # set(SRC_FILES
     #     ${TX_LORA_SRC}
     # )
-    file(GLOB VITALS_SRC
+    file(GLOB_RECURSE VITALS_SRC
         "vitalsNode/*.c"
         "vitalsNode/*.cpp"
-        "vitalsNode/vitalsHelper/*.c"
-        "vitalsNode/vitalsHelper/*.cpp"
-        "vitalsNode/callbacks/*.c"
-        "vitalsNode/callbacks/*.cpp"
         "pecan/common.cpp"
         "pecan/espSpecific.c"
         "pecan/vitalsInit.c"
@@ -33,8 +29,8 @@ if(CMAKE_VITALS_ESP_BUILD)
         "telemTX/*.cpp"
         "LoraCommon/*.c"
         "LoraCommon/*.cpp"
-        "LoraCommon/Driver/*.c"
-        "LoraCommon/Driver/*.cpp"
+        # "LoraCommon/Driver/*.c"
+        # "LoraCommon/Driver/*.cpp"
     )
     set(SRC_FILES
         ${VITALS_SRC}

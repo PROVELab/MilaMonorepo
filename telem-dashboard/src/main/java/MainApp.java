@@ -1,6 +1,7 @@
 import javax.swing.*;
 import com.formdev.flatlaf.FlatDarkLaf;
 
+import application.MessageHandler;
 import application.UI.MainFrame;
 import application.UI.MainPanel;
 import application.UI.NotificationPanel;
@@ -37,7 +38,7 @@ public class MainApp {
                 System.out.println("parsing");
 
                 // Parse Can Messages, and update UI for them
-                CanParser parser = new CanParser(lookup, notifications, mainPanel, frame);
+                MessageHandler parser = new MessageHandler(lookup, notifications, mainPanel, frame);
 
                 frame.setVisible(true);
 

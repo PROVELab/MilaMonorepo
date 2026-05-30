@@ -7,7 +7,7 @@ static const char* TAG = "TX_Queue";
 // --- queueBase Implementation ---
 queueBase::queueBase(TX_Data_Packet* buffer, int size, SemaphoreHandle_t* signal) 
     : TXQueue(buffer), queueSize(size), wakeSignal(signal) {
-    queueMutex = xSemaphoreCreateMutex();
+    queueMutex = xSemaphoreCreateMutexStatic(&queueMutexBuffer);;
     assert(queueMutex != NULL);
 }
 

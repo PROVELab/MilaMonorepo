@@ -280,9 +280,7 @@ static void loraInterruptTask(void *pvParameters) {
     }
 }
 
-// assumes driverMutex is already grabbed. calls protocol recv if able to get successfull packet.
 // non-reentrant cuz static packet
-
 //returns true if packet looks good. false otherwise
 static bool handleRXInterrupt(uint32_t irq){
     // First, check the IRQ flags for errors. If the header or CRC is bad, there's no point proceeding.

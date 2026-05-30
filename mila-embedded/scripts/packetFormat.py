@@ -2,6 +2,7 @@ FIXED = object()    #Message length can be inferred based on msgField. message l
 CUSTOM = object()   #custom means telem and vitals have a hardcoded msg format 
     #In this case, the script doesnt really do anything, telem and vitals code will manually tell it how to increment byteCount
 PACK_MINIMUM_BITS = object() #script will set mask_bits to highest number it can without adding extra bytes to the msg
+PACK_MINIMUM_BITS_PLUS_8 = object() #add 8 to minimum bits, prevent overflowing masks for uncommon messages
 
 v2t_num_dynamicBits = 4  #Dynamic packets use 4 bits to specify length, so can be size up to 15.
 t2v_num_dynamicBits = 4  #Dynamic packets use 8 bits to specify length, so can be size up to 255.
@@ -12,6 +13,7 @@ from os import name
 
 from parseFile import globalEnums, globalDefines
 
+nodes_list = []
 nodeCount = maxFrameCnt = maxDataCnt = 0
 
 @dataclass
@@ -34,14 +36,28 @@ class msgField:
 
 #check if callable(value)
 
-def setPacketParameters(set_nodeCount, set_maxFrameCnt, set_maxDataCnt):
-    global nodeCount, maxFrameCnt, maxDataCnt
-    nodeCount, maxFrameCnt, maxDataCnt = set_nodeCount, set_maxFrameCnt, set_maxDataCnt
+def setPacketParameters(set_nodes, set_maxFrameCnt, set_maxDataCnt):
+    global nodes_list, nodeCount, maxFrameCnt, maxDataCnt
+    nodes_list = set_nodes
+    nodeCount = len(nodes_list)
+    maxFrameCnt, maxDataCnt = set_maxFrameCnt, set_maxDataCnt
 
-#how many bits will be needed to specify flags for nodes responding to HB
-def get_nodeCount():
-    assert nodeCount > 0
-    return nodeCount   #each node gets 1 bit in HBTimingMask
+
+
+def get_maxnodeValueBits():
+    if not nodes_list:
+        return 7 # Fallback
+    
+    max_node_id = max(node.id for node in nodes_list) if nodes_list else 0
+    
+    # Also consider special IDs from enums
+    special_ids_enum = next((e for e in globalEnums if e.enum_name == "specialIDs"), None)
+    if special_ids_enum:
+        max_special_id = max(entry.value_int for entry in special_ids_enum.entries)
+        max_node_id = max(max_node_id, max_special_id)
+
+    # .bit_length() is 0 for 0, but we need at least 1 bit if ID 0 exists.
+    return max(1, max_node_id.bit_length())
 
 def get_maxFrameCntBits():
     assert maxFrameCnt > 0
@@ -52,17 +68,20 @@ def get_maxDataCntBits():
     assert maxDataCnt > 0
     return (maxDataCnt - 1).bit_length()
 
+def get_nodeCount():
+    return nodeCount
+
 
 # Fixed means script will infer the size based on msgFields declared.
 # Custom means the size can vary. a "payload" field is inferred at the end of any byteCount: CUSTOM msg.
 vitals_to_telem = [
     {"name": "HBTiming", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 3000, #expected every second
         "msgFields": [
-            msgField(name="slowestNode1_ID", bits=7, plottable=True, maxWarning=100), #should be <100ms to respond to HB
+            msgField(name="slowestNode1_ID", bits=get_maxnodeValueBits, plottable=True, maxWarning=100), #should be <100ms to respond to HB
             msgField(name="slowestNode1_time", bits=10, plottable=True),
-            msgField(name="slowestNode2_ID", bits=7, plottable=True, maxWarning=100),
+            msgField(name="slowestNode2_ID", bits=get_maxnodeValueBits, plottable=True, maxWarning=100),
             msgField(name="slowestNode2_time", bits=10, plottable=True),
-            msgField(name="slowestNode3_ID", bits=7, plottable=True, maxWarning=100),
+            msgField(name="slowestNode3_ID", bits=get_maxnodeValueBits, plottable=True, maxWarning=100),
             msgField(name="slowestNode3_time", bits=10, plottable=True),
         ]
      },
@@ -90,28 +109,42 @@ vitals_to_telem = [
             #   msgField(name="errorCode", bits=16)
         ]
     },
-    {"name": "dataWarning", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 0,
+    {"name": "dataWarning", "mask_bits": PACK_MINIMUM_BITS_PLUS_8, "byteCount": FIXED, "dataTimeout": 0,
         "msgFields": [
-            msgField(name="data_too_high", bits=1),
-            msgField(name="extrapolationDueToTimeout", bits=1),
-            msgField(name="errorTrigger", enum=True),
-            msgField(name="nodeID", bits=7),
+            msgField(name="dataTooHigh", bits=1),
+            msgField(name="dataErrorTrigger", enum=True),
+            msgField(name="nodeID", bits=get_maxnodeValueBits),
             msgField(name="frameID", bits=get_maxFrameCntBits),
             msgField(name="dataID", bits=get_maxDataCntBits),
         ]
     },
+    {"name": "frameWarning", "mask_bits": PACK_MINIMUM_BITS_PLUS_8, "byteCount": FIXED, "dataTimeout": 0,
+        "msgFields": [
+            msgField(name="frameErrorTrigger", enum=True),
+            msgField(name="nodeID", bits=get_maxnodeValueBits),
+            msgField(name="frameID", bits=get_maxFrameCntBits),
+        ]
+    },
     {"name": "nodeStatus", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, "dataTimeout": 0,
         "msgFields": [
-            msgField(name="nodeID", bits=7),
+            msgField(name="nodeID", bits=get_maxnodeValueBits),
             msgField(name="statusUpdates", enum=True)
         ]
     },
-    {"name": "unknownCanPacket", "mask_bits": PACK_MINIMUM_BITS, "byteCount": CUSTOM, "dataTimeout": 0},
-        #payload contains standard CAN packet packing (a bit TBD atm)
+    {"name": "unknownCanPacket", "mask_bits": PACK_MINIMUM_BITS, "byteCount": CUSTOM, "dataTimeout": 0,
+        "msgFields": [
+            msgField(name="nodeID", bits=11), #the ID of the node that sent this packet
+            msgField(name="DLC", bits=4), #the length of the data in bytes
+            msgField(name="extendedIDPresent", bits=1), #if extendedID = 1
+            msgField(name="RTR", bits=1), #if RTR = 1, then this is a request packet with no data, and the dataLength field is actually the length of the requested data.
+            msgField(name="ext_id_start", bits=2),  #2 + 16 = the full 18 bits of extId
+            #payload of 2 bytes extID if extendedID = 1, 
+            #payload of length DLC if RTR != 0.
+        ]},
 
     {"name" : "CANDataFrame", "mask_bits": PACK_MINIMUM_BITS,  "byteCount": CUSTOM, "dataTimeout": 0,
         "msgFields": [
-            msgField(name="nodeID", bits=7),
+            msgField(name="nodeID", bits=get_maxnodeValueBits),
             #payload contains frameID, followed by packed data.
         ]
     }
@@ -130,17 +163,15 @@ telem_to_vitals = [
         ]},
     {"name": "set_telem_update_frequency", "targetNode": "vitals", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED,
         "msgFields": [
-            msgField(name="divider", bits=4) #the divider for telemetry update frequency.
+            msgField(name="nodeID", bits=get_maxnodeValueBits), # Target node, or vitalsID for vitals packets
+            # If nodeID is a sensor, this is frameID. If nodeID is vitalsID, this is the packet_idx of a vitals_to_telem packet.
+            msgField(name="packet_or_frame_ID", bits=8),
+            msgField(name="divider", bits=8) #the divider for telemetry update frequency.
     ]},
 
     {"name": "prechargeCommand", "targetNode": "prechargeID", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, 
         "msgFields": [
             msgField(name="prechargeCommands", enum=True)
-        ]
-    },
-    {"name": "prechargeValue", "targetNode": "prechargeID", "mask_bits": PACK_MINIMUM_BITS, "byteCount": FIXED, 
-        "msgFields": [
-            msgField(name="value1", bits=16)
         ]
     },
 

@@ -27,6 +27,8 @@ void ongenericVitalsCommand(genericVitalsCommand_args_t args);
 
 // ----- set_telem_update_frequency -----
 typedef struct __attribute__((packed)) {
+    int32_t nodeID;
+    int32_t packet_or_frame_ID;
     int32_t divider;
 } set_telem_update_frequency_args_t;
 
@@ -43,13 +45,6 @@ typedef struct __attribute__((packed)) {
 } prechargeCommand_args_t;
 
 void onprechargeCommand(prechargeCommand_args_t args);
-
-// ----- prechargeValue -----
-typedef struct __attribute__((packed)) {
-    int32_t value1;
-} prechargeValue_args_t;
-
-void onprechargeValue(prechargeValue_args_t args);
 
 // ----- forward_packet -----
 typedef struct __attribute__((packed)) {

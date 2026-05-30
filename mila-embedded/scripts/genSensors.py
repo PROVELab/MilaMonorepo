@@ -147,7 +147,9 @@ def _generate_sensor_files(sub_dir_path, node, nodeName, nodeId, boardType, data
     with open(os.path.join(sub_dir_path, 'staticDec.cpp'), 'w') as f:
         _write_static_dec(f, node)
 
-def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numData, base_dir, generated_code_dir, telem_to_vitals, globalEnums):
+def createSensors(nodes, base_dir, generated_code_dir, telem_to_vitals, globalEnums):
+
+    all_data_names = [name for node in nodes for name in node.data_names]
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     c_sensors_dir = os.path.join(script_dir, "..", "src", "sensors")
@@ -188,35 +190,33 @@ def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numDat
     # write stuff for each sensor
     nodeIndex = 0
     dataIndex = 0
-    for i, node in enumerate(vitalsNodes):
-        nodeName = nodeNames[i]
-        if boardTypes[i] == "rust":
-            sensors_dir = os.path.join(script_dir, "..", nodeName+"_sensor", "c_src")
+    for node_info in nodes:
+        if node_info.board_type == "rust":
+            sensors_dir = os.path.join(script_dir, "..", node_info.name + "_sensor", "c_src")
             sensors_dir = os.path.normpath(sensors_dir)
             os.makedirs(sensors_dir, exist_ok=True)
         else:
             sensors_dir = c_sensors_dir
 
-        sub_dir_path = os.path.join(sensors_dir, nodeName)
+        sub_dir_path = os.path.join(sensors_dir, node_info.name)
         
         # Find commands for this sensor
-        sensor_commands = [cmd for cmd in telem_to_vitals if cmd.get("targetNode") == nodeName]
+        sensor_commands = [cmd for cmd in telem_to_vitals if cmd.get("targetNode") == node_info.name]
         has_commands = len(sensor_commands) > 0
         
         # Use the interactive utility
         actual_path = interactive_file_gen(
             sub_dir_path, 
-            f"Sensor Node '{nodeName}'",
+            f"Sensor Node '{node_info.name}'",
             _generate_sensor_files, # The generation function
             # Args for the generation function:
-            node, nodeName, nodeIds[i], boardTypes[i], dataNames, numData[i], dataIndex, base_dir, has_commands
+            node_info.vitals_data, node_info.name, node_info.id, node_info.board_type, all_data_names, node_info.num_data, dataIndex, base_dir, has_commands
         )
 
         if actual_path:
-            # Only if a path was generated (not skipped), create command infrastructure
-            createSensorCommandInfrastructure(nodeName, nodeIds[i], telem_to_vitals, actual_path, globalEnums)
+            createSensorCommandInfrastructure(node_info.name, node_info.id, telem_to_vitals, actual_path, globalEnums)
         
-        dataIndex += numData[i]
+        dataIndex += node_info.num_data
 
     #Generate platformio.ini environments. Only contains environments for sensor nodes. 
     #Code to be pasted into actual platformio.ini file as an add-on
@@ -224,23 +224,22 @@ def createSensors(vitalsNodes, nodeNames, boardTypes, nodeIds, dataNames, numDat
     with open(file_path, 'w') as f:
         nodeIndex=0
         f.write("\n")
-        for node in vitalsNodes:
-            if(boardTypes[nodeIndex]=="arduino"):
-                f.write(f"[env:{nodeNames[nodeIndex]}]\n")
+        for node_info in nodes:
+            if(node_info.board_type == "arduino"):
+                f.write(f"[env:{node_info.name}]\n")
                 f.write("extends=arduinoSensorBase\n")
                 f.write(f"build_src_filter = ${{arduinoSensorBase.build_src_filter}}"
-                        f"+<sensors/{nodeNames[nodeIndex]}>\n")
-                f.write(f"build_flags = -DNODE_CONFIG=../{nodeNames[nodeIndex]}/myDefines.hpp"
+                        f"+<sensors/{node_info.name}>\n")
+                f.write(f"build_flags = -DNODE_CONFIG=../{node_info.name}/myDefines.hpp"
                         "/myDefines.hpp -DSENSOR_ARDUINO_BUILD=ON\n\n")
 
-            elif(boardTypes[nodeIndex]=="esp"):
-                f.write(f"[env:{nodeNames[nodeIndex]}]\n")
+            elif(node_info.board_type == "esp"):
+                f.write(f"[env:{node_info.name}]\n")
                 f.write("extends=espSensorBase\n")
                 f.write(f"board_build.cmake_extra_args = ${{espSensorBase.board_build.cmake_extra_args}}"
-                        f" -DSENS_DIR={nodeNames[nodeIndex]}\n")
+                        f" -DSENS_DIR={node_info.name}\n")
                 f.write(f"build_flags = ${{espSensorBase.build_flags}}"
-                         f" -DNODE_CONFIG=../{nodeNames[nodeIndex]}/myDefines.hpp\n\n")
-            nodeIndex+=1
+                         f" -DNODE_CONFIG=../{node_info.name}/myDefines.hpp\n\n")
         f.close()
 
 def createSensorCommandInfrastructure(nodeName, nodeId, commands, sub_dir_path, globalEnums):

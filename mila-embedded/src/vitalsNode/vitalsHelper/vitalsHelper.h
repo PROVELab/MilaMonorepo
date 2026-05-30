@@ -29,4 +29,9 @@ static inline uint8_t VitalsFlagsGet(uint8_t nodeIndex) { return atomic_load(&(n
 static inline void HBTimeSet(uint8_t nodeIndex, uint16_t time) { atomic_store(&(nodes[nodeIndex].milliSeconds), time); }
 static inline int16_t HBTimeGet(uint8_t nodeIndex) { return atomic_load(&(nodes[nodeIndex].milliSeconds)); }
 //
+
+//forwarding
+int16_t forwardStatusUpdate(CANPacket* message);
+int16_t vitals_defaultPacketRecv(CANPacket* p);
+
 #endif

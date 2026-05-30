@@ -4,7 +4,7 @@ from constantGen import writeConstants
 from genTelemetry import get_telem_path
 
 
-def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCount, globalDefines, vitals_dir):
+def createVitals(nodes, missingIDs, frameCount, globalDefines, vitals_dir, num_vitals_to_telem_packets):
 
     # 4. Create the directory tree if it doesn't exist
     os.makedirs(vitals_dir, exist_ok=True)
@@ -20,11 +20,12 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
             '#include "vitalsStaticDec.h"\n'
             '#include "vitalsStructs.h"\n'
             '\n'
-            '#define R10(x) {x,x,x,x,x,x,x,x,x,x}\n'
+            '#define R8(x) {x,x,x,x,x,x,x,x}\n'
         )
 
-        for nodeIndex, node in enumerate(vitalsNodes):
-            f.write(f"// Node {nodeIndex}: {nodeNames[nodeIndex]}\n")
+        for nodeIndex, node_info in enumerate(nodes):
+            node = node_info.vitals_data
+            f.write(f"// Node {nodeIndex}: {node_info.name}\n")
 
             #dataPoint structs
             for frameIndex, frame in enumerate(ACCESS(node, "CANFrames")["value"]):
@@ -42,11 +43,11 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
             #arrays of datapoint structs
             for frameIndex, frame in enumerate(ACCESS(node, "CANFrames")["value"]):
                 num_data_points = ACCESS(frame, "numData")["value"]
-                f.write(f"int32_t n{nodeIndex}f{frameIndex}Data[{num_data_points}][10]={{")
-                r10_values = [f"R10({expression_to_int(ACCESS(dataPoint, 'startingValue')['value'])})"
+                f.write(f"int32_t n{nodeIndex}f{frameIndex}Data[{num_data_points}][8]={{")
+                r8_values = [f"R8({expression_to_int(ACCESS(dataPoint, 'startingValue')['value'])})"
                               for dataPoint in ACCESS(frame, "dataInfo")["value"]
                               if any("vitals" in field["node"] for field in dataPoint_fields)]
-                f.write(",".join(r10_values))
+                f.write(",".join(r8_values))
                 f.write("};\n\n")
 
             #CANFrames
@@ -60,8 +61,9 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
 
         #vitalsNode nodes
         f.write("// vitalsData *nodes;\n")
-        f.write(f"vitalsNode nodes [{len(vitalsNodes)}]={{\n")
-        for nodeIndex, node in enumerate(vitalsNodes):
+        f.write(f"vitalsNode nodes [{len(nodes)}]={{\n")
+        for nodeIndex, node_info in enumerate(nodes):
+            node = node_info.vitals_data
             NODE_fields = [f".{field['name']}={ACCESS(node, field['name'])['value']}"
                             for field in vitalsNode_fields if field["name"] not in {"CANFrames"}]
                             #^ Exclude CANFrames, as that is handled specially below
@@ -93,24 +95,30 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
         f.write('#include <stddef.h> // For offsetof\n')
         f.write("#include \"../../programConstants.h\"\n")
         f.write('#include "pecan/pecan.h" // For simpleDataPoint\n#include <stdbool.h> // For bool type\n\n')
-        f.write("#define R10(x) {x,x,x,x,x,x,x,x,x,x}\n\n")
+        f.write("#define R8(x) {x,x,x,x,x,x,x,x}\n\n")
 
         # Add a cross-compatible static assert macro
-        f.write("#if defined(__cplusplus)\n")
-        f.write("#define STATIC_ASSERT(cond, msg) static_assert((cond), msg)\n")
-        f.write("#else\n")
-        f.write("#define STATIC_ASSERT(cond, msg) _Static_assert((cond), msg)\n")
-        f.write("#endif\n\n")
+        f.write("""#if defined(__cplusplus)
+#include <atomic>
+#define ATOMIC(X) std::atomic< X >
+#define STATIC_ASSERT(cond, msg) static_assert((cond), msg)
+#else
+#define ATOMIC(X) _Atomic X
+#define STATIC_ASSERT(cond, msg) _Static_assert((cond), msg)
+#endif
+
+""")
 
         # DataPoint struct definition
         f.write("typedef struct {\n")
         for field in dataPoint_fields:
             if field['name'] != 'enum': # 'enum' is a pseudo-field for the generator
                 f.write("    ")
-                if field['Atomic'] == True:
-                    f.write("_Atomic ")
                 c_type = "bool" if field['type'] == "boolean" else field['type']
-                f.write(f"{c_type} {field['name']};\n")
+                if field['Atomic'] == True:
+                    f.write(f"ATOMIC({c_type}) {field['name']};\n")
+                else:
+                    f.write(f"{c_type} {field['name']};\n")
         f.write("} dataPoint;\n\n")
 
         # This ensures that dataPoint can be safely cast to simpleDataPoint for pecan_unpack.
@@ -133,7 +141,7 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
                 f.write(f"    {c_type} {field['name']};\n")
         
         # Manually insert the custom 'data' field
-        f.write("    int32_t (*data)[10]; /* Init to [data points per data =10] [numData for this frame] */\n")
+        f.write("    int32_t (*data)[pointsPerData]; /* Init to [data points per data = 8] [numData for this frame] */\n")
         f.write("} CANFrame;\n\n")
 
         # VitalsNode struct definition
@@ -144,10 +152,10 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
             else:
                 # For other fields, write them as usual
                 f.write("    ")
-                if(field['Atomic'] == True) : 
-                    f.write("_Atomic ");
-                
-                f.write(f"{field['type']} {field['name']};\n")
+                if(field['Atomic'] == True) :
+                    f.write(f"ATOMIC({field['type']}) {field['name']};\n")
+                else:
+                    f.write(f"{field['type']} {field['name']};\n")
         f.write("} vitalsNode;\n\n")
 
         # End of header guards
@@ -155,7 +163,8 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
         f.close()
 
     #generate constants files
-    minId = min(nodeIds)
+    node_ids = [node.id for node in nodes]
+    minId = min(node_ids) if node_ids else 0
     # 1. Anchor to the current script's directory
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -168,16 +177,16 @@ def createVitals(vitalsNodes, nodeNames, nodeIds, missingIDs, nodeCount, frameCo
     constants_file_path = os.path.join(c_constants_dir, 'programConstants.h')
 
     # Write C Constants
-    writeConstants("c", constants_file_path, minId, numMissingIDs, nodeCount, frameCount, globalDefines, missingIDs)
+    writeConstants("c", constants_file_path, minId, numMissingIDs, len(nodes), frameCount, globalDefines, missingIDs, num_vitals_to_telem_packets)
 
 
     # --- 2. Java Constants (Target: ../../telem-dashboard/src/main/java/Constants.java) ---
     # Go up two levels (../..) -> into telem-dashboard -> src -> main -> java
 
-    constants_file_path = os.path.join(get_telem_path(), 'java', 'Constants.java')
+    constants_file_path = os.path.join(get_telem_path(), 'java', 'util', 'Constants.java')
 
     # Write Java Constants
-    writeConstants("java", constants_file_path, minId, numMissingIDs, nodeCount, frameCount, globalDefines, missingIDs)
+    writeConstants("java", constants_file_path, minId, numMissingIDs, len(nodes), frameCount, globalDefines, missingIDs, num_vitals_to_telem_packets)
 
 # Note: The ACCESS helper is also defined here to allow local field lookup.
 def ACCESS(fields, name):

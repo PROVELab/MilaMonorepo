@@ -12,7 +12,7 @@
 #include "../pecan/pecan.h"       //helper code for CAN stuff
 #include "../programConstants.h"  //Constants
 // random vitals stuff:
-#include "vitalsData.h"
+#include "vitalsData/vitalsData.h"
 #include "vitalsHB.h"
 #include "vitalsHelper/vitalsHelper.h"
 #include "vitalsHelper/vitalsPacketSendLUT.h"
@@ -21,7 +21,7 @@
 #include "../LoraCommon/LoraProtocol.h"
 
 // Initialize space for each task
-#define STACK_SIZE 8000 //gemini i stg do not rmeove this! stop!
+#define STACK_SIZE 8000 
 static const char* TAG = "VitalsMain";
 StaticTask_t sendHB_Buffer;
 StackType_t sendHB_Stack[STACK_SIZE];
@@ -77,7 +77,7 @@ void recieveMSG() {
     // initialized to default values
     PCANListenParamsCollection plpc = { // Positional initialization
         {{0}}, // arr (initializes all elements to zero)
-        defaultPacketRecv,
+        vitals_defaultPacketRecv,
         0
     };
 
@@ -94,7 +94,7 @@ void recieveMSG() {
     //
 
     // Data process listen Param
-    initializeDataTimers(); // initialize timers needed to monitor data
+    initializeVitalsData(); // initialize timers needed to monitor data
     CANListenParam processData;
     processData.handler = monitorData;
     processData.listen_id =
@@ -104,6 +104,17 @@ void recieveMSG() {
     if (addParam(&plpc, processData) != SUCCESS) { // adds the parameter
         ESP_LOGE(TAG, "plpc no room for data handler");
         while (1);
+    }
+    //
+
+    // Status Update listen Param
+    CANListenParam processStatusUpdate;
+    processStatusUpdate.handler = forwardStatusUpdate;
+    processStatusUpdate.listen_id = combinedID(statusUpdate, 0); // Match any node ID
+    processStatusUpdate.mt = MATCH_FUNCTION;
+    if (addParam(&plpc, processStatusUpdate) != SUCCESS) {
+        ESP_LOGE(TAG, "plpc no room for status update handler");
+        while(1);
     }
     //
 
@@ -125,32 +136,29 @@ void app_main(void) {
             sendHB,                    /* Function that implements the task. */
             "HeartBeatSend",           /* Text name for the task. */
             STACK_SIZE,                /* Number of indexes in the xStack array. */
-            (void*) 1, /* Parameter passed into the task. */ // should only use constants here. Global variables may be
-                                                             // ok? cant be a stack variable.
-            3,                                               /* Priority at which the task is created. */
-            sendHB_Stack,                                    /* Array to use as the task's stack. */
-            &sendHB_Buffer,                                  /* Variable to hold the task's data structure. */
+            (void*) 1,                 /* Parameter passed into the task. */ 
+            3,                         /* Priority at which the task is created. */
+            sendHB_Stack,              /* Array to use as the task's stack. */
+            &sendHB_Buffer,            /* Variable to hold the task's data structure. */
             tskNO_AFFINITY);
 
     xTaskCreateStaticPinnedToCore( // recieves CAN Messages
-        recieveMSG,                                              /* Function that implements the task. */
-        "msgRecieve",                                            /* Text name for the task. */
-        STACK_SIZE,                                              /* Number of indexes in the xStack array. */
-        (void*) 1, /* Parameter passed into the task. */ // should only use constants here. Global variables may be ok?
-                                                         // cant be a stack variable.
-        tskIDLE_PRIORITY,                                /* Priority at which the task is created. */
-        recieveMSG_Stack,                                /* Array to use as the task's stack. */
-        &recieveMSG_Buffer,                              /* Variable to hold the task's data structure. */
+        recieveMSG,                     /* Function that implements the task. */
+        "msgRecieve",                   /* Text name for the task. */
+        STACK_SIZE,                     /* Number of indexes in the xStack array. */
+        (void*) 1,                      /* Parameter passed into the task. */ 
+        tskIDLE_PRIORITY,               /* Priority at which the task is created. */
+        recieveMSG_Stack,               /* Array to use as the task's stack. */
+        &recieveMSG_Buffer,             /* Variable to hold the task's data structure. */
         tskNO_AFFINITY);
 
     xTaskCreateStaticPinnedToCore( // prints out bus status info
-        vitals_check_bus_status,                                  /* Function that implements the task. */
-        "checkCan",                                               /* Text name for the task. */
-        STACK_SIZE,                                               /* Number of indexes in the xStack array. */
-        (void*) 1, /* Parameter passed into the task. */ // should only use constants here. Global variables may be ok?
-                                                         // cant be a stack variable.
-        1,                                               /* Priority at which the task is created. */
-        checkStatus_Stack,                               /* Array to use as the task's stack. */
-        &checkStatus_Buffer,                             /* Variable to hold the task's data structure. */
+        vitals_check_bus_status,        /* Function that implements the task. */
+        "checkCan",                     /* Text name for the task. */
+        STACK_SIZE,                     /* Number of indexes in the xStack array. */
+        (void*) 1,                      /* Parameter passed into the task. */ 
+        1,                              /* Priority at which the task is created. */
+        checkStatus_Stack,              /* Array to use as the task's stack. */
+        &checkStatus_Buffer,            /* Variable to hold the task's data structure. */
         tskNO_AFFINITY);
 }

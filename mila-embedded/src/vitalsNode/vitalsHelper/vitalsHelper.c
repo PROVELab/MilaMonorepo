@@ -3,6 +3,7 @@
 #include "../../pecan/pecan.h"
 #include "vitalsHelper.h"
 #include "vitalsPacketSendLUT.h"
+#include "../../programConstants.h"
 
 #if defined(__cplusplus)
 #define STATIC_ASSERT(cond, msg) static_assert((cond), msg)
@@ -14,6 +15,12 @@ static inline uint32_t mask_u32(unsigned bits) { return (bits >= 32) ? 0xFFFFFFF
 
 // Must ensure the ID/index is valid before calling either of these.
 int32_t IDTovitalsIndex(uint32_t nodeID) { // returns which index of vitalsArray a node corresponds to
+    for(int i =0; i < numberOfNodes; i++){
+        if(nodes[i].numFrames > 0 && nodes[i].CANFrames->nodeID == nodeID){
+            return i;
+        }
+    }
+    //otherwise compute based on missing IDs
     uint32_t baseID = getNodeId(nodeID);
     // loop over excluded
     int16_t foundMisses = 0;

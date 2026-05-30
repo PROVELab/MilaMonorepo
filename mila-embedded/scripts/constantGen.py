@@ -58,13 +58,13 @@ def writeEnums(f, lang_l: str):
 
 
 # Writes constants files for either C or java depending on lang
-def writeConstants(lang, constants_file_path, minId, numMissingIDs, nodeCount, frameCount, globalDefines, missingIDs):
+def writeConstants(lang, constants_file_path, minId, numMissingIDs, nodeCount, frameCount, globalDefines, missingIDs, num_vitals_to_telem_packets=0):
     lang_l = lang.lower()
 
     # Choose output path and wrappers
     if lang_l == "java":
         out_path = os.path.join(os.path.dirname(constants_file_path), "Constants.java")
-        pre_wrapper_open  = "public final class Constants {\n    private Constants() {}\n\n"
+        pre_wrapper_open  = "package util;\npublic final class Constants {\n    private Constants() {}\n\n"
         pre_wrapper_close = "}\n"
         # The ONLY difference in the main body: how each constant is emitted
         const_decl = "public static final int {name} = {value};"
@@ -88,6 +88,8 @@ def writeConstants(lang, constants_file_path, minId, numMissingIDs, nodeCount, f
         f.write(f"{indent}{const_decl.format(name='totalNumFrames', value=frameCount)}\n")
         f.write(f"{indent}{const_decl.format(name='numMissingIDs', value=numMissingIDs)}\n")
         f.write(f"{indent}{const_decl.format(name='startingOffset', value=minId)}\n")
+        if num_vitals_to_telem_packets > 0:
+            f.write(f"{indent}{const_decl.format(name='numVitalsToTelemPackets', value=num_vitals_to_telem_packets)}\n")
         f.write(f"\n{indent}//Explicilty defined in sensors.def constants\n")
 
         # Shared loop & eval logic — identical for both languages

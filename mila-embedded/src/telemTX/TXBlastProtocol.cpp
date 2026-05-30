@@ -102,6 +102,7 @@ extern "C" bool protocolTransmit(uint8_t* data, uint8_t dataLen){
 }
 
 extern "C" void getBitmap(uint16_t* bitmap, uint8_t* burstSize){
+    //no bitmap no tx side
     *bitmap = 0;
     *burstSize = 0;
 }

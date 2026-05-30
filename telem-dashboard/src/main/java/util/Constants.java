@@ -1,3 +1,4 @@
+package util;
 public final class Constants {
     private Constants() {}
 
@@ -6,10 +7,11 @@ public final class Constants {
     public static final int totalNumFrames = 8;
     public static final int numMissingIDs = 4;
     public static final int startingOffset = 3;
+    public static final int numVitalsToTelemPackets = 9;
 
     //Explicilty defined in sensors.def constants
     public static final int nullID  = 0;		//  0
-    public static final int pointsPerData = 10;		// 10
+    public static final int pointsPerData = 8;		// 8
     public static final int nodeIDSizeBits  = 7;		//  7
     public static final int slowestNodeCount  = 3;		//  3
     public static final int nodeCount = 5;		// 5
@@ -78,14 +80,22 @@ public final class Constants {
 		public static final int Off = 2;	// 2
 	}
 
-	// global enum errorTrigger
-	public static final class errorTrigger {
-		private errorTrigger() {}
-		public static final int warning_nonCritical = 0;	// 0
-		public static final int singleCritical = 1;	// 1
-		public static final int extrap5 = 2;	// 2
-		public static final int extrap10 = 3;	// 3
-		public static final int confirmedCritical = 4;	// 4
+	// global enum dataErrorTrigger
+	public static final class dataErrorTrigger {
+		private dataErrorTrigger() {}
+		public static final int singleCritical = 0;	// 0
+		public static final int extrap4 = 1;	// 1
+		public static final int extrap8 = 2;	// 2
+		public static final int confirmedCritical = 3;	// 3
+		public static final int enteredWarningRange = 4;	// 4
+	}
+
+	// global enum frameErrorTrigger
+	public static final class frameErrorTrigger {
+		private frameErrorTrigger() {}
+		public static final int dataTimeout = 0;	// 0
+		public static final int repeatedDataTimeout = 1;	// 1
+		public static final int resetTimerError = 2;	// 2
 	}
 
 	public static final int[] nodeIDs = new int[]{ 3, 8, 9, 10, 11 };

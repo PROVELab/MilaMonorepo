@@ -2,7 +2,7 @@
 global: nullID = 0
 
 #General Constants
-global: pointsPerData=10
+global: pointsPerData=8
 global enum: specialIDs = {
     vitalsID    = 2,
     prechargeID = 3,
@@ -60,11 +60,20 @@ global enum: prechargeState = {
     Charging =  1,
     Off =       2
 }
-#
-global enum: errorTrigger = {
-    warning_nonCritical = 0,
-    singleCritical = 1,
-    extrap5 = 2,
-    extrap10 = 3,
-    confirmedCritical = 4
+
+#Ignore this value if dataOk
+global enum: dataErrorTrigger = {
+    singleCritical = 0,
+    extrap4 = 1,
+    extrap8 = 2,
+    confirmedCritical = 3,
+    enteredWarningRange = 4
+}
+
+#Data timeout triggers extrapolation. repeatedDataTimeout will not (dont want to over-extrapolate), user should consider that data dead if seen
+global enum: frameErrorTrigger = {
+    dataTimeout = 0,
+    repeatedDataTimeout = 1,
+    resetTimerError=2,
+    
 }

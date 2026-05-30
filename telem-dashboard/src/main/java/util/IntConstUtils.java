@@ -1,7 +1,16 @@
 // IntConstUtils.java
+package util;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.*;
+
+//For mapping integers that represent enums onto the name for that enum.
+//Example, if have a class like:
+//  public class MyConstants {
+//      public static final int chat = 1;
+//      public static final int swag = 2;
+//  }
+//Then can call IntConstUtils.nameFromInt(MyConstants.class, 1) will return the corresponding string "chat"
 
 public final class IntConstUtils {
     private IntConstUtils() {}
@@ -29,19 +38,19 @@ public final class IntConstUtils {
     }
 
     public static String flagsFromInt(Class<?> clazz, int value) {
-    Map<Integer, String> map = cache.computeIfAbsent(clazz, IntConstUtils::buildIntConstantMap);
+        Map<Integer, String> map = cache.computeIfAbsent(clazz, IntConstUtils::buildIntConstantMap);
 
-    List<String> matches = new ArrayList<>();
-    for (Map.Entry<Integer, String> entry : map.entrySet()) {
-        int flag = entry.getKey();
-        if ((value & flag) != 0) { // flag bit is set
-            matches.add(entry.getValue());
+        List<String> matches = new ArrayList<>();
+        for (Map.Entry<Integer, String> entry : map.entrySet()) {
+            int flag = entry.getKey();
+            if ((value & flag) != 0) { // flag bit is set
+                matches.add(entry.getValue());
+            }
         }
-    }
 
-    if (matches.isEmpty()) {
-        return "no flags set";
+        if (matches.isEmpty()) {
+            return "no flags set";
+        }
+        return String.join(", ", matches);
     }
-    return String.join(", ", matches);
-}
 }

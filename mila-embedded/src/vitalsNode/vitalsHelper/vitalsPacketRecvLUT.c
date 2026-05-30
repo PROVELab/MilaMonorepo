@@ -11,18 +11,15 @@ const simpleDataPoint genericVitalsCommand_fields[1] = {
 };
 
 // ----- set_telem_update_frequency -----
-const simpleDataPoint set_telem_update_frequency_fields[1] = {
+const simpleDataPoint set_telem_update_frequency_fields[3] = {
     { .bits=4, .min=0, .max=15 },
+    { .bits=8, .min=0, .max=255 },
+    { .bits=8, .min=0, .max=255 },
 };
 
 // ----- prechargeCommand -----
 const simpleDataPoint prechargeCommand_fields[1] = {
     { .bits=2, .min=0, .max=2 },
-};
-
-// ----- prechargeValue -----
-const simpleDataPoint prechargeValue_fields[1] = {
-    { .bits=16, .min=0, .max=65535 },
 };
 
 // ----- forward_packet -----
@@ -50,10 +47,10 @@ static size_t ongenericVitalsCommand_wrapper(const uint8_t* raw_packet, size_t p
 static size_t onset_telem_update_frequency_wrapper(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex) {
     union {
         set_telem_update_frequency_args_t s;
-        int32_t data_arr[1];
+        int32_t data_arr[3];
     } u __attribute__((aligned(4)));
 
-    for (int i = 0; i < 1; ++i) {
+    for (int i = 0; i < 3; ++i) {
         pecan_unpack(&u.data_arr[i], raw_packet, &set_telem_update_frequency_fields[i], bitIndex);
     }
     onset_telem_update_frequency(u.s);
@@ -72,25 +69,8 @@ static size_t onprechargeCommand_wrapper(const uint8_t* raw_packet, size_t packe
     }
 
     // This packet is forwarded to the target node 'prechargeID'.
-    forwardCANPacket(3, 0, 1, prechargeCommand_fields, 1, RECV_PACKET_TYPE_FIXED, u.data_arr, raw_packet, packet_len, bitIndex);
+    forwardCANPacket(3, 0, 0, prechargeCommand_fields, 1, RECV_PACKET_TYPE_FIXED, u.data_arr, raw_packet, packet_len, bitIndex);
     onprechargeCommand(u.s);
-    return 0; // FIXED packets don't consume payload
-}
-
-// Wrapper for prechargeValue
-static size_t onprechargeValue_wrapper(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex) {
-    union {
-        prechargeValue_args_t s;
-        int32_t data_arr[1];
-    } u __attribute__((aligned(4)));
-
-    for (int i = 0; i < 1; ++i) {
-        pecan_unpack(&u.data_arr[i], raw_packet, &prechargeValue_fields[i], bitIndex);
-    }
-
-    // This packet is forwarded to the target node 'prechargeID'.
-    forwardCANPacket(3, 1, 1, prechargeValue_fields, 1, RECV_PACKET_TYPE_FIXED, u.data_arr, raw_packet, packet_len, bitIndex);
-    onprechargeValue(u.s);
     return 0; // FIXED packets don't consume payload
 }
 
@@ -119,7 +99,7 @@ const uint8_t MAX_RECV_MASK_BITS = 8;
 const RecvPacketLUTEntry recvPacketLUT[] = {
     { // set_telem_update_frequency
         .fields = set_telem_update_frequency_fields,
-        .num_fields = 1,
+        .num_fields = 3,
         .mask_val = 0,
         .mask_bits = 4,
         .packet_type = RECV_PACKET_TYPE_FIXED,
@@ -148,14 +128,6 @@ const RecvPacketLUTEntry recvPacketLUT[] = {
         .mask_bits = 8,
         .packet_type = RECV_PACKET_TYPE_CUSTOM,
         .callback_wrapper = onforward_packet_wrapper,
-    },
-    { // prechargeValue
-        .fields = prechargeValue_fields,
-        .num_fields = 1,
-        .mask_val = 23,
-        .mask_bits = 8,
-        .packet_type = RECV_PACKET_TYPE_FIXED,
-        .callback_wrapper = onprechargeValue_wrapper,
     },
 };
 

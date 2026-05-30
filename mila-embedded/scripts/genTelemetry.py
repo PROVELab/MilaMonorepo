@@ -30,6 +30,7 @@ def createTelemetryRecords(dataPoint_fields, CANFrame_fields, records_path):
 
     with open(records_path, "w") as f:
         f.write("/** Auto-generated file. Do not edit. */\n\n")
+        f.write("package lookup;\n\n")
         f.write("public final class TelemetryRecords {\n")
         f.write("    private TelemetryRecords() {}\n\n")
 
@@ -157,12 +158,14 @@ def createTelemetryParserLUT(vitals_to_telem, parser_path):
 
     with open(parser_path, "w") as f:
         # f.write(f"package {java_package_name};\n\n")
+        f.write("package presentation;\n\n")
         f.write("import java.nio.ByteBuffer;\n")
         f.write("import java.nio.ByteOrder;\n")
         f.write("import java.util.ArrayList;\n")
         f.write("import java.util.Optional;\n")
         f.write("import java.util.Comparator;\n")
         f.write("import java.util.List;\n")
+        f.write("import presentation.BitStream;\n")
 
         f.write("public final class TelemetryParserLUT { // Auto-generated. Do not edit.\n\n")
         f.write("    private TelemetryParserLUT() {} // Private constructor to prevent instantiation\n\n")
@@ -170,7 +173,7 @@ def createTelemetryParserLUT(vitals_to_telem, parser_path):
         f.write("    public interface PacketVisitor {\n")
         for msg in vitals_to_telem:
             is_custom = msg.get("byteCount") is CUSTOM
-            return_type = "int" if is_custom else "void"
+            return_type = "void"
             extra_params = ", BitStream stream" if is_custom else ""
             f.write(f"        {return_type} visit({msg['name']}Packet p{extra_params});\n")
         f.write("        void visit(ParsedPacket p); // Fallback for unhandled packets\n")
@@ -179,7 +182,7 @@ def createTelemetryParserLUT(vitals_to_telem, parser_path):
         f.write("        public final String packetName;\n")
         f.write("        public int packetIndex;\n")
         f.write("        protected ParsedPacket(String name) { this.packetName = name; }\n")
-        f.write("        public abstract int accept(PacketVisitor visitor, BitStream stream);\n")
+        f.write("        public abstract void accept(PacketVisitor visitor, BitStream stream);\n")
         f.write("        public abstract int[] getValues();\n")
         f.write("        @Override\n")
         f.write("        public String toString() { return packetName; }\n")
@@ -203,10 +206,13 @@ def createTelemetryParserLUT(vitals_to_telem, parser_path):
                 f.write(f"        public int {field.name}() {{ return values[{i}]; }}\n")
             f.write("        @Override\n")
             f.write("        public int[] getValues() { return values; }\n")
+            f.write("        @Override\n")
+            f.write("        public void accept(PacketVisitor visitor, BitStream stream) {\n")
             if msg.get("byteCount") is CUSTOM:
-                f.write("        @Override\n        public int accept(PacketVisitor visitor, BitStream stream) { return visitor.visit(this, stream); }\n")
+                f.write("            visitor.visit(this, stream);\n")
             else:
-                f.write("        @Override\n        public int accept(PacketVisitor visitor, BitStream stream) { visitor.visit(this); return 0; }\n")
+                f.write("            visitor.visit(this);\n")
+            f.write("        }\n")
             f.write("    }\n\n")
         f.write("    static class LutEntry {\n")
         f.write("        public final int mask, bits, packetIndex;\n        public final String name;\n        public final boolean isCustom;\n        public final PacketCreator creator;\n")
@@ -226,16 +232,16 @@ def createTelemetryParserLUT(vitals_to_telem, parser_path):
         f.write("    interface PacketCreator { TelemetryParserLUT.ParsedPacket create(); }\n\n")
         f.write("}\n")
 
-def createCommandRecords(telem_to_vitals, globalEnums):
+def createCommandRecords(telem_to_vitals, globalEnums, code_dir):
     """
     Generates CommandRecords.java with record definitions for all telemetry commands.
     """
-    java_dir = get_telem_path()
-    records_path = os.path.join(java_dir, 'java', 'CommandRecords.java')
+    records_path = os.path.join(code_dir, 'CommandRecords.java')
     os.makedirs(os.path.dirname(records_path), exist_ok=True)
 
     with open(records_path, "w") as f:
         f.write("/** Auto-generated file. Do not edit. */\n\n")
+        f.write("package presentation;\n\n")
         f.write("import java.util.ArrayList;\n")
         f.write("import java.util.HashMap;\n")
         f.write("import java.util.List;\n")
@@ -279,7 +285,7 @@ def createCommandRecords(telem_to_vitals, globalEnums):
         f.write("    }\n") # End static initializer
         f.write("}\n")
 
-def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, node_names=None, num_frames_per_node=None, dataNames=None, vitals_to_telem_packets=None, global_defines=None):
+def createTelemetry(nodes, out_path, generated_code_dir, vitals_to_telem_packets=None, global_defines=None):
     """
     Builds a denormalized telemetry CSV:
       - 1 row per data point
@@ -287,10 +293,9 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, n
       - Adds 'data_name' from a FLAT dataNames list (consumed in traversal order)
       - Includes numFrames for each node.
     """
-    if dataNames is None:
-        dataNames = []
     if vitals_to_telem_packets is None:
         vitals_to_telem_packets = []
+    all_data_names = [name for node in nodes for name in node.data_names]
     flat_idx = 0  # consume from dataNames in order
 
     def get(entity, key):
@@ -304,10 +309,8 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, n
 
     # Create header with Java names
     header = ["nodeID", "frameIndex", "dataIndex"]
-    if node_names is not None:
-        header.append("nodeName")
-    if num_frames_per_node is not None:
-        header.append("numFrames")
+    header.append("nodeName")
+    header.append("numFrames")
     header.append("dataName")
     header += frame_fields
     header += [dp_field_map.get(f, f) for f in dp_fields]
@@ -318,14 +321,15 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, n
         w = csv.DictWriter(f, fieldnames=header)
         w.writeheader()
 
-        for n_idx, node in enumerate(vitals_nodes):
-            frames = get(node, "CANFrames")
+        for node_info in nodes:
+            node_vitals_data = node_info.vitals_data
+            frames = get(node_vitals_data, "CANFrames")
             for f_idx, frame in enumerate(frames):
                 frame_vals = {k: get(frame, k) for k in frame_fields}
                 dps = get(frame, "dataInfo")
                 for d_idx, dp in enumerate(dps):
                     # pull next name (or empty if we ran out)
-                    data_name = dataNames[flat_idx] if flat_idx < len(dataNames) else ""
+                    data_name = all_data_names[flat_idx] if flat_idx < len(all_data_names) else ""
                     flat_idx += 1
 
                     dp_vals = {}
@@ -334,58 +338,53 @@ def createTelemetry(vitals_nodes, out_path, generated_code_dir, node_ids=None, n
                         dp_vals[java_key] = get(dp, k)
 
                     row = {
-                        "nodeID": node_ids[n_idx] if node_ids is not None else n_idx,
+                        "nodeID": node_info.id,
                         "frameIndex": f_idx,
                         "dataIndex": d_idx,
-                        **({"nodeName": node_names[n_idx]} if node_names is not None else {}),
-                        **({"numFrames": num_frames_per_node[n_idx]} if num_frames_per_node is not None else {}),
+                        "nodeName": node_info.name,
+                        "numFrames": node_info.num_frames,
                         "dataName": data_name,
                         **frame_vals,
                         **dp_vals,
                     }
                     w.writerow(row)
         
-        # Add plottable fields from vitals_to_telem packets
-        if vitals_to_telem_packets and global_defines:
-            try: 
-                vitals_id = expression_to_int("specialIDs::vitalsID")
-            except (ValueError, NameError):
-                print("Warning: specialIDs::vitalsID not found. Cannot add plottable telemetry packet fields.")
-                vitals_id = -1 # Or some other indicator
+        assert(vitals_to_telem_packets is not None and global_defines is not None), "vitals_to_telem_packets and global_defines must be provided to include plottable telemetry packet fields."
+        vitals_id = expression_to_int("specialIDs::vitalsID")
+        assert(vitals_id >= 0), "specialIDs::vitalsID not found in global defines. Cannot add plottable telemetry packet fields."
+        
+        for packet_idx, packet in enumerate(vitals_to_telem_packets):
+            packet_name = packet['name']
+            msg_fields = packet.get("msgFields", [])
+            for field_idx, field in enumerate(msg_fields):
+                if getattr(field, 'plottable', False):
+                    row = {
+                        "nodeID": vitals_id,
+                        "frameIndex": packet_idx,
+                        "dataIndex": field_idx,
+                        "nodeName": "vitals",
+                        "numFrames": len(vitals_to_telem_packets),
+                        "dataName": f"{packet_name}_{field.name}",
+                    }
 
-            if vitals_id != -1:
-                for packet_idx, packet in enumerate(vitals_to_telem_packets):
-                    packet_name = packet['name']
-                    msg_fields = packet.get("msgFields", [])
-                    for field_idx, field in enumerate(msg_fields):
-                        if getattr(field, 'plottable', False):
-                            row = {
-                                "nodeID": vitals_id,
-                                "frameIndex": packet_idx,
-                                "dataIndex": field_idx,
-                                "nodeName": "vitals",
-                                "numFrames": len(vitals_to_telem_packets),
-                                "dataName": f"{packet_name}_{field.name}",
-                            }
+                    # Add frame-level fields from the packet definition
+                    for k in frame_fields:
+                        row[k] = packet.get(k, 0)
 
-                            # Add frame-level fields from the packet definition
-                            for k in frame_fields:
-                                row[k] = packet.get(k, 0)
+                    # Add data-point-level fields from the msgField object
+                    for k in dp_fields:
+                        key_for_row = dp_field_map.get(k, k)
+                        val = getattr(field, k, None)
 
-                            # Add data-point-level fields from the msgField object
-                            for k in dp_fields:
-                                key_for_row = dp_field_map.get(k, k)
-                                val = getattr(field, k, None)
+                        # Apply sensible defaults if the value isn't specified in packetFormat.py
+                        if val is None:
+                            if k in ('minWarning', 'minCritical'):
+                                val = getattr(field, 'min', 0)
+                            elif k in ('maxWarning', 'maxCritical'):
+                                val = getattr(field, 'max', 0)
+                            else:
+                                # Default for startingValue, crit_count_max, flags, etc.
+                                val = 0
+                        row[key_for_row] = val
 
-                                # Apply sensible defaults if the value isn't specified in packetFormat.py
-                                if val is None:
-                                    if k in ('minWarning', 'minCritical'):
-                                        val = getattr(field, 'min', 0)
-                                    elif k in ('maxWarning', 'maxCritical'):
-                                        val = getattr(field, 'max', 0)
-                                    else:
-                                        # Default for startingValue, crit_count_max, flags, etc.
-                                        val = 0
-                                row[key_for_row] = val
-
-                            w.writerow({k: row.get(k, "") for k in header})
+                    w.writerow({k: row.get(k, "") for k in header})

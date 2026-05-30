@@ -1,14 +1,28 @@
 import math
-from packetFormat import vitals_to_telem, telem_to_vitals, setPacketParameters, PACK_MINIMUM_BITS, get_maxDataCntBits, get_maxFrameCntBits
+from packetFormat import PACK_MINIMUM_BITS_PLUS_8, vitals_to_telem, telem_to_vitals, setPacketParameters, PACK_MINIMUM_BITS, get_maxDataCntBits, get_maxFrameCntBits
 from parseFile import globalEnums, globalDefines, globalDefine
 
-def preprocess_packets(nodeCount, maxFrameCnt, maxDataCnt):
+def packMaskBits(msg, fields):
+    is_plus_8 = msg.get("mask_bits") is PACK_MINIMUM_BITS_PLUS_8
+    if msg.get("mask_bits") is PACK_MINIMUM_BITS or is_plus_8:
+        bits_sum = sum(f.bits for f in fields)
+        if bits_sum % 8 == 0:
+            msg["mask_bits"] = 8
+        else:
+            total_bits_padded = math.ceil(bits_sum / 8) * 8
+            msg["mask_bits"] = total_bits_padded - bits_sum
+        
+        if is_plus_8:
+            msg["mask_bits"] += 8
+
+def preprocess_packets(nodes, maxFrameCnt, maxDataCnt):
     """
     Resolves all dynamic values in the packet format definitions.
     This includes callables, enums, and PACK_MINIMUM_BITS.
     This function modifies the vitals_to_telem and telem_to_vitals lists in-place.
     """
-    setPacketParameters(nodeCount, maxFrameCnt, maxDataCnt)
+    setPacketParameters(nodes, maxFrameCnt, maxDataCnt)
+    nodeCount = len(nodes)
 
     globalDefines.append(globalDefine("nodeCount", nodeCount, nodeCount))
     globalDefines.append(globalDefine("maxFrameCntBits", get_maxFrameCntBits(), get_maxFrameCntBits()))
@@ -34,13 +48,8 @@ def preprocess_packets(nodeCount, maxFrameCnt, maxDataCnt):
                 field.bits = max(1, math.ceil(math.log2(int(field.max) + 1)))
             if getattr(field, 'max', None) is None:
                 field.max = (1 << field.bits) - 1
-        if msg.get("mask_bits") is PACK_MINIMUM_BITS:
-            bits_sum = sum(f.bits for f in fields)
-            if bits_sum % 8 == 0:
-                msg["mask_bits"] = 8
-            else:
-                total_bits_padded = math.ceil(bits_sum / 8) * 8
-                msg["mask_bits"] = total_bits_padded - bits_sum
+        packMaskBits(msg, fields)
+
 
     # --- Pre-process telem_to_vitals ---
     # Fix typo 'targetNode:' -> 'targetNode' and infer names
@@ -76,11 +85,5 @@ def preprocess_packets(nodeCount, maxFrameCnt, maxDataCnt):
             if getattr(field, 'max', None) is None:
                 field.max = (1 << field.bits) - 1
 
-        # Resolve PACK_MINIMUM_BITS for telem_to_vitals, similar to vitals_to_telem
-        if msg.get("mask_bits") is PACK_MINIMUM_BITS:
-            bits_sum = sum(f.bits for f in fields)
-            if bits_sum % 8 == 0:
-                msg["mask_bits"] = 8
-            else:
-                total_bits_padded = math.ceil(bits_sum / 8) * 8
-                msg["mask_bits"] = total_bits_padded - bits_sum
+        packMaskBits(msg, fields)
+    

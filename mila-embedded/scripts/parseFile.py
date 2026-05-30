@@ -1,7 +1,7 @@
 import os
 import json
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import math
 import re
 
@@ -31,7 +31,11 @@ dataPoint_fields = [
     {"name": "startingValue",   "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False},
     {"name": "crit_count_max",  "type": "uint8_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},  #how many consecutive criticals (after removing outliers) before considered in critical range? default is 1 if unsepecified and a critical range is set. 0 if not critical at all
     {"name": "enum",            "type": "str",     "expectation": "optional",    "value": None, "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False}, # If set, min/max/bits are derived from this enum
+    #For Vitals sate tracking
     {"name": "crit_count",      "type": "uint8_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": True},
+    {"name": "inWarningState",  "type": "boolean", "expectation": "dontSpecify",   "value": 0, "node": ["vitals"], "isSet": False, "Atomic": False},
+    {"name": "outlier_present", "type": "boolean", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False},
+    {"name": "outlier_slot",    "type": "int32_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False}
 ]
 
 # A copy of each of these will be made for every CANFrame
@@ -40,12 +44,16 @@ CANFrame_fields = [
     {"name": "frameID",         "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals"], "isSet": False},    # explicitly computed by program
     {"name": "numData",         "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},     # computed by the program
     {"name": "dataInfo",        "type": "list",   "expectation": "dontSpecify", "value": [], "node": [], "isSet": False},      # List of dataPoint structs; element‐wise parsed. was node: "array", but I think uncessary?
-    {"name": "flags",           "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # if not specified, set to 0
-    {"name": "dataLocation",    "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # never needs to be changed
-    {"name": "consecutiveMisses","type": "int8_t", "expectation": "optional",   "value": 0, "node": ["vitals"], "isSet": False},
-    {"name": "dataTimeout",     "type": "int32_t","expectation": "required",    "value": 0, "node": ["vitals", "telemetry"], "isSet": False},     # Must be specified
+    # {"name": "flags",           "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # if not specified, set to 0
+    #Things to specify in .def config file
+    {"name": "dataTimeout",     "type": "int32_t","expectation": "required",    "value": 0, "node": ["vitals", "telemetry"], "isSet": False},
+    {"name": "frequency",       "type": "int32_t","expectation": "required",    "value": 0, "node": ["sensor"], "isSet": False},
     {"name": "enableTelemCallback","type": "boolean","expectation": "optional",  "value": 0, "node": ["telemetry"], "isSet": False},
-    {"name": "frequency",       "type": "int32_t","expectation": "required",    "value": 0, "node": ["sensor"], "isSet": False}
+    {"name": "telemetryDivider", "type": "int32_t", "expectation": "optional",    "value": 1, "node": ["vitals"], "isSet": False},
+    #For vitals state tracking
+    {"name": "telemetryDivider_Count", "type": "int32_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals"], "isSet": False}, #used to determine when to send telemetry packet based on telemetryDivider
+    {"name": "dataLocation",    "type": "int8_t", "expectation": "dontSpecify",    "value": 0, "node": ["vitals"], "isSet": False},      # never needs to be changed
+    {"name": "consecutiveMisses","type": "int8_t", "expectation": "dontSpecify",   "value": 0, "node": ["vitals"], "isSet": False}
 ]
 #A copy of each of these will be made for every sensor node
 vitalsNode_fields = [   # these fields are only used by vitals. ATM each processed manually (dont specify
@@ -76,6 +84,26 @@ class globalDefine:
 
 # Global list to store global defines (populated during parsing)
 globalDefines = []
+
+@dataclass
+class Node:
+    id: int
+    name: str
+    board_type: str
+    vitals_data: list = field(default_factory=lambda: deepcopy(vitalsNode_fields))
+    data_names: list[str] = field(default_factory=list)
+
+    @property
+    def num_frames(self) -> int:
+        return ACCESS(self.vitals_data, "numFrames")["value"]
+
+    @property
+    def frames(self) -> list:
+        return ACCESS(self.vitals_data, "CANFrames")["value"]
+
+    @property
+    def num_data(self) -> int:
+        return len(self.data_names)
 
 #this function contains several manual checks to confirm that the values entered for a datapoint make sense
 #The function will also set values that were not specified based on other values
@@ -275,22 +303,12 @@ def expression_to_int(input_str):
 # --- parse_config function moved here ---
 def parse_config(file_path):
     # Variables storing info as we go about our parsing
-    startingNodeID = None # This will be the lowest node ID found
-    nodeCount = 0
+    startingNodeID = None  # This will be the lowest node ID found
     frameCount = 0
     maxFrameCount = 0
     maxDataCount = 0
 
-
-    # Parallel arrays for each node.
-    vitalsNodes = []  # stores info for vitals and sensor nodes
-    nodeNames = []    # stores the names of each node
-    numFramesArray = []    # stores the number of frames each node has
-    boardTypes = []   # stores the board type of each node. atm "esp" or "arduino"
-    dataNames = []    # stores the names of each piece of data (organized per node)
-    numData = []      # stores number of datapoints each node has
-    node_ids = []     #Array of node ID's
-
+    nodes: list[Node] = []
     missingIDs = []   # will be computed based on node_ids
     
 
@@ -310,46 +328,48 @@ def parse_config(file_path):
             node_info = {k.strip(): v.strip() for k, v in (item.split("=") for item in node_details)}
             node_id = expression_to_int(node_info["id"])
             node_name = node_info["name"]
-            board_type= node_info["board"]
-            # Initialize vitalsNode
-            vitalsNodes.append(deepcopy(vitalsNode_fields)) #create new vitalsNode entry
-            nodeNames.append(node_name)
-            numFramesArray.append(0)
-            boardTypes.append(board_type)
+            board_type = node_info["board"]
+
+            new_node = Node(id=node_id, name=node_name, board_type=board_type)
+            nodes.append(new_node)
+
             if startingNodeID is None:
                 startingNodeID = node_id
-            node_ids.append(node_id)
-            numData.append(0)
-            nodeCount += 1
         # Process a CANFrame
         elif line.startswith("CANFrame"):
-            numFramesArray[-1] += 1
-            frameCount+=1
+            if not nodes:
+                raise ValueError("CANFrame definition found before any node definition.")
 
-            nodeFrames = ACCESS(vitalsNodes[nodeCount - 1], "numFrames")
+            current_node = nodes[-1]
+            frameCount += 1
+
+            nodeFrames = ACCESS(current_node.vitals_data, "numFrames")
             nodeFrames["value"] += 1
-            numFrames=nodeFrames["value"]
+            numFrames = nodeFrames["value"]
 
             frame_details = line.split(":")[1].split(",")
             frame_info = {k.strip(): v.strip() for k, v in (item.split("=") for item in frame_details)}
 
-            framesArr = ACCESS(vitalsNodes[nodeCount - 1], "CANFrames")["value"] #list of CANFrames for this node
-            framesArr.append(deepcopy(CANFrame_fields)) #add a new CANFrame entry to this list
+            framesArr = ACCESS(current_node.vitals_data, "CANFrames")["value"]  # list of CANFrames for this node
+            framesArr.append(deepcopy(CANFrame_fields))  # add a new CANFrame entry to this list
             frame = framesArr[numFrames - 1]
-            ACCESS(frame, "nodeID")["value"] = node_ids[nodeCount - 1]
+            ACCESS(frame, "nodeID")["value"] = current_node.id
             ACCESS(frame, "frameID")["value"] = frameCount - 1
             ACCESS(frame, "numData")["value"] = 0
 
             updateEntries(frame_info, frame)
         # Process a dataPoint
         elif ":" in line:
-            # example: temperature: bitLength=7, min=-10, max=117, ...
-            frame = ACCESS(vitalsNodes[nodeCount - 1], "CANFrames")["value"][-1]
+            if not nodes or not nodes[-1].frames:
+                raise ValueError("Data point definition found before any CANFrame definition.")
+
+            current_node = nodes[-1]
+            frame = current_node.frames[-1]
             dataArr = ACCESS(frame, "dataInfo")["value"]
             dataArr.append(deepcopy(dataPoint_fields))
             dataPoint = dataArr[-1]
-            dataNames.append(line.split(":")[0].strip())
-            numData[-1] += 1
+            data_name = line.split(":")[0].strip()
+            current_node.data_names.append(data_name)
 
             data_details = line.split(":")[1].split(",")
             data_info = {k.strip(): v.strip() for k, v in (item.split("=") for item in data_details)}
@@ -359,11 +379,11 @@ def parse_config(file_path):
             enum_name_val = ACCESS(dataPoint, "enum")["value"]
             if enum_name_val:
                 if ACCESS(dataPoint, "min")["isSet"] or ACCESS(dataPoint, "max")["isSet"] or ACCESS(dataPoint, "bits")["isSet"]:
-                    print(f"Warning: For {dataNames[-1]} (node {node_ids[-1]}): 'min', 'max', or 'bits' should not be set when 'enum' is used. They will be overridden.")
+                    print(f"Warning: For {data_name} (node {current_node.id}): 'min', 'max', or 'bits' should not be set when 'enum' is used. They will be overridden.")
                 try:
                     enum_def = next(entry for entry in globalEnums if entry.enum_name == enum_name_val)
                 except StopIteration:
-                    raise ValueError(f"Enum '{enum_name_val}' specified for dataPoint '{dataNames[-1]}' (node {node_ids[-1]}) not found in enum definitions.")
+                    raise ValueError(f"Enum '{enum_name_val}' specified for dataPoint '{data_name}' (node {current_node.id}) not found in enum definitions.")
                 
                 min_enum_val = min(entry.value_int for entry in enum_def.entries)
                 max_enum_val = max(entry.value_int for entry in enum_def.entries)
@@ -380,22 +400,24 @@ def parse_config(file_path):
             # Now that enums have been processed, check for any remaining required fields.
             for field in dataPoint:
                 if field["expectation"] == "required" and not field["isSet"]:
-                    raise ValueError(f"For dataPoint '{dataNames[-1]}' (node {node_ids[-1]}): Did not specify required parameter '{field['name']}'")
+                    raise ValueError(f"For dataPoint '{data_name}' (node {current_node.id}): Did not specify required parameter '{field['name']}'")
 
-            validate_datapoint(dataPoint, dataNames[-1], node_ids[-1])
+            validate_datapoint(dataPoint, data_name, current_node.id)
             ACCESS(frame, "numData")["value"] += 1
 
 
-    # Compute missing IDs
+    # Post-processing
+    if not nodes:
+        return [], None, [], 0, 0, 0
+
+    node_ids = [node.id for node in nodes]
     all_ids = range(min(node_ids), max(node_ids) + 1)
     missingIDs = [node_id for node_id in all_ids if node_id not in node_ids]
 
-    maxFrameCount = max(ACCESS(vitalsNodes[i], "numFrames")["value"] for i in range(nodeCount))
-    maxDataCount = max(numData)
+    maxFrameCount = max(node.num_frames for node in nodes) if nodes else 0
+    maxDataCount = max(node.num_data for node in nodes) if nodes else 0
 
-    return vitalsNodes, nodeNames, numFramesArray, boardTypes, dataNames, numData, \
-            node_ids, startingNodeID, missingIDs, nodeCount, frameCount, \
-            maxFrameCount, maxDataCount
+    return nodes, startingNodeID, missingIDs, frameCount, maxFrameCount, maxDataCount
 
 def _parse_enums_and_defines(file_path):
     """

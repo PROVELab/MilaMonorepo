@@ -18,6 +18,7 @@ struct TX_Data_Packet {
 // --- BASE LOGIC (Compiled once in .cpp) ---
 class queueBase {
 protected:
+    StaticSemaphore_t queueMutexBuffer;
     SemaphoreHandle_t queueMutex = NULL;
     TX_Data_Packet* TXQueue;
     int queueSize;

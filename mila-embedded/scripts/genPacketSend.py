@@ -34,7 +34,7 @@ def _assign_prefix_free_masks(packet_list, map_file, packet_direction_name):
         map_file.write(f"{msg['name']} ({mask_len} bits): {next_code} (0b{next_code:0{mask_len}b})\n")
         next_code += 1
 
-def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir, nodeNames, nodeIds, vitals_to_telem, telem_to_vitals, globalEnums):
+def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir, nodes, vitals_to_telem, telem_to_vitals, globalEnums):
 
     """
     Generates C source and header files for sending formatted telemetry packets.
@@ -48,7 +48,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
     # recv_callbacks_path is now handled by genCallbacks.py, called from codeGen_main.py
     mapping_path = os.path.join(generated_code_dir, "mask_mappings.txt")
 
-    node_id_map = {name: id for name, id in zip(nodeNames, nodeIds)}
+    node_id_map = {node.name: node.id for node in nodes}
 
     # --- Assign CAN-level masks for forwarded packets ---
     forwarded_packets_by_node = {}
@@ -107,6 +107,15 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
         f.write('#include "freertos/semphr.h"\n')
         f.write('#include <string.h> // For memcpy\n\n')
         
+        # Add rate controller struct and extern declaration
+        f.write("// Rate limiting for vitals-to-telemetry packets\n")
+        f.write("typedef struct {\n")
+        f.write("    uint8_t divider; // Send every Nth call. 1 = send every time.\n")
+        f.write("    uint8_t counter; // Internal counter.\n")
+        f.write("} VitalsSendRateController;\n\n")
+        f.write("#include \"../../programConstants.h\" // For numVitalsToTelemPackets\n")
+        f.write("extern VitalsSendRateController vitals_send_rate_controllers[numVitalsToTelemPackets];\n\n")
+
         # Reverted prototypes back to the cleaner version
         f.write("void sendPacketCore(const simpleDataPoint* fields, size_t numFields, const int32_t* data, uint8_t* dataBuffer);\n")
         f.write("void sendPacketVariable(const simpleDataPoint* fields, size_t numFields, const int32_t* data, const uint8_t* payload, size_t payloadBytes);\n\n")
@@ -116,6 +125,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
             byte_count = msg.get("byteCount")
             mask_bits = msg.get("mask_bits", 0)
             mask_val = msg.get("mask", 0)
+            packet_idx = msg.get("packet_idx")
             
             fields = msg.get("msgFields", [])
 
@@ -179,8 +189,11 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
             # Function Generation based on CUSTOM or FIXED
             if byte_count is CUSTOM:
                 if has_struct:
+                    # Rate limiting check
+                    f.write(f"static inline void send{name}Function({header_struct_name} header, const uint8_t* payload, size_t payloadBytes); // Forward declaration\n")
+                    f.write(f"static inline void send{name}Function_internal({header_struct_name} header, const uint8_t* payload, size_t payloadBytes) {{\n")
+
                     # New signature: takes header struct and payload separately
-                    f.write(f"static inline void send{name}Function({header_struct_name} header, const uint8_t* payload, size_t payloadBytes) {{\n")
                     if mask_bits > 0:
                         f.write(f"    header.mask = (int32_t){mask_val}; // Auto-assigned\n")
                     
@@ -192,7 +205,10 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                     f.write(f"    sendPacketVariable({field_ptr}, {total_fields}, u.data_arr, payload, payloadBytes);\n")
                     f.write("}\n\n")
                 else: # CUSTOM packet with no header fields (e.g. unknownCanPacket)
-                    f.write(f"static inline void send{name}Function(const uint8_t* payload, size_t payloadBytes) {{\n")
+                    # Rate limiting check
+                    f.write(f"static inline void send{name}Function(const uint8_t* payload, size_t payloadBytes); // Forward declaration\n")
+                    f.write(f"static inline void send{name}Function_internal(const uint8_t* payload, size_t payloadBytes) {{\n")
+
                     if mask_bits > 0:
                         f.write(f"    int32_t data[1] = {{(int32_t){mask_val}}};\n")
                         f.write(f"    sendPacketVariable({field_ptr}, {total_fields}, data, payload, payloadBytes);\n")
@@ -202,8 +218,10 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                     
             elif byte_count is FIXED:
                 if has_struct:
+                    # Rate limiting check
+                    f.write(f"static inline void send{name}Function({struct_name} args); // Forward declaration\n")
+                    f.write(f"static inline void send{name}Function_internal({struct_name} args) {{\n")
                     # This logic remains the same as before
-                    f.write(f"static inline void send{name}Function({struct_name} args) {{\n")
                     if mask_bits > 0:
                         f.write(f"    args.mask = (int32_t){mask_val}; // Auto-assigned\n")
                     union_name = f"union_send{name}"
@@ -213,7 +231,10 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                     f.write(f"    sendPacketCore({field_ptr}, {total_fields}, u.data_arr, dataBuffer);\n")
                     f.write("}\n\n")
                 else: # FIXED packet with no fields
-                    f.write(f"static inline void send{name}Function() {{\n")
+                    # Rate limiting check
+                    f.write(f"static inline void send{name}Function(); // Forward declaration\n")
+                    f.write(f"static inline void send{name}Function_internal() {{\n")
+
                     f.write(f"    uint8_t dataBuffer[{num_bytes}] = {{0}};\n")
                     if mask_bits > 0:
                         f.write(f"    int32_t data[1] = {{(int32_t){mask_val}}};\n")
@@ -223,6 +244,26 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                     f.write("}\n\n")
             else:
                 raise ValueError("byte count is not an expected object")
+
+            # Generate the public-facing wrapper function with the rate-limiting logic
+            params_with_types = []
+            params_no_types = []
+            if byte_count is CUSTOM:
+                if has_struct:
+                    params_with_types.append(f"{header_struct_name} header")
+                    params_no_types.append("header")
+                params_with_types.append("const uint8_t* payload")
+                params_with_types.append("size_t payloadBytes")
+                params_no_types.extend(["payload", "payloadBytes"])
+            elif has_struct:
+                params_with_types.append(f"{struct_name} args")
+                params_no_types.append("args")
+            
+            f.write(f"static inline void send{name}Function({', '.join(params_with_types)}) {{\n")
+            f.write(f"    if (++vitals_send_rate_controllers[{packet_idx}].counter < vitals_send_rate_controllers[{packet_idx}].divider) return;\n")
+            f.write(f"    vitals_send_rate_controllers[{packet_idx}].counter = 0;\n")
+            f.write(f"    send{name}Function_internal({', '.join(params_no_types)});\n")
+            f.write("}\n\n")
             
         f.write("\n#ifdef __cplusplus\n")
         f.write("}\n")
@@ -231,6 +272,11 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
     # --- Generate Source File ---
     with open(source_path, 'w') as f:
         f.write('#include "vitalsPacketSendLUT.h"\n\n')
+        f.write("// Initialize rate controllers. Default divider is 1 (send every time).\n")
+        f.write("VitalsSendRateController vitals_send_rate_controllers[numVitalsToTelemPackets] = {\n")
+        for _ in vitals_to_telem:
+            f.write("    {.divider = 1, .counter = 0},\n")
+        f.write("};\n\n")
 
         # Modification 2: vitals_to_telem is a list, not a dict. Iterating directly.
         for msg in vitals_to_telem:

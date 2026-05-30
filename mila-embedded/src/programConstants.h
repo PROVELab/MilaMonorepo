@@ -6,10 +6,11 @@
 #define totalNumFrames 8
 #define numMissingIDs 4
 #define startingOffset 3
+#define numVitalsToTelemPackets 9
 
 //Explicilty defined in sensors.def constants
 #define nullID  0		//  0
-#define pointsPerData 10		// 10
+#define pointsPerData 8		// 8
 #define nodeIDSizeBits  7		//  7
 #define slowestNodeCount  3		//  3
 #define nodeCount 5		// 5
@@ -71,13 +72,20 @@ typedef enum {
 	Off = 2	/* 2 */
 } prechargeState;
 
-// global enum errorTrigger
+// global enum dataErrorTrigger
 typedef enum {
-	warning_nonCritical = 0,	/* 0 */
-	singleCritical = 1,	/* 1 */
-	extrap5 = 2,	/* 2 */
-	extrap10 = 3,	/* 3 */
-	confirmedCritical = 4	/* 4 */
-} errorTrigger;
+	singleCritical = 0,	/* 0 */
+	extrap4 = 1,	/* 1 */
+	extrap8 = 2,	/* 2 */
+	confirmedCritical = 3,	/* 3 */
+	enteredWarningRange = 4	/* 4 */
+} dataErrorTrigger;
+
+// global enum frameErrorTrigger
+typedef enum {
+	dataTimeout = 0,	/* 0 */
+	repeatedDataTimeout = 1,	/* 1 */
+	resetTimerError = 2	/* 2 */
+} frameErrorTrigger;
 
 #endif

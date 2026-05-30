@@ -1,3 +1,5 @@
+package util;
+
 import com.fazecast.jSerialComm.SerialPort;
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -9,7 +11,6 @@ public final class SerialBridge implements AutoCloseable {
     private final String portName;
     private final int baud;
     private final Function<byte[], Integer> onMessageRecv;
-    private final Consumer<byte[]> onMessageInvalid;
     private final Consumer<Boolean> onStatusChange;
 
     private SerialPort port;
@@ -19,12 +20,10 @@ public final class SerialBridge implements AutoCloseable {
 
     public SerialBridge(String portName, int baud,
                         Function<byte[], Integer> onMessageRecv,
-                        Consumer<byte[]> onMessageInvalid,
                         Consumer<Boolean> onStatusChange) {
         this.portName = portName;
         this.baud = baud;
         this.onMessageRecv = onMessageRecv;
-        this.onMessageInvalid = onMessageInvalid;
         this.onStatusChange = onStatusChange;
     }
 
