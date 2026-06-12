@@ -22,33 +22,11 @@ public final class TelemetryParser {
 
     private TelemetryParser() {}
 
-    public static Optional<TelemetryParserLUT.ParseResult> parseSinglePacket(byte[] loraPayload, TelemetryLookup lookup, NotificationPanel notifications, TelemetryParserLUT.PacketVisitor visitor) {
+    public static TelemetryParserLUT.ParseResult parseSinglePacket(byte[] loraPayload, TelemetryLookup lookup, NotificationPanel notifications, TelemetryParserLUT.PacketVisitor visitor) {
         if (loraPayload == null || loraPayload.length == 0) {
-            return Optional.empty(); // No payload
+            return new TelemetryParserLUT.ParseResult(null, 0); // No payload, consume 0 bytes
         }
         BitStream stream = new BitStream(ByteBuffer.wrap(loraPayload).order(ByteOrder.LITTLE_ENDIAN));
-
-        int startPosBits = stream.position();
-
-        TelemetryParserLUT.ParsedPacket packet = parseNextFixed(stream, lookup, notifications); // Parse fixed part
-
-        if (packet != null) {
-            // The visitor is called to parse the custom payload. It modifies the stream directly.
-            packet.accept(visitor, stream);
-
-            // After the visitor is done, the stream is at the new position.
-            // We report how many bytes were consumed from the original payload.
-            int endPosBits = stream.position();
-            int totalBitsConsumed = endPosBits - startPosBits;
-
-            // The number of bytes consumed is the number of bits rounded up to the nearest byte.
-            int bytesConsumed = (totalBitsConsumed + 7) / 8;
-            return Optional.of(new TelemetryParserLUT.ParseResult(packet, bytesConsumed));
-        }
-        return Optional.empty(); // No packet parsed
-    }
-
-    private static TelemetryParserLUT.ParsedPacket parseNextFixed(BitStream stream, TelemetryLookup lookup, NotificationPanel notifications) {
         TelemetryParserLUT.LutEntry matchedEntry = null;
         try {
             for (TelemetryParserLUT.LutEntry entry : TelemetryParserLUT.LUT) {
@@ -58,8 +36,8 @@ public final class TelemetryParser {
                 }
             }
         } catch (EOFException e) {
-            // Not enough bits to peek for any packet, which is fine.
-            // We'll fall through to the matchedEntry == null case.
+            // Not enough data to even peek for a header. Consume what's left.
+            return new TelemetryParserLUT.ParseResult(null, loraPayload.length);
         }
 
         if (matchedEntry == null) {
@@ -70,27 +48,69 @@ public final class TelemetryParser {
                 nextBits = "?";
             }
             notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, "TelemetryParser: No matching packet found for bits: " + nextBits + ". Remaining bytes: " + stream.remainingBytes());
-            return null;
+            // Consume 1 byte to prevent infinite loop
+            return new TelemetryParserLUT.ParseResult(null, 1);
         }
 
+        System.out.println("[Telemetry Parser] Matched packet: " + matchedEntry.name);
+        int startPosBits = stream.position();
         try {
             if (matchedEntry.bits > 0) {
                 stream.read(matchedEntry.bits);
             }
 
-            TelemetryParserLUT.ParsedPacket packet = matchedEntry.creator.create(); // Use the creator from LUT
+            ParsedPacket packet = matchedEntry.creator.create(); // Use the creator from LUT
             packet.packetIndex = matchedEntry.packetIndex;
 
             // Generic parsing for all fixed-field parts of packets.
             int[] values = packet.getValues();
             if (values.length > 0) {
-                int[] parsedValues = parseFields(stream, lookup, util.Constants.specialIDs.vitalsID, packet.packetIndex, values.length, notifications);
+                int[] parsedValues = parseFields(stream, lookup, util.Constants.specialIDs.telemetryID, packet.packetIndex, values.length, notifications);
                 System.arraycopy(parsedValues, 0, values, 0, values.length);
             }
-            return packet;
-        } catch (EOFException | NoSuchElementException | IllegalArgumentException e) {
-            notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, "TelemetryParser: Error parsing packet '" + matchedEntry.name + "': " + e.getMessage());
-            return null;
+
+            // The visitor is called to parse the custom payload. It modifies the stream directly.
+            packet.accept(visitor, stream);
+
+            // To correctly account for packets that are not a multiple of 8 bits long,
+            // we calculate consumed bytes by rounding up the number of bits consumed.
+            int bitsConsumed = stream.position() - startPosBits;
+            int bytesConsumed = (bitsConsumed + 7) / 8;
+
+            return new TelemetryParserLUT.ParseResult(packet, bytesConsumed);
+
+        } catch (EOFException e) {
+            // This error means the stream ended unexpectedly. This usually happens when the last
+            // packet in a LoRa payload is truncated. The rest of the stream is unrecoverable.
+            // We consume all remaining bytes to terminate the parsing loop for this payload.
+            String errorMsg = String.format("TelemetryParser: Truncated packet '%s' (EOF). Discarding rest of LoRa payload (%d bytes).",
+                                            matchedEntry.name, loraPayload.length);
+            System.out.println("[Telemetry Parser] " + errorMsg);
+            notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, errorMsg);
+            return new TelemetryParserLUT.ParseResult(null, loraPayload.length);
+
+        } catch (NoSuchElementException | IllegalArgumentException e) {
+            // These errors mean the packet header was valid, but the content was malformed.
+            // The best recovery is to skip the entire expected size of the packet that failed.
+            String errorMsg = String.format("TelemetryParser: Malformed packet '%s' due to '%s'.",
+                                            matchedEntry.name, e.getMessage());
+            System.err.println("[Telemetry Parser] " + errorMsg);
+            notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, errorMsg);
+
+            int bytesToSkip = 1;
+            try {
+                TelemetryRecords.CANFrame frameInfo = lookup.getFrame(Constants.specialIDs.telemetryID, matchedEntry.packetIndex);
+                int totalBits = matchedEntry.bits;
+                for (int i = 0; i < frameInfo.numData(); i++) {
+                    totalBits += lookup.getDataInfo(Constants.specialIDs.telemetryID, matchedEntry.packetIndex, i).bitLength();
+                }
+                int calculatedBytes = (totalBits + 7) / 8;
+                bytesToSkip = Math.min(calculatedBytes, loraPayload.length);
+                notifications.post(NotificationPanel.Status.OK, NotificationPanel.Channel.TELEMETRY, "Attempting to skip " + bytesToSkip + " bytes for corrupted packet '" + matchedEntry.name + "'.");
+            } catch (Exception lookupEx) {
+                notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, "Could not calculate size for '" + matchedEntry.name + "', skipping 1 byte.");
+            }
+            return new TelemetryParserLUT.ParseResult(null, bytesToSkip);
         }
     }
 

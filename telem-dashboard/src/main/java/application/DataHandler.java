@@ -32,6 +32,10 @@ public class DataHandler {
      * This method handles timer resets, data validation, plotting, and invoking CAN frame callbacks.
      */
     public void processAndPlotData(int nodeId, int frameIndex, int[] values) {
+        if (nodeId == 0 && frameIndex == 0) { // Specific check for HBTiming
+            System.out.println("[DataHandler] processAndPlotData started for HBTiming.");
+        }
+
         try {
             TelemetryRecords.CANFrame frame = this.lookup.getFrame(nodeId, frameIndex);
 
@@ -43,16 +47,25 @@ public class DataHandler {
                 return;
             }
 
+            if (nodeId == 0 && frameIndex == 0) {
+                System.out.println("[DataHandler] Looping through " + frame.numData() + " fields for HBTiming...");
+            }
             for (int i = 0; i < frame.numData(); i++) {
                 TelemetryLookup.DataKey dataKey = new TelemetryLookup.DataKey(nodeId, frameIndex, i);
                 TelemetryRecords.DataInfo dataInfo = this.lookup.getDataInfo(dataKey);
 
                 int dataValue = values[i];
 
+                if (nodeId == 0 && frameIndex == 0) System.out.println("  [DataHandler] HBTiming field " + i + ": value=" + dataValue);
+
                 checkDataValue(dataKey, dataInfo, dataValue);
-                if (!this.mainPanel.addDataPoint(nodeId, frameIndex, i, dataValue)) {
-                    this.notifications.TelemetryUpdate("Failed to add data point to main panel. Node: " + nodeId + " Frame: " + frameIndex
-                            + " DataIndex: " + i + " Value: " + dataValue, NotificationPanel.Status.WARNING);
+                if (dataInfo.plottable()) {
+                    if (nodeId == 0 && frameIndex == 0) System.out.println("    [DataHandler] Plotting HBTiming field " + i);
+                    if (!this.mainPanel.addDataPoint(nodeId, frameIndex, i, dataValue)) {
+                        this.notifications.TelemetryUpdate("Failed to add data point to main panel. Node: " + nodeId + " Frame: " + frameIndex
+                                + " DataIndex: " + i + " Value: " + dataValue, NotificationPanel.Status.WARNING);
+                    }
+                    if (nodeId == 0 && frameIndex == 0) System.out.println("    [DataHandler] Done plotting HBTiming field " + i);
                 }
             }
 
@@ -67,6 +80,9 @@ public class DataHandler {
             String msg = String.format("Failed to process data for %s (frameIndex=%d): Lookup failed. %s",
                                        nodeName, frameIndex, e.getMessage());
             this.notifications.TelemetryUpdate(msg, NotificationPanel.Status.WARNING);
+        }
+        if (nodeId == 0 && frameIndex == 0) {
+            System.out.println("[DataHandler] processAndPlotData finished for HBTiming.");
         }
     }
 

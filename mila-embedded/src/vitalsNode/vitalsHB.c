@@ -12,8 +12,8 @@
 #include "../pecan/pecan.h"       //helper code for CAN stuff
 #include "../programConstants.h"
 #include "vitalsHelper/vitalsHelper.h"
-#include "vitalsHelper/vitalsPacketSendLUT.h"
-#include "vitalsHelper/vitalsStaticDec.h"
+#include "vitalsGen/vitalsPacketSendLUT.h"
+#include "vitalsGen/vitalsStructs.h"
 
 static const char* TAG = "VitalsHB";
 static void printAllData(); // not for final use. for testing only
@@ -59,10 +59,12 @@ int16_t recieveHeartbeat(CANPacket* message) { // mark the HB for given node as 
         ESP_LOGW(TAG, "Received HB from invalid nodeId %" PRIi32 ", ignoring", message->id);
         return 0; // invalid id
     }
-    int64_t responseTime = esp_timer_get_time() - HBSendTime;
-    uint16_t responseTime16 = responseTime < 0      ? 0
-                              : responseTime > 1023 ? 1023 // want value to fit into 10 bits
-                                                    : responseTime;
+    // responseTime is in microseconds, scale to milliseconds for a more useful range.
+    int64_t responseTime_us = esp_timer_get_time() - HBSendTime;
+    int64_t responseTime_ms = responseTime_us / 1000;
+    uint16_t responseTime16 = responseTime_ms < 0      ? 0
+                              : responseTime_ms > 1023 ? 1023 // Clamp to the 10-bit field max value
+                                                       : (uint16_t)responseTime_ms;
     VitalsFlagSet(nodeIndex, HBFlag);
     HBTimeSet(nodeIndex, responseTime16);
     return 0;
@@ -115,11 +117,11 @@ static void checkHB(void* pvParameters) {
         // Send HBTiming packet
         sendHBTimingArgs timing_args = {
             0, // mask
-            (worstTimes[0] > 0) ? (int32_t)vitalsIndexToID((uint32_t)slowestNodeIndices[0]) : nullID,
+            (worstTimes[0] > 0) ? (int32_t)vitalsIndexToID((uint32_t)slowestNodeIndices[0]) : 0,
             worstTimes[0],
-            (worstTimes[1] > 0) ? (int32_t)vitalsIndexToID((uint32_t)slowestNodeIndices[1]) : nullID,
+            (worstTimes[1] > 0) ? (int32_t)vitalsIndexToID((uint32_t)slowestNodeIndices[1]) : 0,
             worstTimes[1],
-            (worstTimes[2] > 0) ? (int32_t)vitalsIndexToID((uint32_t)slowestNodeIndices[2]) : nullID,
+            (worstTimes[2] > 0) ? (int32_t)vitalsIndexToID((uint32_t)slowestNodeIndices[2]) : 0,
             worstTimes[2],
         };
         sendHBTimingFunction(timing_args);

@@ -12,10 +12,14 @@ public class NotificationPanel extends JPanel {
     public enum Channel { VITALS, TELEMETRY }
     public enum Status  { OK, WARNING, CRITICAL }
 
+    // Key for deduplication map
+    private record DedupKey(Channel channel, Status status, String msg) {}
 
     // track all live Entry objects so we can find/close matches
     private final List<Entry> entries = new ArrayList<>();
-    // Ensure we dont start spamming the same msg if sent repeatedly. 
+    // Ensure we dont start spamming the same msg if sent repeatedly when "1" is active.
+    // This maps a key to the single Entry that is allowed to be shown for it.
+    private final Map<DedupKey, Entry> activeOneEntries = new HashMap<>();
 
     // Used as a handler for each notification 
     public static final class Entry {
@@ -26,19 +30,20 @@ public class NotificationPanel extends JPanel {
         final JPanel chip;
         final JTextArea text;
         final JButton expandBtn;    //arrow to expand text box;
+        final JButton oneBtn;       // "1" to allow for limiting identical messages
         final JButton closeBtn;     //X to close notifications
         final JPanel square;        //square the message is stored on
         final JLabel ageLabel;     // Indicates age of message in seconds
         boolean expanded = false;
         boolean posted = true;     // track whether still visible
-        boolean oneActive = false; // whether this chip’s “1” is active (underlined)
+        boolean oneActive = false; // whether this chip’s “1” is active
         int ageSeconds = 0; 
 
         Entry(NotificationPanel owner, Channel ch, Status st, JPanel chip, JTextArea text,
-          JButton expandBtn, JButton closeBtn, JPanel square, JLabel ageLabel) {
+          JButton expandBtn, JButton oneBtn, JButton closeBtn, JPanel square, JLabel ageLabel) {
         this.owner = owner;
-        this.channel = ch; this.status = st;
-        this.chip = chip; this.text = text; this.expandBtn = expandBtn;
+        this.channel = ch; this.status = st; this.chip = chip; this.text = text;
+        this.expandBtn = expandBtn; this.oneBtn = oneBtn;
         this.closeBtn = closeBtn; this.square = square;
         this.ageLabel = ageLabel;
     }
@@ -51,6 +56,7 @@ public class NotificationPanel extends JPanel {
                 p.rePostEntry(this);
             }
             text.setText(newText);
+            p.resetAge(this);
             Section section = (channel == Channel.VITALS) ? p.vitals : p.telemetry;
             if (expanded) p.applyExpandedSize(this, section);
             chip.revalidate();
@@ -64,6 +70,7 @@ public class NotificationPanel extends JPanel {
             if (!posted) {
                 owner.rePostEntry(this); 
             }
+            owner.resetAge(this);
             this.status = newStatus;
             square.setBackground(NotificationPanel.colorFor(newStatus));
             chip.revalidate();
@@ -82,7 +89,23 @@ public class NotificationPanel extends JPanel {
 
     }
 
+    // The main public method for posting a notification.
     public Entry post(Status status, Channel channel, String text) {
+        DedupKey key = new DedupKey(channel, status, text);
+        if (activeOneEntries.containsKey(key)) {
+            Entry existing = activeOneEntries.get(key);
+            if (existing.posted) {
+                // The "one" entry is already visible, just update its age.
+                resetAge(existing);
+                return existing;
+            } else {
+                // The "one" entry was closed by the user. Re-post it.
+                rePostEntry(existing);
+                resetAge(existing);
+                return existing;
+            }
+        }
+        // No "one" filter active for this key, so create a new chip.
         return createChip(status, channel, text);
     }
 
@@ -95,12 +118,21 @@ public class NotificationPanel extends JPanel {
         section.list.add(e.chip, 0);
         if (!entries.contains(e)) entries.add(e);
 
+        if (e.oneActive) {
+            closeOtherMatches(e, keyOf(e));
+        }
+
         if (!e.expanded) applyCollapsedSize(e);
 
         section.list.revalidate();
         section.list.repaint();
     }
 
+    // Resets a chip's age to 0s
+    private void resetAge(Entry e) {
+        e.ageSeconds = 0;
+        e.ageLabel.setText("0s");
+    }
 
     // Layout constants
     private static final int CHIP_HEIGHT = 30;
@@ -217,6 +249,11 @@ public class NotificationPanel extends JPanel {
         expand.setToolTipText("Expand/collapse");
 
         JButton close = new JButton("×");
+
+        JButton one = new JButton("1");
+        stylizeMiniButton(one);
+        one.setToolTipText("Allow only one of this message");
+
         stylizeMiniButton(close);
         close.setForeground(Color.RED.darker());
         close.setToolTipText("Dismiss");
@@ -229,14 +266,16 @@ public class NotificationPanel extends JPanel {
         right.setLayout(new BoxLayout(right, BoxLayout.X_AXIS));
         right.add(expand);
         right.add(Box.createHorizontalStrut(4));
-        right.add(age);    
+        right.add(age);
+        right.add(Box.createHorizontalStrut(4));
+        right.add(one);
         right.add(Box.createHorizontalStrut(4));
         right.add(close);
         chip.add(right, BorderLayout.EAST);
         //
 
         // create the entry
-        Entry entry = new Entry(this, channel, status, chip, text, expand, close, square, age);
+        Entry entry = new Entry(this, channel, status, chip, text, expand, one, close, square, age);
 
         Section section = (channel == Channel.VITALS) ? vitals : telemetry;
         section.list.add(chip, 0);
@@ -255,6 +294,22 @@ public class NotificationPanel extends JPanel {
             section.list.repaint();
         });
 
+        // "1" button to only show one of this type of message
+        one.addActionListener(ae -> {
+            DedupKey k = keyOf(entry);
+            if (!entry.oneActive) {
+                // Activate filter for this key; this chip is the one allowed.
+                setOneUnderline(one, true);
+                entry.oneActive = true;
+                activeOneEntries.put(k, entry);
+                closeOtherMatches(entry, k);
+            } else {
+                // Deactivate filter for this key; allow multiples again.
+                setOneUnderline(one, false);
+                entry.oneActive = false;
+                activeOneEntries.remove(k);
+            }
+        });
         //X button
         close.addActionListener(ae -> {
             unPostEntry(entry);
@@ -273,6 +328,10 @@ public class NotificationPanel extends JPanel {
         b.setFocusPainted(false);
         b.setBorder(BorderFactory.createEmptyBorder());
         b.setContentAreaFilled(false);
+    }
+    
+    private void setOneUnderline(JButton b, boolean on) {
+        b.setText(on ? "<html><u>1</u></html>" : "1");
     }
 
     private void applyCollapsedSize(Entry e) {
@@ -300,6 +359,20 @@ public class NotificationPanel extends JPanel {
 
         section.list.revalidate();
         section.list.repaint();
+    }
+
+    // Close all other posted chips that match this key (used when enabling “1”)
+    private void closeOtherMatches(Entry keep, DedupKey key) {
+        for (Entry other : new ArrayList<>(entries)) { // copy to avoid concurrent modification
+            if (other != keep && other.posted && key.equals(keyOf(other))) {
+                other.unPostEntry(this);
+            }
+        }
+    }
+
+    // Build key for an entry (exact message, channel, status)
+    private DedupKey keyOf(Entry e) {
+        return new DedupKey(e.channel, e.status, e.text.getText());
     }
 
     static Color colorFor(Status s) {

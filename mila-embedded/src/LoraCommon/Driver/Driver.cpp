@@ -380,7 +380,12 @@ int16_t LoraTransmit(const driverSendPacket* packet, const uint64_t timerExpireT
 
         if(state == RADIOLIB_CHANNEL_FREE) {
             //ok to transmit:
-            ESP_LOGI(TAG, "driver start transmit");
+            ESP_LOGI(TAG, "driver start transmit of packet with size %zu:", packet->dataSize);
+            printf("[ ");
+            for (size_t i = 0; i < packet->dataSize; i++) {
+                printf("%u ", ((uint8_t*)packet->data)[i]);
+            }
+            printf("]\n");
             if(driverCheck([&]{return state = radio.startTransmit(packet->data, packet->dataSize);}, "LoraTransmitStart")){
                 return state;
             }

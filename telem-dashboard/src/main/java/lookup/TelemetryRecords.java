@@ -22,6 +22,7 @@ public final class TelemetryRecords {
     public record DataInfo(
         int dataIndex,
         String dataName,
+        boolean plottable,
         int min,
         int max,
         int bitLength,

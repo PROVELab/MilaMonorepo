@@ -1,0 +1,22 @@
+--- Vitals to Telem ---
+Packet Name -> Assigned Mask
+
+nodeStatus (2 bits): 0 (0b00) <- reversed from canonical 0 (0b00)
+HBStatus (3 bits): 2 (0b010) <- reversed from canonical 2 (0b010)
+BusStatus (4 bits): 6 (0b0110) <- reversed from canonical 6 (0b0110)
+CANDataFrame (4 bits): 14 (0b1110) <- reversed from canonical 7 (0b0111)
+unknownCanPacket (5 bits): 1 (0b00001) <- reversed from canonical 16 (0b10000)
+HBTiming (6 bits): 17 (0b010001) <- reversed from canonical 34 (0b100010)
+vitalsErr (8 bits): 49 (0b00110001) <- reversed from canonical 140 (0b10001100)
+dataWarning (10 bits): 177 (0b0010110001) <- reversed from canonical 564 (0b1000110100)
+frameWarning (16 bits): 689 (0b0000001010110001) <- reversed from canonical 36160 (0b1000110101000000)
+
+
+--- Telem to Vitals ---
+Packet Name -> Assigned Mask
+
+set_telem_update_frequency (4 bits): 0 (0b0000) <- reversed from canonical 0 (0b0000)
+intermoduleCommand (6 bits): 8 (0b001000) <- reversed from canonical 4 (0b000100)
+prechargeCommand (6 bits): 40 (0b101000) <- reversed from canonical 5 (0b000101)
+genericVitalsCommand (7 bits): 24 (0b0011000) <- reversed from canonical 12 (0b0001100)
+forward_packet (8 bits): 88 (0b01011000) <- reversed from canonical 26 (0b00011010)

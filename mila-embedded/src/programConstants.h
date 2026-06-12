@@ -9,7 +9,6 @@
 #define numVitalsToTelemPackets 9
 
 //Explicilty defined in sensors.def constants
-#define nullID  0		//  0
 #define pointsPerData 8		// 8
 #define nodeIDSizeBits  7		//  7
 #define slowestNodeCount  3		//  3
@@ -19,9 +18,9 @@
 
 // global enum specialIDs
 typedef enum {
+	telemetryID = 0,	/* 0 */
 	vitalsID = 2,	/* 2 */
-	prechargeID = 3,	/* 3 */
-	telemetryID = 4	/* 4 */
+	prechargeID = 3	/* 3 */
 } specialIDs;
 
 // global enum functionCodes

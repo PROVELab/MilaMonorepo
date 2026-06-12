@@ -185,16 +185,16 @@ public final class TelemetryParserLUT { // Auto-generated. Do not edit.
     static final List<LutEntry> LUT = new ArrayList<>();
 
     static {
-        LUT.add(new LutEntry(0x22, 6, "HBTiming", false, 0, HBTimingPacket::new));
+        LUT.add(new LutEntry(0x11, 6, "HBTiming", false, 0, HBTimingPacket::new));
         LUT.add(new LutEntry(0x2, 3, "HBStatus", false, 1, HBStatusPacket::new));
         LUT.add(new LutEntry(0x6, 4, "BusStatus", false, 2, BusStatusPacket::new));
-        LUT.add(new LutEntry(0x8C, 8, "vitalsErr", true, 3, vitalsErrPacket::new));
-        LUT.add(new LutEntry(0x234, 10, "dataWarning", false, 4, dataWarningPacket::new));
-        LUT.add(new LutEntry(0x8D40, 16, "frameWarning", false, 5, frameWarningPacket::new));
+        LUT.add(new LutEntry(0x31, 8, "vitalsErr", true, 3, vitalsErrPacket::new));
+        LUT.add(new LutEntry(0xB1, 10, "dataWarning", false, 4, dataWarningPacket::new));
+        LUT.add(new LutEntry(0x2B1, 16, "frameWarning", false, 5, frameWarningPacket::new));
         LUT.add(new LutEntry(0x0, 2, "nodeStatus", false, 6, nodeStatusPacket::new));
-        LUT.add(new LutEntry(0x10, 5, "unknownCanPacket", true, 7, unknownCanPacketPacket::new));
-        LUT.add(new LutEntry(0x7, 4, "CANDataFrame", true, 8, CANDataFramePacket::new));
-        LUT.sort(Comparator.comparingInt(e -> e.bits)); // Sort ascending by mask length for prefix matching
+        LUT.add(new LutEntry(0x1, 5, "unknownCanPacket", true, 7, unknownCanPacketPacket::new));
+        LUT.add(new LutEntry(0xE, 4, "CANDataFrame", true, 8, CANDataFramePacket::new));
+        LUT.sort(Comparator.comparingInt((LutEntry e) -> e.bits).thenComparingInt(e -> e.mask)); // Sort by length, then mask for a stable, predictable order.
     }
 
     @FunctionalInterface

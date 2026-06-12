@@ -1,6 +1,8 @@
 
 #include "LoraTransmitQueue.hpp"
 #include "../LoraCommon/LoraErrLog.hpp"
+#include "../vitalsNode/vitalsGen/vitalsPacketSendLUT.h"
+#include "esp_log.h"
 
 static const char* TAG = "TX_Queue";
 
@@ -114,30 +116,46 @@ bool TXQueue::addPriorityFrameToQueue(uint8_t* frame, uint8_t frameSize) {
 }
 
 void TXQueue::insertErrorFrame(TXProtocolPacket burstBuffer[maxPacketGroupSize], size_t burstPacketSizes[maxPacketGroupSize], uint8_t& numPackets){
-    // 1. Get pending errors. This also clears the error log.
-    uint8_t errPayload[(maxErrorCount * sizeof(Error_Type)) + 1];
+    // 1. Get pending errors into a temporary payload array. This also clears the error log.
+    Error_Type errors[maxErrorCount];
+    uint8_t errCount = getErrorPacket((int16_t*)errors);
+    
+    if(errCount == 0) return; // no errors to log
 
-    uint8_t errCount = getErrorPacket((int16_t*)(errPayload + 1));
-    if(errCount == 0) return; //no errors to log
+    // 2. Format using the auto-generated function
+    sendvitalsErrHeader header;
+    header.numErrors = errCount;
+    
+    // Allocate buffer for the final packet: header (usually 1 byte) + error payload
+    uint8_t errPayload[(maxErrorCount * sizeof(Error_Type)) + 4] = {0}; 
+    
+    // formatvitalsErrFunction assigns the mask, packs the header, and appends the payload
+    const size_t errorBytes = errCount * sizeof(Error_Type);
+    uint8_t payloadSize = formatvitalsErrFunction(header, (const uint8_t*)errors, errorBytes, errPayload);
+    
+    if (payloadSize == 0) return; // Formatting failed (e.g., buffer size limits hit in the underlying format function)
 
-    errPayload[0] = ((errCount & 0x0F) << 4) | (vitalsErr & 0x0F);
-    const uint8_t payloadSize = 1 + (errCount * sizeof(Error_Type));
+    //debug, dont send. is this the problem?
+    // return;
 
     // 3. Try to add to the priority queue without overriding if it's full.
     if(priorityQueue.addFrameToBuffer(errPayload, payloadSize, false)){
         return;
     }
+    ESP_LOGE(TAG, "Unable to insert into priorityQueue! were cooked chat");
 
-    // 4. Fallback: Manually insert into the current burst if there's space.
-    if(numPackets >= maxPacketGroupSize) {
+    //can still attempt to enter into regular group of packets
+    if(numPackets < maxPacketGroupSize) {  //can we place in regular packet group?
+        // Copy the error payload into the data section of the TXProtocolPacket
+        memcpy(burstBuffer[numPackets].data, errPayload, payloadSize);
+        burstPacketSizes[numPackets] = payloadSize + TXHeaderSize;
+        
+        // Safely set the flags directly on the struct
+        burstBuffer[numPackets].flags = txFlagMasks::priorityPacketMask;
+        numPackets++;
         return;
     }
-    // Copy the error payload into the data section of the TXProtocolPacket
-    memcpy(burstBuffer[numPackets].data, errPayload, payloadSize);
-    burstPacketSizes[numPackets] = payloadSize + TXHeaderSize;
-    // Safely set the flags directly on the struct
-    burstBuffer[numPackets].flags = txFlagMasks::priorityPacketMask;
-    numPackets++;
+
 }
 
 //returns size of the burstBuffer. not thread safe (only call from one spot..)

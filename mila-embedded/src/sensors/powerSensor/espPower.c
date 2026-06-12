@@ -6,8 +6,9 @@
 
 #include "esp_check.h"
 #include "esp_err.h"
-
 #include "esp_log.h"
+#include "esp_system.h"
+
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_adc/adc_continuous.h"
@@ -41,6 +42,8 @@ static const adc_bitwidth_t defaultBitWidth = ADC_BITWIDTH_12;
 //                           Module state / helpers
 // ============================================================================
 
+static const char* TAG = "espPower";
+
 // Internal cap for table sizing (static, not exposed). Big enough for ESP32 ADC1/2.
 #define MAX_CHANNELS 16
 
@@ -60,8 +63,6 @@ static struct {
     int enabled_slots;         // how many were valid/enabled
     slot_t slot[MAX_CHANNELS]; // entries stay in the same order as provided
 } S = {0};
-
-static const char* TAG = "espPower";
 
 DMA_ATTR static uint8_t s_adc_read_buf[ADC_READ_BUF_BYTES];
 
@@ -177,7 +178,7 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
         sl->cali_h = NULL;
 
         if (c->R1 <= 0 || c->R2 <= 0) {
-            ESP_LOGE(TAG, "Invalid R1/R2 divider values for slot %d", i);
+            ESP_LOGW(TAG, "Invalid R1/R2 divider values for slot %d", i);
             continue;
         }
 
@@ -189,7 +190,7 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
             ok = gpio_to_adc2_channel(c->ADCPin, &ch);
         }
         if (!ok) {
-            ESP_LOGE(TAG, "ADC GPIO %d invalid for selected ADC unit", c->ADCPin);
+            ESP_LOGW(TAG, "ADC GPIO %d invalid for selected ADC unit (slot %d)", c->ADCPin, i);
             continue;
         }
 
@@ -253,15 +254,12 @@ void initializeSelfPower(const selfPowerConfig* configs, int num_channels, int a
     // Log summary in config order
     for (int i = 0; i < num_channels; ++i) {
         if (!S.slot[i].enabled) continue;
-        char buffer[192];
         // Optional Debug Line
-        // snprintf(buffer, sizeof(buffer),
-        //          "SelfPower init: slot%d GPIO%d (%s_CH%u), gain=%.3f, %lu Hz total\n",
-        //          i, S.slot[i].gpio,
-        //          (S.unit == ADC_UNIT_1) ? "ADC1" : "ADC2",
-        //          (unsigned)S.slot[i].ch,
-        //          (double)S.slot[i].divider_gain, (unsigned long)MIN_FREQUENCY_HZ);
-        // mutexPrint(buffer);
+        ESP_LOGI(TAG, "SelfPower init: slot%d GPIO%d (%s_CH%u), gain=%.3f, %lu Hz total",
+                 i, S.slot[i].gpio,
+                 (S.unit == ADC_UNIT_1) ? "ADC1" : "ADC2",
+                 (unsigned)S.slot[i].ch,
+                 (double)S.slot[i].divider_gain, (unsigned long)MIN_FREQUENCY_HZ);
     }
 }
 
@@ -303,13 +301,10 @@ void collectSelfPowerAllmV(int32_t* out_vin_mV, selfPowerStatus_t* out_statuses)
         }
 
         for (uint32_t i = 0; i + sizeof(adc_digi_output_data_t) <= got; i += sizeof(adc_digi_output_data_t)) {
-            // To avoid strict-aliasing violations and potential unaligned access,
-            // safely copy the data from the byte buffer into a local struct.
-            adc_digi_output_data_t d;
-            memcpy(&d, &s_adc_read_buf[i], sizeof(adc_digi_output_data_t));
-            int slot = channel_to_slot(d.type1.channel);
+            const adc_digi_output_data_t* d = (const adc_digi_output_data_t*) &s_adc_read_buf[i];
+            int slot = channel_to_slot(d->type1.channel);
             if (slot >= 0) {
-                sum[slot] += d.type1.data;
+                sum[slot] += d->type1.data;
                 cnt[slot]++;
             }
         }
@@ -341,12 +336,9 @@ void collectSelfPowerAllmV(int32_t* out_vin_mV, selfPowerStatus_t* out_statuses)
         out_statuses[i] = READ_SUCCESS;
 
         // Optional debug line
-        // char pb[144];
-        // snprintf(pb, sizeof(pb),
-        //          "SelfPower[%s slot %d]: avg=%d raw -> pin=%d mV -> Vin=%" PRId32 " mV (samples=%d)\n",
+        // ESP_LOGD(TAG, "SelfPower[%s slot %d]: avg=%d raw -> pin=%d mV -> Vin=%" PRId32 " mV (samples=%d)",
         //          (S.unit == ADC_UNIT_1) ? "ADC1" : "ADC2",
         //          i, avg_raw, pin_mV, out_vin_mV[i], cnt[i]);
-        // mutexPrint(pb);
     }
 }
 
@@ -362,7 +354,7 @@ void selfPowerStatusCheck(const selfPowerStatus_t* statuses, int num_channels, i
     for (int i = 0; i < num_channels; ++i) {
         const selfPowerStatus_t s = statuses[i];
         if (s == NOTHING_TO_READ || s == READ_FAILURE) {
-            ESP_LOGW(TAG, "SelfPower channel %d read failed with status %d", i, s);
+            // ESP_LOGW(TAG, "SelfPower channel %d read failed with status %d", i, s);
             sendStatusUpdate(s, id);
         }
         if (s == INIT_FAILURE) any_init_failure = true;

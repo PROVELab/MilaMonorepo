@@ -57,11 +57,12 @@ public class BitStream {
     public void alignToByte() {
         int bitsToDiscard = bitCount % 8;
         if (bitsToDiscard > 0) {
-            try{
-                read(bitsToDiscard); // Discard result
-            } catch (EOFException e) {
-                // This should never happen since we're just discarding bits, but if it does, we can ignore it.
-                System.out.println("alignToByte failed somehow? " + e.getMessage());
+            if (bitCount >= bitsToDiscard) {
+                bitBuffer >>>= bitsToDiscard;
+                bitCount -= bitsToDiscard;
+            } else {
+                // Not enough bits to discard, so we are already effectively aligned.
+                bitCount = 0;
             }
         }
     }
@@ -90,8 +91,7 @@ public class BitStream {
     }
 
     public int remainingBytes( ) {
-        alignToByte();
-        return buffer.remaining();
+        return (bitCount / 8) + buffer.remaining();
     }
 
     /**

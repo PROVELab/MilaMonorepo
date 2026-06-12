@@ -153,3 +153,46 @@ int8_t sensorInit(PCANListenParamsCollection* plpc,
 
     return 0;
 }
+
+#ifdef SENSOR_HAS_COMMANDS
+
+static int16_t handleTelemetryCommand(CANPacket* p) {
+    const uint8_t* data = p->data;
+    size_t len = p->dataSize;
+    
+    if (len == 0) return -1;
+
+    int8_t bitIndex = 0;
+    int32_t mask_val = 0;
+
+    if (SENSOR_RECV_MASK_BITS > 0) {
+        simpleDataPoint mask_field;
+        mask_field.min = 0; 
+        mask_field.max = (1U << SENSOR_RECV_MASK_BITS) - 1;
+        mask_field.bits = SENSOR_RECV_MASK_BITS;
+        pecan_unpack(&mask_val, data, &mask_field, &bitIndex);
+    }
+
+    if (mask_val < 0 || mask_val >= sensorRecvPacketLUTSize) {
+        return -1; // Invalid mask
+    }
+
+    const SensorRecvPacketLUTEntry* entry = &sensorRecvPacketLUT[mask_val];
+    if (entry->callback_wrapper) {
+        entry->callback_wrapper(data, len, &bitIndex);
+    }
+    return 0;
+}
+
+void registerCommandHandlers(PCANListenParamsCollection* plpc) {
+    CANListenParam telemCommandParam;
+    memset(&telemCommandParam, 0, sizeof(telemCommandParam));
+    telemCommandParam.listen_id = combinedID(TelemetryCommand, myId);
+    telemCommandParam.handler = handleTelemetryCommand;
+    telemCommandParam.mt = MATCH_EXACT;
+    if (addParam(plpc, telemCommandParam) != SUCCESS) {
+        ESP_LOGE(TAG, "Failed to add telemetry command handler");
+    }
+}
+
+#endif // SENSOR_HAS_COMMANDS

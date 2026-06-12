@@ -82,7 +82,7 @@ ProtocolState resendLastPacketInBurst(){
     // Create a temporary driverSendPacket and copy the data for transmission
     driverSendPacket packet_to_send;
     packet_to_send.dataSize = burstPacketSizes[lastPacketIndex];
-    std::memcpy(packet_to_send.data, &burstBuffer[lastPacketIndex], packet_to_send.dataSize);
+    packet_to_send.data = (uint8_t*) &burstBuffer[lastPacketIndex];
 
     result res = safeLoraTx(&packet_to_send, transmitGiveUpTime);
     switch(res){

@@ -7,6 +7,7 @@
 #include "freertos/task.h"
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "esp_log.h"
 #include "../pecan/pecan.h"       //helper code for CAN stuff
@@ -15,8 +16,8 @@
 #include "vitalsData/vitalsData.h"
 #include "vitalsHB.h"
 #include "vitalsHelper/vitalsHelper.h"
-#include "vitalsHelper/vitalsPacketSendLUT.h"
-#include "vitalsHelper/vitalsStaticDec.h"
+#include "vitalsGen/vitalsPacketSendLUT.h"
+#include "vitalsGen/vitalsStructs.h"
 #include "vitalsLoraRecv.hpp"
 #include "../LoraCommon/LoraProtocol.h"
 
@@ -38,9 +39,8 @@ void vitals_check_bus_status(void* pvParameters) {
     for (;;) {
         twai_status_info_t status_info;
         if (twai_get_status_info(&status_info) == ESP_OK) {
-            ESP_LOGD(TAG,
-                     "Bus Status - TXQ:%lu, RXQ:%lu, TX_err:%lu, RX_err:%lu, TX_fail:%lu, RX_miss:%lu, "
-                     "RX_overrun:%lu, ARB_lost:%lu, BUS_err:%lu",
+            ESP_LOGD(TAG, "Bus Status - TXQ:%" PRIu32 ", RXQ:%" PRIu32 ", TX_err:%" PRIu32 ", RX_err:%" PRIu32 ", TX_fail:%" PRIu32 ", RX_miss:%" PRIu32 ", "
+                          "RX_overrun:%" PRIu32 ", ARB_lost:%" PRIu32 ", BUS_err:%" PRIu32,
                      status_info.msgs_to_tx, status_info.msgs_to_rx, status_info.tx_error_counter,
                      status_info.rx_error_counter, status_info.tx_failed_count, status_info.rx_missed_count,
                      status_info.rx_overrun_count, status_info.arb_lost_count, status_info.bus_error_count);

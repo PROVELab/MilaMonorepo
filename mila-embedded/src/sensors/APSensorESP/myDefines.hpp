@@ -3,6 +3,7 @@
 //defines constants specific to APSensorESP
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h> // For size_t
 #define myId 11
 #define numFrames 1
 #define node_numData 1

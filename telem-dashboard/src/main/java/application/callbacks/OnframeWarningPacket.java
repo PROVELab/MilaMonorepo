@@ -16,8 +16,8 @@ import util.IntConstUtils;
 public class OnframeWarningPacket {
 
     public void handle(TelemetryParserLUT.frameWarningPacket p, DataHandler dataHandler, NotificationPanel notifications, TelemetryLookup lookup) {
-        // All frame warnings are considered critical.
-        NotificationPanel.Status status = NotificationPanel.Status.CRITICAL;
+        // All frame warnings are considered Warnings
+        NotificationPanel.Status status = NotificationPanel.Status.WARNING;
 
         StringBuilder msg = new StringBuilder();
         msg.append("Frame Warning on Node ").append(p.nodeID())

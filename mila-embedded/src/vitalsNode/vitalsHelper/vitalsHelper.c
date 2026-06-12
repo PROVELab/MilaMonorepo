@@ -2,7 +2,7 @@
 
 #include "../../pecan/pecan.h"
 #include "vitalsHelper.h"
-#include "vitalsPacketSendLUT.h"
+#include "../vitalsGen/vitalsStructs.h"
 #include "../../programConstants.h"
 
 #if defined(__cplusplus)

@@ -21,9 +21,9 @@ public final class CommandRecords {
 
     static {
         List<EnumEntry> specialIDs_entries = new ArrayList<>();
+        specialIDs_entries.add(new EnumEntry("telemetryID", 0));
         specialIDs_entries.add(new EnumEntry("vitalsID", 2));
         specialIDs_entries.add(new EnumEntry("prechargeID", 3));
-        specialIDs_entries.add(new EnumEntry("telemetryID", 4));
         ENUMS.put("specialIDs", specialIDs_entries);
 
         List<EnumEntry> functionCodes_entries = new ArrayList<>();
@@ -84,7 +84,7 @@ public final class CommandRecords {
 
         List<CommandField> genericVitalsCommand_fields = new ArrayList<>();
         genericVitalsCommand_fields.add(new CommandField("vitalsCommands", 1, 0, 1, "vitalsCommands"));
-        COMMANDS.add(new Command("genericVitalsCommand", 10, 7, false, genericVitalsCommand_fields));
+        COMMANDS.add(new Command("genericVitalsCommand", 24, 7, false, genericVitalsCommand_fields));
 
         List<CommandField> set_telem_update_frequency_fields = new ArrayList<>();
         set_telem_update_frequency_fields.add(new CommandField("nodeID", 4, 0, 15, null));
@@ -94,13 +94,17 @@ public final class CommandRecords {
 
         List<CommandField> prechargeCommand_fields = new ArrayList<>();
         prechargeCommand_fields.add(new CommandField("prechargeCommands", 2, 0, 2, "prechargeCommands"));
-        COMMANDS.add(new Command("prechargeCommand", 4, 6, false, prechargeCommand_fields));
+        COMMANDS.add(new Command("prechargeCommand", 40, 6, false, prechargeCommand_fields));
+
+        List<CommandField> intermoduleCommand_fields = new ArrayList<>();
+        intermoduleCommand_fields.add(new CommandField("prechargeCommands", 2, 0, 2, "prechargeCommands"));
+        COMMANDS.add(new Command("intermoduleCommand", 8, 6, false, intermoduleCommand_fields));
 
         List<CommandField> forward_packet_fields = new ArrayList<>();
         forward_packet_fields.add(new CommandField("CAN_ID", 11, 0, 2047, null));
         forward_packet_fields.add(new CommandField("dataLength", 4, 0, 15, null));
         forward_packet_fields.add(new CommandField("extendedID", 1, 0, 1, null));
-        COMMANDS.add(new Command("forward_packet", 22, 8, true, forward_packet_fields));
+        COMMANDS.add(new Command("forward_packet", 88, 8, true, forward_packet_fields));
 
     }
 }

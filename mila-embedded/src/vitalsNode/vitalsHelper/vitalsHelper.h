@@ -4,8 +4,7 @@
 #include <stdatomic.h>
 
 #include "../../programConstants.h"
-#include "vitalsStaticDec.h"
-#include "vitalsStructs.h"
+#include "../vitalsGen/vitalsStructs.h"
 
 // fixed vitals Constants
 enum internalVitalsFlags { // flags being placed in Vitals' flags field for each node

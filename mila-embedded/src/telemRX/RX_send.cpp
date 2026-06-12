@@ -30,22 +30,27 @@ void initSendBuffer(){
     }
 }
 
-//returns true if message is queue for transmission. false if no room.
-bool protocol_Transmit(uint8_t* data, uint8_t dataLen){
-    if (sendBufferMutex == NULL) return false;
-    if(xSemaphoreTake(sendBufferMutex, pdMS_TO_TICKS(1000)) != pdPASS){
-        ESP_LOGE(TAG, "Could not obtain send buffer mutex");
-        return false;
-    }
-    if(holdBufferDataIndex + dataLen > sizeof(holdBuffer)){
+// This function is called from C code, so we need to use C linkage.
+extern "C" {
+    //returns true if message is queue for transmission. false if no room.
+    bool protocolTransmit(uint8_t* data, uint8_t dataLen){
+        if (sendBufferMutex == NULL) return false;
+        if(xSemaphoreTake(sendBufferMutex, pdMS_TO_TICKS(1000)) != pdPASS){
+            ESP_LOGE(TAG, "Could not obtain send buffer mutex");
+            return false;
+        }
+        if(holdBufferDataIndex + dataLen > sizeof(holdBuffer)){
+            xSemaphoreGive(sendBufferMutex);
+            return false;
+        }
+        memcpy(holdBuffer + holdBufferDataIndex, data, dataLen);
+        holdBufferDataIndex += dataLen;
         xSemaphoreGive(sendBufferMutex);
-        return false;
+        return true;
     }
-    memcpy(holdBuffer + holdBufferDataIndex, data, dataLen);
-    holdBufferDataIndex += dataLen;
-    xSemaphoreGive(sendBufferMutex);
-    return true;
-}
+} // extern "C"
+
+
 
 //for when ack recieved, clear data buffer
 void flushSendBuffer(){

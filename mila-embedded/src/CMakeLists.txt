@@ -218,6 +218,7 @@ if(CMAKE_COOLANT_PWM)
     )
     set(SRC_FILES
         ${COOLANT_SRC}
+        "sensors/powerSensor/espPower.c"
     )
 endif()
 

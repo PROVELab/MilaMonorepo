@@ -10,7 +10,6 @@ public final class Constants {
     public static final int numVitalsToTelemPackets = 9;
 
     //Explicilty defined in sensors.def constants
-    public static final int nullID  = 0;		//  0
     public static final int pointsPerData = 8;		// 8
     public static final int nodeIDSizeBits  = 7;		//  7
     public static final int slowestNodeCount  = 3;		//  3
@@ -21,9 +20,9 @@ public final class Constants {
 	// global enum specialIDs
 	public static final class specialIDs {
 		private specialIDs() {}
+		public static final int telemetryID = 0;	// 0
 		public static final int vitalsID = 2;	// 2
 		public static final int prechargeID = 3;	// 3
-		public static final int telemetryID = 4;	// 4
 	}
 
 	// global enum functionCodes

@@ -14,8 +14,8 @@ public class OndataWarningPacket {
 
     public void handle(TelemetryParserLUT.dataWarningPacket p, DataHandler dataHandler, NotificationPanel notifications, TelemetryLookup lookup) {
         NotificationPanel.Status status;
-        // From CommandRecords.java, 'enteredWarningRange' has value 4 and seems to be the non-critical one.
-        if (p.dataErrorTrigger() == 4 /* enteredWarningRange */) {
+        // Check if the trigger is for entering a warning range, which is less severe than a critical range.
+        if (p.dataErrorTrigger() == Constants.dataErrorTrigger.enteredWarningRange) {
             status = NotificationPanel.Status.WARNING;
         } else {
             status = NotificationPanel.Status.CRITICAL;

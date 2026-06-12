@@ -9,7 +9,8 @@
 
 #include "../../pecan/pecan.h"             //used for CAN
 #include "../common/sensorHelper.hpp"      //used for compliance with vitals and sending data
-#include "myDefines.hpp"       //contains #define statements specific to this node like myId.
+#include "myDefines.hpp"
+       //contains #define statements specific to this node like myId.
 #include "../../espBase/debug_esp.h"
 #include "esp_log.h"
 static const char* TAG = "SensorMain";

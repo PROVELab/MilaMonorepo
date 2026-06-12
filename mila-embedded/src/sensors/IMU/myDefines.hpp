@@ -3,6 +3,7 @@
 //defines constants specific to IMU
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h> // For size_t
 #define myId 9
 #define numFrames 3
 #define node_numData 12

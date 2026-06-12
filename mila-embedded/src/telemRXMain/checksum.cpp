@@ -1,23 +1,25 @@
-#include "UART_COM.h"
+#include <stdint.h>
 
 uint16_t in_cksum(const uint8_t* addr, int len) {
     uint32_t sum = 0;
-    const uint16_t* w = (const uint16_t*) addr;
+    int i = 0;
 
     // Sum 16-bit words
     while (len > 1) {
-        sum += *w++;
+        // Build 16-bit word from two bytes to avoid alignment issues.
+        // Assumes Little Endian, which matches the Java implementation.
+        uint16_t word = addr[i] | (uint16_t)(addr[i+1] << 8);
+        sum += word;
+        i += 2;
         len -= 2;
     }
 
-    // Mop up an odd byte, if necessary
+    // Add odd byte if necessary
     if (len == 1) {
-        uint16_t last = 0;
-        *((uint8_t*) &last) = *(const uint8_t*) w; // place in low byte
-        sum += last;
+        sum += addr[i];
     }
 
-    // Fold to 16 bits
+    // Fold 32-bit sum to 16 bits and add carry
     sum = (sum >> 16) + (sum & 0xFFFF);
     sum += (sum >> 16);
     return (uint16_t) ~sum;

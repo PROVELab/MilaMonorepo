@@ -50,7 +50,7 @@ typedef struct {
 typedef struct {
     int32_t min;
     int32_t max;
-    int8_t bits; // Moved to bottom to reduce potential for mis-aligned accesses
+    uint8_t bits; // Changed to unsigned, as bit count cannot be negative.
 } simpleDataPoint;
 
 // A collection containing an array of params to listen for

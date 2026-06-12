@@ -3,6 +3,7 @@
 //defines constants specific to pedalSensor
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h> // For size_t
 #define myId 8
 #define numFrames 1
 #define node_numData 5

@@ -2,8 +2,10 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/uart.h"
+#include <cstring>
 
 #include "../LoraCommon/LoraProtocol.h"
+#include "../LoraCommon/blastProtocolConfig.hpp"
 #include "UART_COM.h" // For UART Tasks and Functions
 
 static const char* TAG = "main";
@@ -20,6 +22,14 @@ StackType_t LORA_Read_Stack[TASK_STACK_SIZE];
 StaticTask_t UART_Rx_Buffer;
 StackType_t UART_Rx_Stack[TASK_STACK_SIZE];
 
+struct UartMetadataPayload {
+    float rssi;
+    float snr;
+    uint32_t irqFlags;
+    size_t dataSize;
+    uint8_t data[255]; // Max LoRa packet size
+} __attribute__((packed));
+
 driverRecvPacket packet;
 
 // Task: Reads from LoRa Driver and routes to UART
@@ -27,7 +37,17 @@ void loraReadTask(void* pvParameters){
     ESP_LOGI(TAG, "Lora Read Task started");
     for(;;){
         if(protocolRecv(&packet)) {
-            LORA_TO_UART(packet.data, packet.dataSize);
+            // Use a struct for safer and more efficient payload construction.
+            // This avoids using a Variable Length Array (VLA) on the stack.
+            UartMetadataPayload uart_payload;
+            uart_payload.rssi = packet.RSSI;
+            uart_payload.snr = packet.SNR;
+            uart_payload.irqFlags = packet.irqFlags;
+            uart_payload.dataSize = packet.dataSize;
+            memcpy(uart_payload.data, packet.data, packet.dataSize);
+
+            size_t total_payload_size = offsetof(UartMetadataPayload, data) + packet.dataSize;
+            LORA_TO_UART(reinterpret_cast<uint8_t*>(&uart_payload), total_payload_size);
         } else {
             ESP_LOGW(TAG, "No packets received (Timeout)");
         }

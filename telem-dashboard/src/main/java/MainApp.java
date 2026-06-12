@@ -10,6 +10,8 @@ import lookup.TelemetryLookup;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class MainApp {
     public static void main(String[] args) {
@@ -19,6 +21,11 @@ public class MainApp {
 
         SwingUtilities.invokeLater(() -> {
             try {
+                // Generate a timestamped log file name for this session
+                LocalDateTime startupTime = LocalDateTime.now();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+                String logFileName = "telemLogs" + startupTime.format(formatter) + ".bin";
+
                 // Load Telemetry lookup, which contains info on sensors.
                 TelemetryLookup lookup;
                 try (InputStream in = MainApp.class.getResourceAsStream("/telemetry.csv")) {
@@ -38,7 +45,7 @@ public class MainApp {
                 System.out.println("parsing");
 
                 // Parse Can Messages, and update UI for them
-                MessageHandler parser = new MessageHandler(lookup, notifications, mainPanel, frame);
+                MessageHandler parser = new MessageHandler(lookup, notifications, mainPanel, frame, logFileName);
 
                 frame.setVisible(true);
 
