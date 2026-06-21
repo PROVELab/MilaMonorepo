@@ -243,6 +243,10 @@ public class NotificationPanel extends JPanel {
         text.setBorder(BorderFactory.createEmptyBorder());
         chip.add(text, BorderLayout.CENTER);
 
+        //dont snap the scroll panel to new notifications
+        javax.swing.text.DefaultCaret caret = (javax.swing.text.DefaultCaret) text.getCaret();
+        caret.setUpdatePolicy(javax.swing.text.DefaultCaret.NEVER_UPDATE);
+
         // Buttons on the Right of chip
         JButton expand = new JButton("▸");
         stylizeMiniButton(expand);

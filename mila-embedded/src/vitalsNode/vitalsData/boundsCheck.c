@@ -1,13 +1,18 @@
 #include <stdint.h>
 
 #include "../../programConstants.h"
+#include "../vitalsHelper/vitalsHelper.h"
 #include "../vitalsGen/vitalsStructs.h"
 #include "../vitalsGen/vitalsPacketSendLUT.h"
 
+#include "../contactorControl.h"
 #include "vitalsDataHelper.h"
 
-static void decrement_crit_count(_Atomic uint8_t* crit_count_ptr);
+#include "esp_log.h"
 
+const char* TAG = "bounds Check";
+
+static void decrement_crit_count(_Atomic uint8_t* crit_count_ptr);
 
 /**
  * @brief Computes the min/max values from the last N historical data points,
@@ -47,11 +52,18 @@ bool is_outlier(const int32_t* arr, int32_t new_value) {
 
 //check if Critical, and send appropriate warning if needed
 bool critical_out_of_bounds(dataPoint* dp, senddataWarningArgs* args, int32_t value){
-    if(value < dp->minCritical || value > dp->maxCritical){
-        const uint8_t new_crit_count = atomic_fetch_add(&dp->crit_count, 1) + 1;
-        if (dp->crit_count_max > 0 && new_crit_count > dp->crit_count_max) {
+    critical_dataPoint* critical = dp->criticalStructPtr;
+    if (critical == NULL) {
+        return false;
+    }
+
+    if(value < critical->minCritical || value > critical->maxCritical){
+        const uint8_t new_crit_count = atomic_fetch_add(&critical->crit_count, 1) + 1;
+        if (critical->crit_count_max > 0 && new_crit_count > critical->crit_count_max) {
             args->dataErrorTrigger.e = confirmedCritical;  //indicate this is a confirmed critical (vitals will turn off car)
-            //TODO: add call to disable precharge
+            // sendContactorControlCommand(disableContactors);  //TODO comment back when
+            // ESP_LOGE(TAG, "confirmed critical sending disable contactors");
+            ESP_LOGW(TAG, "not disabling :).");
         }
         senddataWarningFunction(*args);
         return true;
@@ -61,7 +73,10 @@ bool critical_out_of_bounds(dataPoint* dp, senddataWarningArgs* args, int32_t va
 
 void processNonCriticalPoint(dataPoint* dp, senddataWarningArgs* args, int32_t value){
     //non-critical, reduce crit counter.
-    decrement_crit_count(&dp->crit_count);
+    critical_dataPoint* critical = dp->criticalStructPtr;
+    if (critical != NULL) {
+        decrement_crit_count(&critical->crit_count);
+    }
     
     //check for warning
     if(value < dp->minWarning || value > dp->maxWarning){
@@ -80,13 +95,18 @@ void processNonCriticalPoint(dataPoint* dp, senddataWarningArgs* args, int32_t v
  *        and sends a dataWarningPacket if the value is not OK.
  */
 void evaluate_bounds_and_send_warning(dataPoint* dp, CANFrame* frame, int data_idx, int32_t current_value) {
+    const int32_t nodeID = (int32_t)vitalsIndexToID((uint32_t)frame->nodeIndex);
+    int32_t localFrameID = 0;
+    if (!vitalsGlobalFrameIDToLocal(frame, &localFrameID)) {
+        return;
+    }
     //prepare message
     senddataWarningArgs args = {
         .mask = 0,
         .dataTooHigh = current_value > dp->maxWarning,
         .dataErrorTrigger = {.e = singleCritical},
-        .nodeID = (int32_t)frame->nodeID,
-        .frameID = (int32_t)frame->frameID,
+        .nodeID = nodeID,
+        .frameID = localFrameID,
         .dataID = (int32_t)data_idx
     };
     if(mightBeCritical(dp)){
@@ -104,7 +124,7 @@ void evaluate_bounds_and_send_warning(dataPoint* dp, CANFrame* frame, int data_i
 }
 
 bool mightBeCritical(dataPoint* dp){
-    return dp->minCritical > dp->min || dp->maxCritical < dp->max;
+    return dp->criticalStructPtr != NULL;
 }
 
 static void decrement_crit_count(_Atomic uint8_t* crit_count_ptr) {

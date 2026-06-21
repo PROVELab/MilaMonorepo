@@ -1,3 +1,12 @@
+vitalsData processes all received data
+key actions:
+1. All Canframes are checked for canframe timeouts, on timeout, notifications are sent
+2. Critical dataPoints have their history stored so that the next value can be extrapolated so shut-offs can occur pre-emptively if data is heading out of bounds.
+3. if critical data is out of bounds, or heading out of bounds, crit_count is incremented. crit_count >= crit_count_max triggers critical state, sending a command (to contactorControl.c) to disable the contactors. crit_count is decremented if a non-critical (ok) point is received. default crit_count_max is 2. set it higher/lower if you want more/less confidence of critical state.
+4. if Canframes with critical data go missing, their next points are also extrapolated the first few times.
+
+
+
 ### **Extrapolation**
 Want to extrapolate y_{N+1} given N previous equidistant data points {(1,y1), ..., (N,$y_N$)}.
 

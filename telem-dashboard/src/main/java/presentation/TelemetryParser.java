@@ -23,8 +23,8 @@ public final class TelemetryParser {
     private TelemetryParser() {}
 
     public static TelemetryParserLUT.ParseResult parseSinglePacket(byte[] loraPayload, TelemetryLookup lookup, NotificationPanel notifications, TelemetryParserLUT.PacketVisitor visitor) {
-        if (loraPayload == null || loraPayload.length == 0) {
-            return new TelemetryParserLUT.ParseResult(null, 0); // No payload, consume 0 bytes
+        if (loraPayload.length == 0) {
+            return new TelemetryParserLUT.ParseResult(Optional.empty(), 0); // No payload, consume 0 bytes
         }
         BitStream stream = new BitStream(ByteBuffer.wrap(loraPayload).order(ByteOrder.LITTLE_ENDIAN));
         TelemetryParserLUT.LutEntry matchedEntry = null;
@@ -37,7 +37,7 @@ public final class TelemetryParser {
             }
         } catch (EOFException e) {
             // Not enough data to even peek for a header. Consume what's left.
-            return new TelemetryParserLUT.ParseResult(null, loraPayload.length);
+            return new TelemetryParserLUT.ParseResult(Optional.empty(), loraPayload.length);
         }
 
         if (matchedEntry == null) {
@@ -49,7 +49,7 @@ public final class TelemetryParser {
             }
             notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, "TelemetryParser: No matching packet found for bits: " + nextBits + ". Remaining bytes: " + stream.remainingBytes());
             // Consume 1 byte to prevent infinite loop
-            return new TelemetryParserLUT.ParseResult(null, 1);
+            return new TelemetryParserLUT.ParseResult(Optional.empty(), 1);
         }
 
         System.out.println("[Telemetry Parser] Matched packet: " + matchedEntry.name);
@@ -70,14 +70,18 @@ public final class TelemetryParser {
             }
 
             // The visitor is called to parse the custom payload. It modifies the stream directly.
+            int bitsBeforeVisitor = stream.position();
             packet.accept(visitor, stream);
+            if (stream.position() != bitsBeforeVisitor) {
+                stream.alignToByte();
+            }
 
             // To correctly account for packets that are not a multiple of 8 bits long,
             // we calculate consumed bytes by rounding up the number of bits consumed.
             int bitsConsumed = stream.position() - startPosBits;
             int bytesConsumed = (bitsConsumed + 7) / 8;
 
-            return new TelemetryParserLUT.ParseResult(packet, bytesConsumed);
+            return new TelemetryParserLUT.ParseResult(Optional.of(packet), bytesConsumed);
 
         } catch (EOFException e) {
             // This error means the stream ended unexpectedly. This usually happens when the last
@@ -87,7 +91,7 @@ public final class TelemetryParser {
                                             matchedEntry.name, loraPayload.length);
             System.out.println("[Telemetry Parser] " + errorMsg);
             notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, errorMsg);
-            return new TelemetryParserLUT.ParseResult(null, loraPayload.length);
+            return new TelemetryParserLUT.ParseResult(Optional.empty(), loraPayload.length);
 
         } catch (NoSuchElementException | IllegalArgumentException e) {
             // These errors mean the packet header was valid, but the content was malformed.
@@ -110,7 +114,7 @@ public final class TelemetryParser {
             } catch (Exception lookupEx) {
                 notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, "Could not calculate size for '" + matchedEntry.name + "', skipping 1 byte.");
             }
-            return new TelemetryParserLUT.ParseResult(null, bytesToSkip);
+            return new TelemetryParserLUT.ParseResult(Optional.empty(), bytesToSkip);
         }
     }
 

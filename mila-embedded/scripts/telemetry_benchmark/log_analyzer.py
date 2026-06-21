@@ -5,8 +5,9 @@ import numpy as np
 import xml.etree.ElementTree as ET
 from matplotlib.widgets import Slider
 import contextily as cx  # <-- Added contextily import for the map background
+from typing import Any
 
-def parse_log_file(input_path, output_csv_path):
+def parse_log_file(input_path: str, output_csv_path: str) -> pd.DataFrame:
     """
     Parses the raw log file to find 'csv entry' lines, extracts the data,
     and saves it to a CSV file.
@@ -55,7 +56,7 @@ def parse_log_file(input_path, output_csv_path):
     
     return df
 
-def parse_gpx_file(gpx_path):
+def parse_gpx_file(gpx_path: str) -> pd.DataFrame:
     """
     Parses a GPX file to extract track points (latitude, longitude, time).
     """
@@ -91,7 +92,7 @@ def parse_gpx_file(gpx_path):
         print(f"Error parsing GPX file '{gpx_path}': {e}")
         return pd.DataFrame()
 
-def calculate_pps(df):
+def calculate_pps(df: pd.DataFrame) -> pd.DataFrame:
     """
     Calculates the number of correctly received packets per second over a 
     10-second rolling window.
@@ -109,7 +110,13 @@ def calculate_pps(df):
     pps_resampled = pps.resample('1s').last().fillna(0)    
     return pps_resampled.to_frame(name='pps')
 
-def plot_data(df, pps_df, gpx_df, start_time=None, end_time=None):
+def plot_data(
+    df: pd.DataFrame,
+    pps_df: pd.DataFrame,
+    gpx_df: pd.DataFrame,
+    start_time: float | None = None,
+    end_time: float | None = None,
+) -> None:
     """
     Generates and displays five plots. Top 4 are full-width, 
     the GPS Map is centered, large, and square.
@@ -218,12 +225,12 @@ def plot_data(df, pps_df, gpx_df, start_time=None, end_time=None):
     ax_slider = fig.add_axes([0.25, 0.03, 0.5, 0.02])
     time_offset_slider = Slider(ax_slider, 'Offset (s)', -600, 600, valinit=0)
 
-    def format_time_tick(x, pos):
+    def format_time_tick(x: float, pos: Any) -> str:
         return f"{x:.0f}s"
 
     ax_num.xaxis.set_major_formatter(plt.FuncFormatter(format_time_tick))
     
-    def update(val):
+    def update(val: Any) -> None:
         offset = time_offset_slider.val
         if not plot_gpx_df.empty:
             for ann, idx in annotations:
@@ -237,7 +244,7 @@ def plot_data(df, pps_df, gpx_df, start_time=None, end_time=None):
     update(0)
     plt.show()
 
-def main():
+def main() -> None:
     """Main function to run the log analysis."""
     input_file = 'raw_data.txt'
     output_csv = 'parsed_log_data.csv'

@@ -20,20 +20,25 @@
 #define STATIC_ASSERT(cond, msg) _Static_assert((cond), msg)
 #endif
 
+        typedef struct {
+    uint8_t crit_count_max;
+    int32_t minCritical;
+    int32_t maxCritical;
+    int32_t startingValue;
+    int32_t *data; /* pointsPerData samples for this critical datapoint */
+    ATOMIC(uint8_t) crit_count;
+    bool outlier_present;
+    int32_t outlier_slot;
+} critical_dataPoint;
+
 typedef struct {
     int32_t min;
     int32_t max;
     int8_t bits;
-    int32_t minCritical;
-    int32_t maxCritical;
     int32_t minWarning;
     int32_t maxWarning;
-    int32_t startingValue;
-    uint8_t crit_count_max;
-    ATOMIC(uint8_t) crit_count;
     bool inWarningState;
-    bool outlier_present;
-    int32_t outlier_slot;
+    critical_dataPoint* criticalStructPtr;
 } dataPoint;
 
 // This ensures that dataPoint can be safely cast to simpleDataPoint for pecan_unpack.
@@ -42,21 +47,20 @@ STATIC_ASSERT(offsetof(dataPoint, max) == offsetof(simpleDataPoint, max), "max o
 STATIC_ASSERT(offsetof(dataPoint, bits) == offsetof(simpleDataPoint, bits), "bits offset mismatch");
 
 typedef struct {
-    int8_t nodeID;
+    int8_t nodeIndex;
     int8_t frameID;
     int8_t numData;
     dataPoint *dataInfo; /* Replaced list with dataPoint pointer */
     int32_t dataTimeout;
-    int32_t frequency;
-    bool enableTelemCallback;
     int32_t telemetryDivider;
+    bool hasCriticalData;
     int32_t telemetryDivider_Count;
     int8_t dataLocation;
     int8_t consecutiveMisses;
-    int32_t (*data)[pointsPerData]; /* Init to [data points per data = 8] [numData for this frame] */
 } CANFrame;
 
 typedef struct {
+    int8_t CAN_ID;
     ATOMIC(int8_t) flags;
     ATOMIC(int16_t) milliSeconds;
     int8_t numFrames;
@@ -64,6 +68,5 @@ typedef struct {
 } vitalsNode;
 
 extern vitalsNode nodes[numberOfNodes];
-extern int16_t missingIDs[];
 
 #endif

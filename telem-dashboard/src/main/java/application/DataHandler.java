@@ -39,7 +39,10 @@ public class DataHandler {
         try {
             TelemetryRecords.CANFrame frame = this.lookup.getFrame(nodeId, frameIndex);
 
-            if (frame.dataTimeout() > 0) { onFrameReceivedResetTimer(nodeId, frameIndex, frame.dataTimeout()); }
+            if (frame.dataTimeout() > 0) { 
+                //double + 1 second for telemetry timeout (over vitals timeout). telemetry timeouts seems to need an unfortunate amount of lee-way
+                onFrameReceivedResetTimer(nodeId, frameIndex, (frame.dataTimeout()*2) + 1000); 
+            }
 
             if (values.length != frame.numData()) {
                 this.notifications.TelemetryUpdate("Mismatched data count for frame. Node: " + nodeId + " Frame: " + frameIndex
@@ -70,10 +73,8 @@ public class DataHandler {
             }
 
             if (frame.enableTelemCallback()) {
-                CANFrameParser.ParsedCANFrame canPacket = CANFrameParser.createPacket(nodeId, frameIndex, values);
-                if (canPacket != null) {
-                    canPacket.accept(this.canFrameCallbacks);
-                }
+                CANFrameParser.createPacket(nodeId, frameIndex, values)
+                        .ifPresent(canPacket -> canPacket.accept(this.canFrameCallbacks));
             }
         } catch (NoSuchElementException e) {
             String nodeName = this.lookup.getNodeNameOpt(nodeId).orElse("ID " + nodeId);

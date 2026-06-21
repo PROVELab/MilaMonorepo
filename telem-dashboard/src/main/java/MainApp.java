@@ -37,7 +37,7 @@ public class MainApp {
                 System.out.println("making UI");
                 NotificationPanel notifications = new NotificationPanel();
                 SensorSelectionPanel selectionPanel = new SensorSelectionPanel(lookup);
-                final int chartCountVertical = 2; final int chartCountHorizontal = 2;
+                final int chartCountVertical = 3; final int chartCountHorizontal = 3;
                 MainPanel mainPanel = new MainPanel(lookup, chartCountVertical, chartCountHorizontal);
                 MainFrame frame = new MainFrame(lookup, selectionPanel, notifications, mainPanel);
                 mainPanel.connectFrame(frame);

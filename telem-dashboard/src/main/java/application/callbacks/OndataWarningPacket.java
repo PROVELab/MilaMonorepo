@@ -21,11 +21,17 @@ public class OndataWarningPacket {
             status = NotificationPanel.Status.CRITICAL;
         }
 
+        String dataName = lookup.getDataInfoOpt(p.nodeID(), p.frameID(), p.dataID())
+            .map(dataInfo -> dataInfo.dataName())
+            .orElse("Unknown data name (lookup failed, this point doesnt exist?)");
+
         StringBuilder msg = new StringBuilder();
+
         msg.append("Data Warning on Node '").append(lookup.getNodeName(p.nodeID())).append("'")
            .append(", Frame ").append(p.frameID())
-           .append(", Data ").append(p.dataID())
-           .append(": ");
+           .append(", Data name: ").append(dataName).append(" ")
+           .append("(id: ").append(p.dataID()).append(")")
+           .append(" : ");
         if (p.dataTooHigh() != 0) {
             msg.append("Data is too high. ");
         } else {

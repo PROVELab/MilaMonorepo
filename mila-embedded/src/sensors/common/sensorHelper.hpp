@@ -18,7 +18,7 @@ extern "C" { //Need C linkage since ESP uses C "C"
 //universal globals. Used by every sensor
 typedef struct { //identified by a 2 bit identifier 0-3 in function code
     int8_t numData;
-    int32_t frequency;
+    int32_t period;
     int8_t startingDataIndex;  //starting index of data in this frame. used by collector function
     simpleDataPoint *dataInfo;
 } CANFrame;
@@ -27,6 +27,7 @@ extern CANFrame myframes[numFrames];
 
 //For ts, pass PScheduler* for arduino, else pass NULL
 int8_t sensorInit(PCANListenParamsCollection* plpc, void* ts);
+void sendFrame(int8_t frameNum);
 
 #ifdef SENSOR_HAS_COMMANDS
 // Struct for command lookup table entries
@@ -37,7 +38,7 @@ typedef struct SensorRecvPacketLUTEntry_s {
     void (*callback_wrapper)(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex);
 } SensorRecvPacketLUTEntry;
 
-void registerCommandHandlers(PCANListenParamsCollection* plpc);
+void registerCommandHandler(PCANListenParamsCollection* plpc);
 
 // Extern declarations for the command lookup table, defined in sensorRecvLUT.cpp
 extern const SensorRecvPacketLUTEntry sensorRecvPacketLUT[];

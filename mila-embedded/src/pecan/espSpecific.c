@@ -31,6 +31,7 @@ void checkBusStatus(void* pvParameters) {
         alertStatus = twai_read_alerts(&alerts, portMAX_DELAY);
         // mutexPrint("reading alert\n");
         if (alertStatus == ESP_OK) {
+            ESP_LOGI(TAG, "TWAI alerts received: 0x%" PRIX32, alerts);
             if (alerts & TWAI_ALERT_BUS_OFF) {
                 ESP_LOGW(TAG, "Bus-off detected, initiating recovery");
                 if (twai_initiate_recovery() != ESP_OK) {
@@ -121,14 +122,21 @@ bool (*matcher[3])(uint32_t, uint32_t) = {
     exact, matchID, matchFunction}; // used by waitPackets to match incomming packets based on match type
 
 // Unlike pecan for Arduino, this is blocking! (everything on esp should be a seperate task, as part of the esp-idf
-// design philosophy, but make sure not to have other stuff in the same task with this! Matches any recieved packets
+// design philosophy, but make sure not to have other stuff in the same task with this! Matches any received packets
 // with their handler Not thread-safe (only call from one thread). The packet reference is overriden upon call. returns
-// value of the matching function, or NOT_RECIEVED for no new messages
+// value of the matching function, or NOT_receiveD for no new messages
 int16_t waitPackets(PCANListenParamsCollection* plpc) {
     twai_message_t twaiMSG;
     static CANPacket recv_pack;
-    if ((twai_receive(&twaiMSG, portMAX_DELAY) ==
-         ESP_OK)) { // blocking check for messages (RTOS will schedule something else while blocked)
+    const int maxWaitTime_ms = 8000;
+    esp_err_t err = twai_receive(&twaiMSG, pdMS_TO_TICKS(maxWaitTime_ms));
+    if(err == ESP_ERR_TIMEOUT){
+        //it seems if you get with when 2 mc connect over CAN, they can both end up acking,
+        //but one of the drivers doesnt recv any messages somehow.. i dont understand.
+        ESP_LOGE(TAG, "waited 8 seconds and got no CAN packets. rebooting");
+        esp_restart();
+    }
+    if (err == ESP_OK) { // blocking check for messages (RTOS will schedule something else while blocked)
         if ((recv_pack.extendedID = twaiMSG.extd) == true) {
             recv_pack.id = twaiMSG.identifier & 0x1FFFFFFF; // view first 29 bits of id
         } else {
@@ -153,7 +161,7 @@ int16_t waitPackets(PCANListenParamsCollection* plpc) {
             if (matcher[clp.mt](recv_pack.id, clp.listen_id)) { return clp.handler(&recv_pack); }
         }
         return plpc->defaultHandler(&recv_pack);
-    }
+    } 
     return NOT_RECEIVED;
 }
 
@@ -164,6 +172,7 @@ void sendPacket(CANPacket* p) {
         ESP_LOGE(TAG, "Packet Too Big");
         return;
     }
+    ESP_LOGI(TAG, "sending packet with id: %"PRId32, p->id);
     twai_message_t message = {
         // This is the struct used to create and send a CAN message. Generally speaking, only the last 3 fields should
         // ever change.
@@ -184,17 +193,22 @@ void sendPacket(CANPacket* p) {
     esp_err_t err;
     int transmitAttemptCount = 0;
     do {
-        err = twai_transmit(&message, pdMS_TO_TICKS(10));
+        err = twai_transmit(&message, pdMS_TO_TICKS(50));
         if (err != ESP_OK) {
             vTaskDelay(pdMS_TO_TICKS(
                 10)); // give 10ms to let other message send, bus recover, or whatever else is going wrong.
-            ESP_LOGW(TAG, "error sending Can: %d", err);
+            ESP_LOGW(TAG, "twai_transmit attempt %d failed with err=%d for can_id=%" PRIi32 " dlc=%u",
+                     transmitAttemptCount + 1, (int)err, p->id, (unsigned)message.data_length_code);
+        } else if (transmitAttemptCount > 0) {
+            ESP_LOGI(TAG, "twai_transmit recovered after %d retries for can_id=%" PRIi32,
+                     transmitAttemptCount, p->id);
         }
         transmitAttemptCount += 1;
     } while (err != ESP_OK && transmitAttemptCount < MAX_CAN_TRANSMIT_ATTEMPTS);
 
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms.");
+        ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms. can_id=%" PRIi32 " dlc=%u err=%d",
+                 p->id, (unsigned)message.data_length_code, (int)err);
         //driver should hopefully restart.. no reboot for now (likely not ideal in final code)
         esp_restart();
         // TODO: Perhaps add a means to uninstall and reinstall the TWAI DRIVER here.

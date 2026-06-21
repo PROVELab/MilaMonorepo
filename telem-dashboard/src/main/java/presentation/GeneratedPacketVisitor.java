@@ -24,20 +24,8 @@ public class GeneratedPacketVisitor implements TelemetryParserLUT.PacketVisitor 
     }
 
     @Override
-    public void visit(TelemetryParserLUT.HBTimingPacket p) {
-        new OnHBTimingPacket().handle(p, dataHandler, notifications, lookup);
-        return;
-    }
-
-    @Override
-    public void visit(TelemetryParserLUT.HBStatusPacket p) {
-        new OnHBStatusPacket().handle(p, dataHandler, notifications, lookup);
-        return;
-    }
-
-    @Override
-    public void visit(TelemetryParserLUT.BusStatusPacket p) {
-        new OnBusStatusPacket().handle(p, dataHandler, notifications, lookup);
+    public void visit(TelemetryParserLUT.VitalsUpdatePacket p) {
+        new OnVitalsUpdatePacket().handle(p, dataHandler, notifications, lookup);
         return;
     }
 

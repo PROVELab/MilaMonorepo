@@ -1,41 +1,45 @@
 import os
-from Lora_Msgs_And_Cmds.packetFormat import FIXED, CUSTOM
-from config.parseFile import ACCESS, globalEnums, globalDefines
+from typing import Any
+
+from config.parseFile import expression_to_int, Node
 import math
 
-def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir, nodes, vitals_to_telem, telem_to_vitals, globalEnums):
+def createPacketSendFiles( vitals_dir: str,
+                          nodes: list[Node],
+                          vitals_to_telem: list[dict[str, Any]],
+                          telem_to_vitals: list[dict[str, Any]]) -> None:
 
     """
     Generates C source and header files for sending formatted telemetry packets.
     - vitalsPacketSendLUT.h/c: Contains lookup tables for packet message fields.
     """
 
-    header_path = os.path.join(vitals_helper_dir, "vitalsPacketSendLUT.h")
-    source_path = os.path.join(vitals_helper_dir, "vitalsPacketSendLUT.c")
-    recv_header_path = os.path.join(vitals_helper_dir, "vitalsPacketRecvLUT.h")
-    recv_source_path = os.path.join(vitals_helper_dir, "vitalsPacketRecvLUT.c")
+    header_path = os.path.join(vitals_dir, "vitalsPacketSendLUT.h")
+    source_path = os.path.join(vitals_dir, "vitalsPacketSendLUT.c")
+    recv_header_path = os.path.join(vitals_dir, "vitalsPacketRecvLUT.h")
+    recv_source_path = os.path.join(vitals_dir, "vitalsPacketRecvLUT.c")
     # recv_callbacks_path is now handled by genCallbacks.py, called from codeGen_main.py
-    mapping_path = os.path.join(generated_code_dir, "mask_mappings.txt")
 
-    node_id_map = {node.name: node.id for node in nodes}
+    node_id_str_map = {node.name: node.id_str for node in nodes}
+    node_map_by_id = {node.node_id: node for node in nodes}
 
     # --- Assign CAN-level masks for forwarded packets ---
     forwarded_packets_by_node = {}
 
-    # Sanity check: CUSTOM packets must be byte-aligned after their mask and fixed fields.
+    # Sanity check: payload-bearing packets must be byte-aligned after their mask and fixed fields.
     for msg in telem_to_vitals:
-        if msg.get("byteCount") is CUSTOM:
+        if msg.get("containsPayload", False):
             # This check happens after PACK_MINIMUM_BITS is resolved to an integer by the huffman-like assignment.
             mask_bits = msg.get("mask_bits", 0)
             
             fixed_field_bits = 0
             for f in msg.get("msgFields", []):
-                # A field's bits can be a callable, but for CUSTOM packets they are expected to be fixed integers.
+                # A field's bits can be a callable, but for payload-bearing packets they are expected to be fixed integers.
                 fixed_field_bits += f.bits
             
             total_header_bits = mask_bits + fixed_field_bits
             assert total_header_bits % 8 == 0, \
-                f"CUSTOM packet '{msg['name']}' is not byte-aligned. Its header (mask_bits={mask_bits} + fixed_fields={fixed_field_bits}) is {total_header_bits}, which is not a multiple of 8. Please adjust field or mask bit lengths in packetFormat.py."
+                f"Payload-bearing packet '{msg['name']}' is not byte-aligned. Its header (mask_bits={mask_bits} + fixed_fields={fixed_field_bits}) is {total_header_bits}, which is not a multiple of 8. Please adjust field or mask bit lengths in packetFormat.py."
 
     # 2. Generate the Header Code
     with open(header_path, 'w') as f:
@@ -54,17 +58,18 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
         # Add rate controller struct and extern declaration
         f.write("// Rate limiting for vitals-to-telemetry packets\n")
         f.write("typedef struct {\n")
-        f.write("    uint8_t divider; // Send every Nth call. 1 = send every time.\n")
+        f.write("    volatile uint8_t divider; // Send every Nth call. 1 = send every time. \
+                volatile for convenient async updates\n")
         f.write("    uint8_t counter; // Internal counter.\n")
         f.write("} VitalsSendRateController;\n\n")
         f.write("#include \"../../programConstants.h\" // For numVitalsToTelemPackets\n")
         f.write("extern VitalsSendRateController vitals_send_rate_controllers[numVitalsToTelemPackets];\n\n")
 
-        f.write("#include \"../vitalsSendData.h\"\n")
+        f.write("#include \"../loraStaticHelper/staticHelp.h\"\n")
 
         for msg in vitals_to_telem:
             name = msg["name"]
-            byte_count = msg.get("byteCount")
+            contains_payload = msg.get("containsPayload", False)
             mask_bits = msg.get("mask_bits", 0)
             mask_val = msg.get("mask", 0)
             packet_idx = msg.get("packet_idx")
@@ -83,12 +88,12 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
             
             f.write(f"// ----- {name} -----\n")
 
-            struct_name = f"send{name}Args" # Full struct for FIXED packets
-            header_struct_name = f"send{name}Header" # Header-only struct for CUSTOM packets
+            struct_name = f"send{name}Args" # Full struct for fixed-size packets
+            header_struct_name = f"send{name}Header" # Header-only struct for payload-bearing packets
 
             if has_struct:
-                # For CUSTOM, define a header-only struct. For FIXED, define the full struct.
-                struct_to_unionize = header_struct_name if byte_count is CUSTOM else struct_name
+                # For payload-bearing packets, define a header-only struct. Otherwise define the full struct.
+                struct_to_unionize = header_struct_name if contains_payload else struct_name
 
                 # Pre-define field-specific unions for fields that are enums
                 enum_fields = {} # Store enum type for fields that are enums
@@ -128,7 +133,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
 
             params_with_types = []
             params_no_types = []
-            if byte_count is CUSTOM:
+            if contains_payload:
                 if has_struct:
                     params_with_types.append(f"{header_struct_name} header")
                     params_no_types.append("header")
@@ -147,7 +152,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
 
             # --- format<name>Function ---
             f.write(f"static inline uint8_t format{name}Function({', '.join(params_with_types_format)}) {{\n")
-            if byte_count is CUSTOM:
+            if contains_payload:
                 if has_struct:
                     if mask_bits > 0:
                         f.write(f"    header.mask = (int32_t){mask_val}; // Auto-assigned\n")
@@ -160,7 +165,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                         f.write(f"    return formatPacketVariable({field_ptr}, {total_fields}, data, payload, payloadBytes, out_buffer);\n")
                     else:
                         f.write(f"    return formatPacketVariable({field_ptr}, {total_fields}, NULL, payload, payloadBytes, out_buffer);\n")
-            elif byte_count is FIXED:
+            else:
                 if has_struct:
                     if mask_bits > 0:
                         f.write(f"    args.mask = (int32_t){mask_val}; // Auto-assigned\n")
@@ -180,8 +185,8 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
             f.write(f"    if (++vitals_send_rate_controllers[{packet_idx}].counter < vitals_send_rate_controllers[{packet_idx}].divider) return;\n")
             f.write(f"    vitals_send_rate_controllers[{packet_idx}].counter = 0;\n")
             
-            if byte_count is CUSTOM:
-                # CUSTOM packets use the backend's static variable buffer, so no local allocation is needed
+            if contains_payload:
+                # Payload-bearing packets use the backend's static variable buffer, so no local allocation is needed
                 if has_struct:
                     if mask_bits > 0:
                         f.write(f"    header.mask = (int32_t){mask_val}; // Auto-assigned\n")
@@ -194,8 +199,8 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                         f.write(f"    sendPacketVariable({field_ptr}, {total_fields}, data, payload, payloadBytes);\n")
                     else:
                         f.write(f"    sendPacketVariable({field_ptr}, {total_fields}, NULL, payload, payloadBytes);\n")
-            elif byte_count is FIXED:
-                # FIXED packets still need a local buffer to pass into sendPacketCore
+            else:
+                # Fixed-size packets still need a local buffer to pass into sendPacketCore
                 f.write(f"    uint8_t dataBuffer[{num_bytes}] = {{0}};\n")
                 if has_struct:
                     if mask_bits > 0:
@@ -226,7 +231,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
 
         # Modification 2: vitals_to_telem is a list, not a dict. Iterating directly.
         for msg in vitals_to_telem:
-            byte_count = msg.get("byteCount")
+            contains_payload = msg.get("containsPayload", False)
             
             name = msg["name"]
             fields = msg.get("msgFields", [])
@@ -273,11 +278,11 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
         for msg in telem_to_vitals:
             name = msg["name"]
             fields = msg.get("msgFields", [])
-            byte_count = msg.get("byteCount")
+            contains_payload = msg.get("containsPayload", False)
             struct_name = f"{name}_args_t"
 
             f.write(f"// ----- {name} -----\n")
-            has_struct = len(fields) > 0 or byte_count is CUSTOM
+            has_struct = len(fields) > 0 or contains_payload
             if has_struct:
                 # Pre-define field-specific unions for fields that are enums
                 enum_fields = {}
@@ -298,7 +303,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                             f.write(f"    union_{name}_{field.name} {field.name};\n")
                         else:
                             f.write(f"    int32_t {field.name};\n")
-                if byte_count is CUSTOM:
+                if contains_payload:
                     f.write("    const uint8_t* payload;\n")
                     f.write("    size_t max_payload_size;\n")
                 f.write(f"}} {struct_name};\n\n")
@@ -309,27 +314,17 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
                 params.append(f"{struct_name} args")
 
             param_str = ", ".join(params) if params else "void"
-            return_type = "size_t" if byte_count is CUSTOM else "void"
+            return_type = "size_t" if contains_payload else "void"
             f.write(f"{return_type} on{name}({param_str});\n\n")
 
-        f.write("typedef struct {\n")
-        f.write("    const simpleDataPoint* fields;\n")
-        f.write("    uint8_t num_fields;\n")
-        f.write("    uint8_t packet_type; // RECV_PACKET_TYPE_FIXED or RECV_PACKET_TYPE_CUSTOM\n")
-        f.write("    uint32_t mask_val;\n") # Store mask value
-        f.write("    uint8_t mask_bits;\n") # Store mask bits
-        f.write("    size_t (*callback_wrapper)(const uint8_t* raw_packet, size_t packet_len, int8_t* initial_bitIndex);\n")
-        f.write("} RecvPacketLUTEntry;\n\n")
-        f.write(f"extern const uint8_t MAX_RECV_MASK_BITS;\n") # Max mask bits for iteration
-        f.write(f"extern const RecvPacketLUTEntry recvPacketLUT[];\n")
-        f.write(f"extern const size_t recvPacketLUTSize;\n")
         f.write("\n#ifdef __cplusplus\n")
         f.write("}\n")
         f.write("#endif\n\n#endif // VITALS_PACKET_RECV_LUT_H\n")
 
     with open(recv_source_path, 'w') as f:
         f.write('#include "vitalsPacketRecvLUT.h"\n')
-        f.write('#include "../vitalsLoraRecv.hpp"\n')
+        f.write('#include "../loraStaticHelper/staticHelp.h"\n')
+        f.write('#include "../loraStaticHelper/staticHelp.h"\n')
         f.write('#include "pecan/pecan.h" // For sendPacket, combinedID, etc.\n')
         f.write('#include "../../programConstants.h"\n')
         f.write('#include "esp_log.h"\n')
@@ -352,61 +347,79 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
         for msg in telem_to_vitals:
             name = msg["name"]
             # Handle potential typo in packetFormat.py for backwards compatibility
-            target_node = msg.get("targetNode", msg.get("targetNode:", "vitals"))
+            target_node_str = msg.get("targetNode", msg.get("targetNode:", "vitals"))
 
             fields = msg.get("msgFields", [])
-            byte_count = msg.get("byteCount")
+            contains_payload = msg.get("containsPayload", False)
             struct_name = f"{name}_args_t"
             wrapper_name = f"on{name}_wrapper"
 
             f.write(f"// Wrapper for {name}\n")
-            f.write(f"static size_t {wrapper_name}(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex) {{\n")
+            f.write(f"static size_t {wrapper_name}(const uint8_t* raw_packet, size_t packet_len, int32_t* bitIndex) {{\n")
             # Forwarding logic
-            if target_node != "vitals":
-                node_id = node_id_map.get(target_node)
-                if node_id is None:
-                    # It must be an enum value like 'prechargeID'
-                    node_id_str = target_node
-                if node_id is None:
-                    node_id_str = str(node_id_map.get(target_node, "0"))
+            if target_node_str != "vitals":
+                final_node_id_expr = None
+                # 1. Is target_node_str a known node name?
+                if target_node_str in node_id_str_map:
+                    final_node_id_expr = node_id_str_map[target_node_str]
+                else:
+                    # 2. Is it a numeric ID or an expression that resolves to a known node ID?
+                    try:
+                        target_id_int = expression_to_int(target_node_str)
+                        if target_id_int in node_map_by_id:
+                            # It's a valid ID. We can use the original string expression.
+                            final_node_id_expr = target_node_str
+                        else:
+                            # It's a valid expression but doesn't match any known node.
+                            final_node_id_expr = target_node_str
+                    except (ValueError, NameError):
+                        # It's not a known name and not a valid expression.
+                        # It must be a C define that Python doesn't know about. Pass it through.
+                        final_node_id_expr = target_node_str
 
+                # This packet is handled locally AND forwarded.
+                # --- 1. Unpack data and call local callback ---
+                has_struct = len(fields) > 0 or contains_payload
+                if has_struct:
+                    f.write(f"    union {{ {struct_name} s; int32_t data_arr[{len(fields)}]; }} u __attribute__((aligned(4)));\n\n")
+                    if fields:
+                        f.write(f"    unpackDataStream(u.data_arr, {len(fields)}, raw_packet, {name}_fields, bitIndex);\n")
+                    if contains_payload:
+                        f.write(f"    size_t fixed_bytes = (*bitIndex + 7) / 8;\n")
+                        f.write(f"    if (packet_len > fixed_bytes) {{ u.s.payload = raw_packet + fixed_bytes; u.s.max_payload_size = packet_len - fixed_bytes; }}")
+                        f.write(f" else {{ u.s.payload = NULL; u.s.max_payload_size = 0; }}\n")
+                    f.write(f"    on{name}(u.s);\n")
+                else:
+                    f.write(f"    on{name}();\n")
+
+                # --- 2. Forward the packet over CAN ---
                 can_mask = msg.get('can_mask', 0)
                 can_mask_bits = msg.get('can_mask_bits', 0)
-                
-                f.write(f"\n    // This packet is forwarded to the target node '{target_node}'.\n")
+                f.write(f"\n    // This packet is also forwarded to the target node '{target_node_str}'.\n")
                 
                 field_ptr = f"{name}_fields" if len(fields) > 0 else "NULL"
                 num_fields = len(fields)
-                packet_type_str = f"RECV_PACKET_TYPE_{'CUSTOM' if byte_count is CUSTOM else 'FIXED'}"
-                
-                # Unpack just enough to forward
-                if fields:
-                    f.write(f"    int32_t data_arr[{len(fields)}];\n")
-                    f.write(f"    for (int i = 0; i < {len(fields)}; ++i) {{\n")
-                    f.write(f"        pecan_unpack(&data_arr[i], raw_packet, &{name}_fields[i], bitIndex);\n")
-                    f.write(f"    }}\n")
-                    args_ptr_str = "data_arr"
-                else:
-                    args_ptr_str = "NULL"
+                packet_type_str = "RECV_PACKET_TYPE_CUSTOM" if contains_payload else "RECV_PACKET_TYPE_FIXED"
+                args_ptr_str = "u.data_arr" if fields else "NULL"
 
-                f.write(f"    forwardCANPacket({node_id_str}, {can_mask}, {can_mask_bits}, {field_ptr}, {num_fields}, {packet_type_str}, {args_ptr_str}, raw_packet, packet_len, bitIndex);\n")
-                f.write("    return 0; // Forwarded packets are not processed locally by vitals\n")
+                f.write(f"    forwardLoraToCAN({final_node_id_expr}, {can_mask}, {can_mask_bits}, {field_ptr}, {num_fields}, {packet_type_str}, {args_ptr_str}, raw_packet, packet_len, bitIndex);\n")
+                if contains_payload:
+                    f.write("    *bitIndex = (int32_t)(packet_len * 8); // Forwarded payload consumes the remaining bytes in this packet view.\n")
+                f.write("    return 0;\n")
 
             else: # It's a local vitals command
-                has_struct = len(fields) > 0 or byte_count is CUSTOM
+                has_struct = len(fields) > 0 or contains_payload
                 if has_struct:
                     f.write(f"    union {{ {struct_name} s; {'int32_t data_arr[' + str(len(fields)) + '];' if fields else ''} }} u __attribute__((aligned(4)));\n\n")
                     if fields:
-                        f.write(f"    for (int i = 0; i < {len(fields)}; ++i) {{\n")
-                        f.write(f"        pecan_unpack(&u.data_arr[i], raw_packet, &{name}_fields[i], bitIndex);\n")
-                        f.write(f"    }}\n")
+                        f.write(f"    unpackDataStream(u.data_arr, {len(fields)}, raw_packet, {name}_fields, bitIndex);\n")
                 
-                if byte_count is CUSTOM:
+                if contains_payload:
                     f.write(f"    size_t fixed_bytes = (*bitIndex + 7) / 8;\n")
                     f.write(f"    if (packet_len > fixed_bytes) {{ u.s.payload = raw_packet + fixed_bytes; u.s.max_payload_size = packet_len - fixed_bytes; }} else {{ u.s.payload = NULL; u.s.max_payload_size = 0; }}\n")
                     f.write(f"    size_t custom_bytes_consumed = on{name}(u.s);\n")
                     f.write(f"    *bitIndex += custom_bytes_consumed * 8;\n")
-                    f.write(f"    return 0; // For CUSTOM packets, consumption is now reflected in bitIndex.\n")
+                    f.write(f"    return 0; // For payload-bearing packets, consumption is now reflected in bitIndex.\n")
                 elif has_struct:
                     f.write(f"    on{name}(u.s);\n")
                     f.write(f"    return 0;\n")
@@ -432,7 +445,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
             mask_val = msg["mask"]
             mask_bits = msg["mask_bits"]
             name = msg["name"]
-            byte_count = msg.get("byteCount")
+            contains_payload = msg.get("containsPayload", False)
             fields = msg.get("msgFields", [])
             
             f.write(f"    {{ // {name}\n")
@@ -441,7 +454,7 @@ def createPacketSendFiles(generated_code_dir, vitals_helper_dir, vitals_node_dir
             f.write(f"        .num_fields = {len(fields)},\n")
             f.write(f"        .mask_val = {mask_val},\n")
             f.write(f"        .mask_bits = {mask_bits},\n")
-            f.write(f"        .packet_type = RECV_PACKET_TYPE_{'CUSTOM' if byte_count is CUSTOM else 'FIXED'},\n")
+            f.write(f"        .packet_type = RECV_PACKET_TYPE_{'CUSTOM' if contains_payload else 'FIXED'},\n")
             f.write(f"        .callback_wrapper = on{name}_wrapper,\n") # Corrected: Use on<MsgName>_wrapper
             f.write("    },\n")
         f.write("};\n\n")

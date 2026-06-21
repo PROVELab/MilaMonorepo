@@ -2,6 +2,8 @@
 
 package presentation;
 
+import java.util.Optional;
+
 public final class CANFrameParser {
 
     private CANFrameParser() {}
@@ -27,14 +29,14 @@ public final class CANFrameParser {
         public void accept(CANFrameVisitor visitor) { visitor.visit(this); }
     }
 
-    public static ParsedCANFrame createPacket(int nodeId, int frameIndex, int[] values) {
+    public static Optional<ParsedCANFrame> createPacket(int nodeId, int frameIndex, int[] values) {
         switch (nodeId) {
             case 9: // IMU
                 switch (frameIndex) {
-                    case 0: return new IMU_Frame0Packet(values);
-                    default: return null;
+                    case 0: return Optional.of(new IMU_Frame0Packet(values));
+                    default: return Optional.empty();
                 }
-            default: return null;
+            default: return Optional.empty();
         }
     }
 }

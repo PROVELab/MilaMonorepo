@@ -1,16 +1,15 @@
-import os
-import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 import math
 import re
+from typing import Any, ClassVar
 
 #values must fit in int32_t
 INT_MIN = -2147483648
 INT_MAX = 2147483647
 
 # Access a field by name. EX: given fields = dataPoint_fieds, name = "min", ACCESS returns the dict for the "min" field
-def ACCESS(fields, name):
+def ACCESS(fields: list[dict[str, Any]], name: str) -> dict[str, Any]:
     return next(field for field in fields if field["name"] == name)
 
 # For expectation field:
@@ -24,39 +23,49 @@ dataPoint_fields = [
     {"name": "min",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False},
     {"name": "max",             "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False},
     {"name": "bits",            "type": "int8_t",  "expectation": "optional",    "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False},
-    {"name": "minCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
-    {"name": "maxCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
     {"name": "minWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
     {"name": "maxWarning",      "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
-    {"name": "startingValue",   "type": "int32_t", "expectation": "required",    "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False},
-    {"name": "crit_count_max",  "type": "uint8_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},  #how many consecutive criticals (after removing outliers) before considered in critical range? default is 1 if unsepecified and a critical range is set. 0 if not critical at all
     {"name": "enum",            "type": "str",     "expectation": "optional",    "value": None, "node": ["vitals", "sensor", "telemetry"], "isSet": False, "Atomic": False}, # If set, min/max/bits are derived from this enum
     #For Vitals sate tracking
-    {"name": "crit_count",      "type": "uint8_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": True},
     {"name": "inWarningState",  "type": "boolean", "expectation": "dontSpecify",   "value": 0, "node": ["vitals"], "isSet": False, "Atomic": False},
+    {"name": "criticalStructPtr", "type": "critical_dataPoint*", "expectation": "dontSpecify", "value": None, "node": ["vitals"], "isSet": False, "Atomic": False}
+]
+
+#Only for vitals
+critical_dataPoint_fields = [
+    {"name": "crit_count_max",  "type": "uint8_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},  #how many consecutive criticals (after removing outliers) before considered in critical range? default is 1 if unsepecified and a critical range is set. 0 if not critical at all
+    {"name": "minCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "maxCritical",     "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals", "telemetry"], "isSet": False, "Atomic": False},
+    {"name": "startingValue",   "type": "int32_t", "expectation": "optional",    "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False},
+    {"name": "data",            "type": "int32_t*", "expectation": "dontSpecify", "value": None,  "node": ["vitals"], "isSet": False, "Atomic": False},
+    {"name": "crit_count",      "type": "uint8_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": True},
     {"name": "outlier_present", "type": "boolean", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False},
     {"name": "outlier_slot",    "type": "int32_t", "expectation": "dontSpecify", "value": 0,  "node": ["vitals"], "isSet": False, "Atomic": False}
 ]
 
+all_dataPoint_fields = dataPoint_fields + critical_dataPoint_fields
+
 # A copy of each of these will be made for every CANFrame
 CANFrame_fields = [  
-    {"name": "nodeID",          "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "telemetry"], "isSet": False},    # set based on which node this frame belongs to
+    {"name": "nodeIndex",       "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "telemetry"], "isSet": False},    # set based on which node this frame belongs to
     {"name": "frameID",         "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals"], "isSet": False},    # explicitly computed by program
     {"name": "numData",         "type": "int8_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals", "sensor", "telemetry"], "isSet": False},     # computed by the program
     {"name": "dataInfo",        "type": "list",   "expectation": "dontSpecify", "value": [], "node": [], "isSet": False},      # List of dataPoint structs; element‐wise parsed. was node: "array", but I think uncessary?
     # {"name": "flags",           "type": "int8_t", "expectation": "optional",    "value": 0, "node": ["vitals"], "isSet": False},      # if not specified, set to 0
     #Things to specify in .def config file
     {"name": "dataTimeout",     "type": "int32_t","expectation": "required",    "value": 0, "node": ["vitals", "telemetry"], "isSet": False},
-    {"name": "frequency",       "type": "int32_t","expectation": "required",    "value": 0, "node": ["sensor"], "isSet": False},
+    {"name": "period",          "type": "int32_t","expectation": "required",    "value": 0, "node": ["sensor"], "isSet": False},
     {"name": "enableTelemCallback","type": "boolean","expectation": "optional",  "value": 0, "node": ["telemetry"], "isSet": False},
     {"name": "telemetryDivider", "type": "int32_t", "expectation": "optional",    "value": 1, "node": ["vitals"], "isSet": False},
     #For vitals state tracking
+    {"name": "hasCriticalData", "type": "boolean", "expectation": "dontSpecify", "value": 0, "node": ["vitals"], "isSet": False},
     {"name": "telemetryDivider_Count", "type": "int32_t", "expectation": "dontSpecify", "value": 0, "node": ["vitals"], "isSet": False}, #used to determine when to send telemetry packet based on telemetryDivider
     {"name": "dataLocation",    "type": "int8_t", "expectation": "dontSpecify",    "value": 0, "node": ["vitals"], "isSet": False},      # never needs to be changed
     {"name": "consecutiveMisses","type": "int8_t", "expectation": "dontSpecify",   "value": 0, "node": ["vitals"], "isSet": False}
 ]
 #A copy of each of these will be made for every sensor node
 vitalsNode_fields = [   # these fields are only used by vitals. ATM each processed manually (dont specify
+    {"name": "CAN_ID",      "type": "int8_t", "expectation": "dontSpecify", "value": 0, "Atomic" : False, "isSet": False},
     {"name": "flags",       "type": "int8_t", "expectation": "dontSpecify", "value": 0, "Atomic" : True, "isSet": False},
     {"name": "milliSeconds","type": "int16_t", "expectation": "dontSpecify", "value": 0, "Atomic" : True, "isSet": False},
     {"name": "numFrames",   "type": "int8_t", "expectation": "dontSpecify", "value": 0, "Atomic" : False, "isSet": False},
@@ -83,32 +92,53 @@ class globalDefine:
     value_int: int  # evaluated integer value
 
 # Global list to store global defines (populated during parsing)
-globalDefines = []
+globalDefines: list[globalDefine] = []
+
+@dataclass
+class ParsedFields:
+    dataPoint_fields: list[dict[str, Any]]
+    critical_dataPoint_fields: list[dict[str, Any]]
+    CANFrame_fields: list[dict[str, Any]]
+    frameCount: int
+    maxFrameCount: int
+    maxDataCount: int
+    globalDefines: list[globalDefine]
+    globalEnums: list[GlobalEnum]
 
 @dataclass
 class Node:
-    id: int
+    vitalsNode_fields: ClassVar[list[dict[str, Any]]] = vitalsNode_fields
+
+    id_str: str
     name: str
     board_type: str
     vitals_data: list = field(default_factory=lambda: deepcopy(vitalsNode_fields))
     data_names: list[str] = field(default_factory=list)
 
     @property
-    def num_frames(self) -> int:
+    def num_frames(self: "Node") -> int:
         return ACCESS(self.vitals_data, "numFrames")["value"]
 
     @property
-    def frames(self) -> list:
+    def node_id(self: "Node") -> int:
+        return ACCESS(self.vitals_data, "CAN_ID")["value"]
+
+    @property
+    def frames(self: "Node") -> list:
         return ACCESS(self.vitals_data, "CANFrames")["value"]
 
     @property
-    def num_data(self) -> int:
+    def num_data(self: "Node") -> int:
         return len(self.data_names)
+
+
+def is_critical_datapoint(dp: list[dict[str, Any]]) -> bool:
+    return ACCESS(dp, "minCritical")["isSet"] or ACCESS(dp, "maxCritical")["isSet"]
 
 #this function contains several manual checks to confirm that the values entered for a datapoint make sense
 #The function will also set values that were not specified based on other values
 #Ex: if minWarning was not specified, it will be set to min, so that it never triggers (comparison is exclusive)
-def validate_datapoint(dp, dataName, node_id):
+def validate_datapoint(dp: list[dict[str, Any]], dataName: str, node_id: int) -> None:
     # Check for required fields first. These should have been set either by the user or by enum logic.
     # This validation is now done after enum processing in parse_config.
 
@@ -124,7 +154,8 @@ def validate_datapoint(dp, dataName, node_id):
     minCritical   = expression_to_int(ACCESS(dp, "minCritical")["value"]) if minCriticalSet else 0
     maxCriticalSet= bool(ACCESS(dp, "maxCritical")["isSet"])
     maxCritical   = expression_to_int(ACCESS(dp, "maxCritical")["value"]) if maxCriticalSet else 0
-    starting_val  = expression_to_int(ACCESS(dp, "startingValue")["value"])
+    startingValueSet = bool(ACCESS(dp, "startingValue")["isSet"])
+    starting_val  = expression_to_int(ACCESS(dp, "startingValue")["value"]) if startingValueSet else 0
     crit_count_max_Set= bool(ACCESS(dp, "crit_count_max")["isSet"])
     crit_count_max = expression_to_int(ACCESS(dp, "crit_count_max")["value"]) if crit_count_max_Set else 0
 
@@ -159,6 +190,8 @@ def validate_datapoint(dp, dataName, node_id):
 
     #check crit_count_max
     if( minCriticalSet or maxCriticalSet):  #set crit_count_max to 1 by default
+        if not startingValueSet:
+            raise ValueError(f"For {dataName} (node {node_id}): startingValue must be specified when critical range is specified.")
         if(not crit_count_max_Set):
             crit_count_max=1
             ACCESS(dp, "crit_count_max")["value"]= crit_count_max
@@ -183,14 +216,16 @@ def validate_datapoint(dp, dataName, node_id):
 
 
     #check startingVal
-    if(starting_val<minWarning or starting_val>maxWarning):
+    if(startingValueSet and (starting_val<minWarning or starting_val>maxWarning)):
         print(f"Warning: For {dataName} (node {node_id}): startingVal outside of acceptable range")
 
 #update the data in a given set of fields based on what was read from a line
-def updateEntries(parsedFields, fields):
+def updateEntries(parsedFields: dict[str, Any], fields: list[dict[str, Any]]) -> None:
     # Handle backward compatibility for bitLength -> bits
     if 'bitLength' in parsedFields:
         parsedFields['bits'] = parsedFields.pop('bitLength')
+    if 'frequency' in parsedFields:
+        parsedFields['period'] = parsedFields.pop('frequency')
 
     for name, value in parsedFields.items():
         found = False
@@ -239,7 +274,7 @@ def eval_int_expr(expr: str) -> int:
 
     node = ast.parse(expr, mode="eval")
 
-    def _eval(n):       
+    def _eval(n: ast.AST) -> int:
         if isinstance(n, ast.Expression):
             return _eval(n.body)
 
@@ -292,7 +327,7 @@ def eval_int_expr(expr: str) -> int:
 
     return _eval(node)
 
-def expression_to_int(input_str):
+def expression_to_int(input_str: Any) -> int:
     # This function now becomes a simple wrapper around eval_int_expr
     raw = str(input_str).strip().replace("::", ".")
     try:
@@ -300,17 +335,12 @@ def expression_to_int(input_str):
     except (ValueError, SyntaxError, NameError) as e:
         raise ValueError(f"Could not evaluate expression '{raw}': {e}") from e
 
-# --- parse_config function moved here ---
-def parse_config(file_path):
-    # Variables storing info as we go about our parsing
-    startingNodeID = None  # This will be the lowest node ID found
+def parse_sensors(file_path: str) -> tuple[list[Node], int, int, int]:
     frameCount = 0
     maxFrameCount = 0
     maxDataCount = 0
 
     nodes: list[Node] = []
-    missingIDs = []   # will be computed based on node_ids
-    
 
     with open(file_path, 'r') as file:
         lines = file.readlines()
@@ -326,15 +356,14 @@ def parse_config(file_path):
         if line.startswith("node:"):
             node_details = line.split(":")[1].split(",")
             node_info = {k.strip(): v.strip() for k, v in (item.split("=") for item in node_details)}
-            node_id = expression_to_int(node_info["id"])
+            node_id_str = node_info["id"]
+            node_id = expression_to_int(node_id_str)
             node_name = node_info["name"]
             board_type = node_info["board"]
 
-            new_node = Node(id=node_id, name=node_name, board_type=board_type)
+            new_node = Node(id_str=node_id_str, name=node_name, board_type=board_type)
             nodes.append(new_node)
-
-            if startingNodeID is None:
-                startingNodeID = node_id
+            ACCESS(nodes[-1].vitals_data, "CAN_ID")["value"] = node_id
         # Process a CANFrame
         elif line.startswith("CANFrame"):
             if not nodes:
@@ -353,7 +382,7 @@ def parse_config(file_path):
             framesArr = ACCESS(current_node.vitals_data, "CANFrames")["value"]  # list of CANFrames for this node
             framesArr.append(deepcopy(CANFrame_fields))  # add a new CANFrame entry to this list
             frame = framesArr[numFrames - 1]
-            ACCESS(frame, "nodeID")["value"] = current_node.id
+            ACCESS(frame, "nodeIndex")["value"] = len(nodes) - 1 #the index of the array this node is in
             ACCESS(frame, "frameID")["value"] = frameCount - 1
             ACCESS(frame, "numData")["value"] = 0
 
@@ -364,9 +393,10 @@ def parse_config(file_path):
                 raise ValueError("Data point definition found before any CANFrame definition.")
 
             current_node = nodes[-1]
+            current_node_id = current_node.node_id
             frame = current_node.frames[-1]
             dataArr = ACCESS(frame, "dataInfo")["value"]
-            dataArr.append(deepcopy(dataPoint_fields))
+            dataArr.append(deepcopy(all_dataPoint_fields))
             dataPoint = dataArr[-1]
             data_name = line.split(":")[0].strip()
             current_node.data_names.append(data_name)
@@ -377,13 +407,14 @@ def parse_config(file_path):
             
             # If dataPoint is an enum, set its min/max/bits from the enum definition
             enum_name_val = ACCESS(dataPoint, "enum")["value"]
+
             if enum_name_val:
                 if ACCESS(dataPoint, "min")["isSet"] or ACCESS(dataPoint, "max")["isSet"] or ACCESS(dataPoint, "bits")["isSet"]:
-                    print(f"Warning: For {data_name} (node {current_node.id}): 'min', 'max', or 'bits' should not be set when 'enum' is used. They will be overridden.")
+                    print(f"Warning: For {data_name} (node {current_node_id}): 'min', 'max', or 'bits' should not be set when 'enum' is used. They will be overridden.")
                 try:
                     enum_def = next(entry for entry in globalEnums if entry.enum_name == enum_name_val)
                 except StopIteration:
-                    raise ValueError(f"Enum '{enum_name_val}' specified for dataPoint '{data_name}' (node {current_node.id}) not found in enum definitions.")
+                    raise ValueError(f"Enum '{enum_name_val}' specified for dataPoint '{data_name}' (node {current_node_id}) not found in enum definitions.")
                 
                 min_enum_val = min(entry.value_int for entry in enum_def.entries)
                 max_enum_val = max(entry.value_int for entry in enum_def.entries)
@@ -400,26 +431,25 @@ def parse_config(file_path):
             # Now that enums have been processed, check for any remaining required fields.
             for field in dataPoint:
                 if field["expectation"] == "required" and not field["isSet"]:
-                    raise ValueError(f"For dataPoint '{data_name}' (node {current_node.id}): Did not specify required parameter '{field['name']}'")
+                    raise ValueError(f"For dataPoint '{data_name}' (node {current_node_id}): Did not specify required parameter '{field['name']}'")
 
-            validate_datapoint(dataPoint, data_name, current_node.id)
+            validate_datapoint(dataPoint, data_name, current_node_id)
+            ACCESS(frame, "hasCriticalData")["value"] = int(
+                ACCESS(frame, "hasCriticalData")["value"] or is_critical_datapoint(dataPoint)
+            )
             ACCESS(frame, "numData")["value"] += 1
 
 
     # Post-processing
     if not nodes:
-        return [], None, [], 0, 0, 0
-
-    node_ids = [node.id for node in nodes]
-    all_ids = range(min(node_ids), max(node_ids) + 1)
-    missingIDs = [node_id for node_id in all_ids if node_id not in node_ids]
+        return [], 0, 0, 0
 
     maxFrameCount = max(node.num_frames for node in nodes) if nodes else 0
     maxDataCount = max(node.num_data for node in nodes) if nodes else 0
 
-    return nodes, startingNodeID, missingIDs, frameCount, maxFrameCount, maxDataCount
+    return nodes, frameCount, maxFrameCount, maxDataCount
 
-def _parse_enums_and_defines(file_path):
+def _parse_enums_and_defines(file_path: str) -> None:
     """
     Parses a separate file for global enums and defines.
     Populates globalEnums and globalDefines lists.
@@ -482,3 +512,41 @@ def _parse_enums_and_defines(file_path):
             split = line.strip().split(":")[1].strip().split("=")
             newGlobal = globalDefine(split[0], split[1], expression_to_int(split[1]))
             globalDefines.append(newGlobal)
+
+def parse_config(node_def_file_path: str, enum_def_file_path: str, generated_code_dir: str):
+    global globalDefines, globalEnums
+    globalDefines.clear()
+    globalEnums.clear()
+
+    print("Parsing enums and defines from enum_def")
+    _parse_enums_and_defines(enum_def_file_path) # This populates globalEnums and globalDefines
+
+    print("Parsing node definitions from sensors_def")
+    (nodes, frameCount, maxFrameCnt, maxDataCnt) = parse_sensors(node_def_file_path)
+    print("Done parsing.")
+
+    nodeCount = len(nodes)
+    print("\n--- Parsed Configuration ---")
+    print("Node Count:", nodeCount)
+    print("Node Names:", [node.name for node in nodes])
+
+        # --- Pre-process Packet Formats (after parsing config) ---
+    print("\nPre-processing packet formats...")
+    from Lora_Msgs_And_Cmds.processPacketFormat import preprocess_packets
+    parsed_fields = ParsedFields(
+        dataPoint_fields=dataPoint_fields,
+        critical_dataPoint_fields=critical_dataPoint_fields,
+        CANFrame_fields=CANFrame_fields,
+        frameCount=frameCount,
+        maxFrameCount=maxFrameCnt,
+        maxDataCount=maxDataCnt,
+        globalDefines=globalDefines,
+        globalEnums=globalEnums,
+    )
+    preprocess_packets(nodes, parsed_fields)
+    print("Done.")
+
+    from Lora_Msgs_And_Cmds.mask_creation import assign_all_masks
+    assign_all_masks(generated_code_dir, nodes)
+
+    return nodes, parsed_fields

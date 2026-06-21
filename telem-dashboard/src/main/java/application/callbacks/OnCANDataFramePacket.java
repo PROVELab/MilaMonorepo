@@ -19,21 +19,23 @@ public class OnCANDataFramePacket {
 
     public void handle(TelemetryParserLUT.CANDataFramePacket p, BitStream stream, DataHandler dataHandler, NotificationPanel notifications, TelemetryLookup lookup) {
         int canNodeId = p.nodeID();
+        int canFrameIndex = p.frameID();
 
         try {
-            // 1. Look up the node to determine how to parse the frame index
-            TelemetryRecords.Node nodeInfo = lookup.getNodeById(canNodeId);
+            // 1. Look up the frame using the fixed CANDataFrame header fields
+            TelemetryRecords.CANFrame frameInfo = lookup.getFrame(canNodeId, canFrameIndex);
 
-            // 2. Read the CAN frame index from the stream
-            TelemetryRecords.CANFrame frameInfo = lookup.lookupFrameFromStream(stream, nodeInfo);
-            int canFrameIndex = frameInfo.frameIndex();
-
-            // 3. Use the generic parseFields helper to parse the data values for this CAN frame
+            // 2. Use the generic parseFields helper to parse the data values for this CAN frame
             int[] parsedFrameValues = TelemetryParser.parseFields(stream, lookup, canNodeId, canFrameIndex, frameInfo.numData(), notifications);
 
-            // 4. Process and plot the newly parsed CAN frame data
+            // 3. Process and plot the newly parsed CAN frame data
+            System.out.println("[OnCANDataFramePacket] Parsed CANDataFrame: node=" + canNodeId
+                    + " frame=" + canFrameIndex
+                    + " values=" + java.util.Arrays.toString(parsedFrameValues));
             dataHandler.processAndPlotData(canNodeId, canFrameIndex, parsedFrameValues);
         } catch (NoSuchElementException | EOFException | IllegalArgumentException e) {
+            System.out.println("[OnCANDataFramePacket] Failed to parse CANDataFrame for node "
+                    + canNodeId + ": " + e.getMessage());
             notifications.post(NotificationPanel.Status.WARNING, NotificationPanel.Channel.TELEMETRY, "Failed to parse CANDataFrame content for node " + canNodeId + ": " + e.getMessage());
         }
     }

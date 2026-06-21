@@ -37,6 +37,11 @@ typedef enum {
     driverOff              = 17,
     recvUnknownSensorID    = 18,
 
+    interModuleContactorsFailed = 19,
+    prechargeContactorsFailed   = 20,
+    latchingOff                 = 21
+    
+
     //Vitals Specific:
     //Raised by Vitals non-Lora code
 

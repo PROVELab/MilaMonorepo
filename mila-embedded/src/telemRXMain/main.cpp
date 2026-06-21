@@ -2,16 +2,22 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/uart.h"
+#include "esp_vfs_dev.h"
 #include <cstring>
 
 #include "../LoraCommon/LoraProtocol.h"
 #include "../LoraCommon/blastProtocolConfig.hpp"
 #include "UART_COM.h" // For UART Tasks and Functions
 
+  #include "driver/uart_vfs.h"
 static const char* TAG = "main";
 
 // --- Task Configurations ---
 #define TASK_STACK_SIZE 4096
+
+//should be plenty big
+#define UART_TX_SIZE 4096
+#define UART_RX_SIZE 1024
 
 StaticTask_t LORA_Monitor_Buffer;
 StackType_t LORA_Monitor_Stack[TASK_STACK_SIZE];
@@ -72,13 +78,22 @@ extern "C" void app_main(void) {
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
-        .parity    = UART_PARITY_DISABLE,
+        .parity = UART_PARITY_DISABLE,
         .stop_bits = UART_STOP_BITS_1,
         .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .rx_flow_ctrl_thresh = 0,
         .source_clk = UART_SCLK_DEFAULT,
+        .flags = {
+            .allow_pd = 0,
+            .backup_before_sleep = 0,
+        },
     };
     uart_param_config(UART_PORT_NUM, &uart_config);
-    uart_driver_install(UART_PORT_NUM, 1024, 1024, 0, NULL, 0);
+    uart_driver_install(UART_PORT_NUM, UART_RX_SIZE, UART_TX_SIZE, 0, NULL, 0);
+
+    //very important, otherwise binary and logging ASCII data gets jumbled, and we lose a lot of packets
+      uart_vfs_dev_use_driver(UART_PORT_NUM);  // to put ESP_LOG+printf and uart_write on the same mutex for outputs
+
 
     vTaskDelay(pdMS_TO_TICKS(2000));
     ESP_LOGI(TAG, "Base Station Starting...");

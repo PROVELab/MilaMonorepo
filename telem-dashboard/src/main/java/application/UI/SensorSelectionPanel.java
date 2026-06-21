@@ -54,32 +54,37 @@ public class SensorSelectionPanel extends JPanel {
     private record SensorDisplayItem(String title, TelemetryLookup.DataKey key) {}
 
     public SensorSelectionPanel(TelemetryLookup lookup) {
-        // Let rows grow to fit however many datapoints you have
-        setLayout(new GridLayout(0, 1));
+        // Let the scroll pane take up the entire main panel
+        setLayout(new BorderLayout());
+
+        // The inner panel that actually holds the grid
+        JPanel gridPanel = new JPanel(new GridLayout(0, 1));
 
         List<SensorDisplayItem> displayItems = new ArrayList<>();
 
         // First, collect all sensor display items
         for (TelemetryLookup.DataKey key : lookup.allDataKeys()) {
-            // Resolve metadata and a friendly title
-            TelemetryRecords.DataInfo dp = lookup.getDataInfoOpt(key).orElse(null);
-            if (dp == null) continue; // CSV could be malformed; skip this entry
-
-            String title = lookup.titleFor(key); // e.g., "vitals.HBTiming"
-            displayItems.add(new SensorDisplayItem(title, key));
+            lookup.getDataInfoOpt(key)
+                    .filter(TelemetryRecords.DataInfo::plottable)
+                    .ifPresent(dp -> displayItems.add(new SensorDisplayItem(lookup.titleFor(key), key)));
         }
 
         // Sort the collected items alphabetically by title
         displayItems.sort(Comparator.comparing(SensorDisplayItem::title));
 
-        // Now, iterate through the sorted items to build and add them to the panel
+        // Now, iterate through the sorted items to build and add them to the grid
         for (SensorDisplayItem item : displayItems) {
             TelemetryLookup.DataKey key = item.key();
             String title = item.title();
 
             // Build the row widget
             JPanel miniElement = new JPanel(new BorderLayout());
-            miniElement.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+            
+            // Replaced simple line border with a compound border to add vertical padding
+            miniElement.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(Color.BLACK),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5) 
+            ));
 
             JLabel sensorLabel = new JLabel(title);
             miniElement.add(sensorLabel, BorderLayout.CENTER);
@@ -126,11 +131,22 @@ public class SensorSelectionPanel extends JPanel {
                 }
             });
 
-            // Add the new element to the panel!
-            add(miniElement);
+            // Add the element to the INNER panel
+            gridPanel.add(miniElement);
         }
-    }
 
+        // Wrap the inner grid panel in a scroll pane
+        JScrollPane scrollPane = new JScrollPane(gridPanel);
+        
+        // Speed up the default scroll wheel speed
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        
+        // Disable horizontal scrolling
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+        // Add the scroll pane to the main class panel
+        add(scrollPane, BorderLayout.CENTER);
+    }
 
 
     //Setter method to change the status indicator of the sensors. key = nodeName + "." + dataInfo.dataName()
@@ -154,18 +170,8 @@ public class SensorSelectionPanel extends JPanel {
         } else {
             indicator.setBackground(new Color(244, 67, 54));       // red
 
-            // Optional: show an alert when outside the critical band
             if (inCriticalBand) {
-                SwingUtilities.invokeLater(() ->
-                    JOptionPane.showMessageDialog(
-                        null,
-                        lookup.titleFor(key) + " is in critical range!",
-                        "Critical Alert",
-                        JOptionPane.ERROR_MESSAGE
-                    )
-                );
-
-                // Optional sound (kept from your original). Safe-guarded and EDT-friendly.
+                // make a noise to nodify
                 new Thread(() -> {
                     try (var audioInputStream =
                             AudioSystem.getAudioInputStream(new File("resources/alert.wav").getAbsoluteFile())) {

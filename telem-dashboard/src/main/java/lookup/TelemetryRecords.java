@@ -13,7 +13,7 @@ public final class TelemetryRecords {
 
     public record CANFrame(
         int frameIndex,
-        int nodeID,
+        int nodeIndex,
         int numData,
         int dataTimeout,
         boolean enableTelemCallback
@@ -26,12 +26,12 @@ public final class TelemetryRecords {
         int min,
         int max,
         int bitLength,
-        int minCritical,
-        int maxCritical,
         int minWarning,
         int maxWarning,
+        String enumVal,
         int crit_count_max,
-        String enumVal
+        int minCritical,
+        int maxCritical
     ) {}
 
 }

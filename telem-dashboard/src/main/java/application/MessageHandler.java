@@ -6,6 +6,7 @@ import java.nio.ByteOrder;
 import java.io.IOException;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.swing.Timer;
@@ -127,61 +128,56 @@ public class MessageHandler {
 
         ByteBuffer bb = ByteBuffer.wrap(uartPayload).order(ByteOrder.LITTLE_ENDIAN);
 
-        byte[] telemetryPayload = parseAndLogHeaders(bb);
+        parseAndLogHeaders(bb).ifPresent(telemetryPayload ->
+            // The data processing and UI updates must happen on the Event Dispatch Thread (EDT)
+            // to avoid deadlocks and keep the UI responsive. The serial-reader thread, which
+            // calls this method, is now free to immediately read the next message.
+            SwingUtilities.invokeLater(() -> {
+                // The telemetryPayload contains one or more telemetry packets.
+                // The TelemetryParser expects a stream of telemetry packets.
+                int totalBytesConsumedInPayload = 0;
+                while (totalBytesConsumedInPayload < telemetryPayload.length) {
+                    byte[] remainingPayload = new byte[telemetryPayload.length - totalBytesConsumedInPayload];
+                    System.arraycopy(telemetryPayload, totalBytesConsumedInPayload, remainingPayload, 0, remainingPayload.length);
 
-        if (telemetryPayload == null) {
-            // An error occurred during header parsing, already notified.
-            return;
-        }
+                    System.out.println("[MessageHandler] Parsing next packet from payload...");
+                    ParseResult result = TelemetryParser.parseSinglePacket(remainingPayload, this.lookup, this.notifications, this.packetCallbacks);
+                    System.out.println("[MessageHandler] Parser returned. Consumed: " + result.bytesConsumed + " bytes. Packet: " + result.packet.map(packet -> packet.packetName).orElse("empty"));
 
-        // The data processing and UI updates must happen on the Event Dispatch Thread (EDT)
-        // to avoid deadlocks and keep the UI responsive. The serial-reader thread, which
-        // calls this method, is now free to immediately read the next message.
-        SwingUtilities.invokeLater(() -> {
-            // The telemetryPayload contains one or more telemetry packets.
-            // The TelemetryParser expects a stream of telemetry packets.
-            int totalBytesConsumedInPayload = 0;
-            while (totalBytesConsumedInPayload < telemetryPayload.length) {
-                byte[] remainingPayload = new byte[telemetryPayload.length - totalBytesConsumedInPayload];
-                System.arraycopy(telemetryPayload, totalBytesConsumedInPayload, remainingPayload, 0, remainingPayload.length);
+                    result.packet.ifPresent(packet -> {
+                        // The visitor pattern has already dispatched to the correct handler.
+                        // We only need to handle special, non-CAN packets here.
+                        if (!(packet instanceof CANDataFramePacket)) {
+                            System.out.println("[MessageHandler] Processing special packet: " + packet.packetName);
+                            // For non-CAN packets, the visitor is a no-op. We process their fixed-field values directly.
+                            dataHandler.processAndPlotData(Constants.specialIDs.telemetryID, packet.packetIndex, packet.getValues());
+                            System.out.println("[MessageHandler] Done processing special packet: " + packet.packetName);
+                        } else {
+                            System.out.println("[MessageHandler] CANDataFrame packet handled by visitor.");
+                        }
+                    });
 
-                System.out.println("[MessageHandler] Parsing next packet from payload...");
-                ParseResult result = TelemetryParser.parseSinglePacket(remainingPayload, this.lookup, this.notifications, this.packetCallbacks);
-                System.out.println("[MessageHandler] Parser returned. Consumed: " + result.bytesConsumed + " bytes. Packet: " + (result.packet != null ? result.packet.packetName : "null"));
-
-                if (result.packet != null) {
-                    // The visitor pattern has already dispatched to the correct handler.
-                    // We only need to handle special, non-CAN packets here.
-                    if (!(result.packet instanceof CANDataFramePacket)) {
-                        System.out.println("[MessageHandler] Processing special packet: " + result.packet.packetName);
-                        // For non-CAN packets, the visitor is a no-op. We process their fixed-field values directly.
-                        dataHandler.processAndPlotData(Constants.specialIDs.telemetryID, result.packet.packetIndex, result.packet.getValues());
-                        System.out.println("[MessageHandler] Done processing special packet: " + result.packet.packetName);
+                    if (result.bytesConsumed > 0) {
+                        totalBytesConsumedInPayload += result.bytesConsumed;
                     } else {
-                        System.out.println("[MessageHandler] CANDataFrame packet handled by visitor.");
+                        if (remainingPayload.length > 0) {
+                            notifications.TelemetryUpdate("Parser stalled in telemetry payload. Discarding 1 byte to prevent infinite loop.", NotificationPanel.Status.CRITICAL);
+                            totalBytesConsumedInPayload += 1; // Advance to avoid infinite loop
+                        } else {
+                            break; // No more data
+                        }
                     }
                 }
-
-                if (result.bytesConsumed > 0) {
-                    totalBytesConsumedInPayload += result.bytesConsumed;
-                } else {
-                    if (remainingPayload.length > 0) {
-                        notifications.TelemetryUpdate("Parser stalled in telemetry payload. Discarding 1 byte to prevent infinite loop.", NotificationPanel.Status.CRITICAL);
-                        totalBytesConsumedInPayload += 1; // Advance to avoid infinite loop
-                    } else {
-                        break; // No more data
-                    }
-                }
-            }
-        });
+            })
+        );
     }
 
     /**
      * Parses and logs the metadata and LoRa protocol headers from the UART payload.
      * @param uartBuffer The ByteBuffer wrapping the UART payload.
-     * @return The extracted telemetry data payload, or null if an error occurred.
+     * @return The extracted telemetry data payload, or an empty Optional if an error occurred.
      */
-    private byte[] parseAndLogHeaders(ByteBuffer uartBuffer) {
+    private Optional<byte[]> parseAndLogHeaders(ByteBuffer uartBuffer) {
         // 1. Parse and log metadata
         float rssi = uartBuffer.getFloat();
         float snr = uartBuffer.getFloat();
@@ -193,7 +189,7 @@ public class MessageHandler {
 
         if (loraDataSize < 0 || loraDataSize > uartBuffer.remaining()) {
             notifications.TelemetryUpdate("Invalid LoRa data size in UART payload: " + loraDataSize + ", remaining: " + uartBuffer.remaining(), NotificationPanel.Status.CRITICAL);
-            return null; // Indicate error
+            return Optional.empty();
         }
 
         // 2. Parse and log LoRa protocol header from within the LoRa data
@@ -204,7 +200,7 @@ public class MessageHandler {
         final int TX_HEADER_SIZE = 2 + 1 + 1;
         if (loraDataSize < TX_HEADER_SIZE) {
             notifications.TelemetryUpdate("LoRa payload too short for TX header: " + loraDataSize, NotificationPanel.Status.CRITICAL);
-            return null; // Indicate error
+            return Optional.empty();
         }
 
         int protocolID = uartBuffer.getShort() & 0xFFFF; // Read 2 bytes as short, convert to unsigned int
@@ -230,6 +226,6 @@ public class MessageHandler {
         byte[] telemetryPayload = new byte[telemetryPayloadSize];
         uartBuffer.get(telemetryPayload);
 
-        return telemetryPayload;
+        return Optional.of(telemetryPayload);
     }
 }

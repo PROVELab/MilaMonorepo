@@ -24,8 +24,8 @@ void getBitmap(uint16_t* bitmap, uint8_t* burstSize){
 
 bool processBurst(driverRecvPacket* packet, uint64_t &timeoutDuration_us);
 
-ProtocolState handleTimeout(bool recievedAnything){
-    if(recievedAnything){
+ProtocolState handleTimeout(bool receivedAnything){
+    if(receivedAnything){
         return sendingAck;  //ack what we got
     }
     //got nothing for the large timeout duration
@@ -38,7 +38,7 @@ ProtocolState awaitData(){
     uint32_t timeout_duration_us = 5*(packetTimeOnAir_us * (maxPacketGroupSize+1)); //will trigger crash on timeout
     ESP_LOGI(TAG, "timeout duration: %" PRIu32 " us", timeout_duration_us);
     uint64_t timerExpireTime_us = startTime + timeout_duration_us;
-    bool recievedAnything = false;
+    bool receivedAnything = false;
     do{
         // timerExpireTime_us = startTime + timeout_duration_us;
         driverRecvPacket* packet;
@@ -47,7 +47,7 @@ ProtocolState awaitData(){
             case Crashed:
                 return crashed;
             case Timeout:
-                return handleTimeout(recievedAnything);
+                return handleTimeout(receivedAnything);
             case Unknown:
                 continue;
             case Success:
@@ -59,7 +59,7 @@ ProtocolState awaitData(){
             //invalid packet. keep trying to listen to burst
             continue;
         }
-        recievedAnything = true;
+        receivedAnything = true;
         if(processBurst(packet, timerExpireTime_us)){
             //we recv the last packet. switch to sendingAck! :)
             return sendingAck;
@@ -67,7 +67,7 @@ ProtocolState awaitData(){
         //otherwise, keep trying to listen
     } while(esp_timer_get_time() < timerExpireTime_us);
 
-    return handleTimeout(recievedAnything);
+    return handleTimeout(receivedAnything);
 }
 
 inline bool burstHeaderChanged(int recordedBurstSize, TXProtocolPacket* TXPacket){

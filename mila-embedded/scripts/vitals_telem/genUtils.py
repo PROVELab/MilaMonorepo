@@ -1,12 +1,19 @@
 import os
 import shutil
+import sys
+from typing import Any, Callable
 
 # Global flags for interactive generation
 _copy_all = False
 _skip_all = False
 _overwrite_all = False
 
-def interactive_file_gen(output_path, description, generation_func, *gen_args):
+def interactive_file_gen(
+    output_path: str,
+    description: str,
+    generation_func: Callable[..., Any],
+    *gen_args: Any,
+) -> str | None:
     """
     Handles interactive generation for a single file or directory.
     Prompts user to copy, overwrite, or skip if the path exists.
@@ -27,6 +34,11 @@ def interactive_file_gen(output_path, description, generation_func, *gen_args):
             action = 'o'
 
         if not action: # Prompt user if no 'all' flag is active
+            if not sys.stdin.isatty():
+                action = 'o'
+                print(f"Path {rel_path} already exists. No interactive stdin available, defaulting to overwrite for {description}.")
+
+        if not action:
             while True:
                 print(f"\nPath {rel_path} already exists. Press 'h' or 'help' for help")
                 response = input(f"For {description}, do you want to make copy, overwrite, skip, copy all, skip all, or overwrite all (c/o/s/ca/sa/oa)? : ").strip().lower()

@@ -1,8 +1,10 @@
 import math
-from Lora_Msgs_And_Cmds.packetFormat import PACK_MINIMUM_BITS_PLUS_8, vitals_to_telem, telem_to_vitals, setPacketParameters, PACK_MINIMUM_BITS, get_maxDataCntBits, get_maxFrameCntBits
-from config.parseFile import globalEnums, globalDefines, globalDefine
+from typing import Any
 
-def packMaskBits(msg, fields):
+from Lora_Msgs_And_Cmds.packetFormat import PACK_MINIMUM_BITS_PLUS_8, vitals_to_telem, telem_to_vitals, setPacketParameters, PACK_MINIMUM_BITS, get_maxDataCntBits, get_maxFrameCntBits
+from config.parseFile import ParsedFields, globalDefine, Node
+
+def packMaskBits(msg: dict[str, Any], fields: list[Any]) -> None:
     is_plus_8 = msg.get("mask_bits") is PACK_MINIMUM_BITS_PLUS_8
     if msg.get("mask_bits") is PACK_MINIMUM_BITS or is_plus_8:
         bits_sum = sum(f.bits for f in fields)
@@ -15,18 +17,26 @@ def packMaskBits(msg, fields):
         if is_plus_8:
             msg["mask_bits"] += 8
 
-def preprocess_packets(nodes, maxFrameCnt, maxDataCnt):
+def _upsert_define(defines: list[globalDefine], name: str, value: int) -> None:
+    for define in defines:
+        if define.name == name:
+            define.value_str = str(value)
+            define.value_int = value
+            return
+    defines.append(globalDefine(name, str(value), value))
+
+def preprocess_packets(nodes: list[Node], fields_info: ParsedFields) -> None:
     """
     Resolves all dynamic values in the packet format definitions.
     This includes callables, enums, and PACK_MINIMUM_BITS.
     This function modifies the vitals_to_telem and telem_to_vitals lists in-place.
     """
-    setPacketParameters(nodes, maxFrameCnt, maxDataCnt)
+    setPacketParameters(nodes, fields_info.maxFrameCount, fields_info.maxDataCount, fields_info.globalEnums)
     nodeCount = len(nodes)
 
-    globalDefines.append(globalDefine("nodeCount", nodeCount, nodeCount))
-    globalDefines.append(globalDefine("maxFrameCntBits", get_maxFrameCntBits(), get_maxFrameCntBits()))
-    globalDefines.append(globalDefine("maxDataInFrameBits", get_maxDataCntBits(), get_maxDataCntBits()))
+    _upsert_define(fields_info.globalDefines, "nodeCount", nodeCount)
+    _upsert_define(fields_info.globalDefines, "maxFrameCntBits", get_maxFrameCntBits())
+    _upsert_define(fields_info.globalDefines, "maxDataInFrameBits", get_maxDataCntBits())
 
     # --- Pre-process vitals_to_telem ---
     for msg in vitals_to_telem:
@@ -40,7 +50,7 @@ def preprocess_packets(nodes, maxFrameCnt, maxDataCnt):
             if enum_spec:
                 enum_name = field.name if enum_spec is True else enum_spec
                 try:
-                    enum = next(entry for entry in globalEnums if entry.enum_name == enum_name)
+                    enum = next(entry for entry in fields_info.globalEnums if entry.enum_name == enum_name)
                 except StopIteration:
                     raise ValueError(f"Enum '{enum_name}' for field '{field.name}' not found in globalEnums")
                 field.min = min(entry.value_int for entry in enum.entries)
@@ -76,7 +86,7 @@ def preprocess_packets(nodes, maxFrameCnt, maxDataCnt):
             if enum_spec:
                 enum_name = field.name if enum_spec is True else enum_spec
                 try:
-                    enum = next(entry for entry in globalEnums if entry.enum_name == enum_name)
+                    enum = next(entry for entry in fields_info.globalEnums if entry.enum_name == enum_name)
                 except StopIteration:
                     raise ValueError(f"Enum '{enum_name}' for field '{field.name}' (telem_to_vitals) not found. Please define it in your .def file.")
                 field.min = min(entry.value_int for entry in enum.entries)

@@ -1,7 +1,9 @@
 #ifndef VITALS_DATA_HELPER
 #define VITALS_DATA_HELPER
+#include <stdbool.h>
 #include "freertos/timers.h"
 #include "freertos/queue.h"
+#include "freertos/task.h"
 
 #include "../../pecan/pecan.h"
 #include "../vitalsGen/vitalsStructs.h"
@@ -13,19 +15,36 @@ void vTimerCallback(TimerHandle_t xTimer);
 extern QueueHandle_t dataModifierQueue; //queue to send new stuff on
 // Enum for the event types
 typedef enum {
-    DATA_MODIFIER_ADD_FRAME,
-    DATA_MODIFIER_MISSING_FRAME
+    ADD_FRAME,
+    MISSING_FRAME,
+    ATTEMPT_ENABLE_CONTACTORS,
+    UPDATE_TELEMETRY_DIVIDER
 } DataModifierEventType;
+
+typedef struct {
+    CANFrame* frame;            //which frame the update is for
+    uint32_t canFrameNumber;    //the index of this frame
+    CANPacket packet;           //the received data
+} dataUpdateRequest;
+
+typedef struct {
+    CANFrame* frame;
+    uint32_t newDivider;
+} telemDividerRequest;
+
+
+typedef union {
+    dataUpdateRequest request;
+    telemDividerRequest dividerRequest;
+} DataModifierEventPayload;
 
 // Struct to hold the event payload
 typedef struct {
     DataModifierEventType eventType;
-    CANFrame* frame;
-    uint32_t canFrameNumber; // Needed for addFrame
-    CANPacket packet;        // Passed by value so it doesn't get corrupted on the caller's stack
+    DataModifierEventPayload payload;
 } DataModifierEvent;
 
-void initializeDataModifier();
+void initializeDataModifier(const UBaseType_t priority);
 void vTimerCallback(TimerHandle_t xTimer); // callback for CanFrame Timeouts
 
 

@@ -1,33 +1,24 @@
+from typing import Any, TextIO, List
 
-
-import os
-from config.parseFile import dataPoint_fields, CANFrame_fields, vitalsNode_fields, globalDefines, globalEnums, ACCESS
+from config.parseFile import ParsedFields, Node
 
 
  # === Precompute node IDs in Python, for Java Constants
-def genNodeIDsJava(f, missingIDs, numberOfNodes, startingOffset):
-
-    nodeIDs = []
-    mi = 0
-    current = startingOffset
-    while len(nodeIDs) < numberOfNodes:
-        if mi < len(missingIDs) and current == missingIDs[mi]:
-            mi += 1
-            current += 1
-            continue
-        nodeIDs.append(current)
-        current += 1
-
+def genNodeIDsJava(
+    f: TextIO,
+    nodes: list[Node]
+) -> None:
+    nodeIDs = [node.node_id for node in nodes]
     node_elems = ", ".join(str(x) for x in nodeIDs)
     f.write("\n\tpublic static final int[] nodeIDs = new int[]{ " + node_elems + " };\n")
 
 #write enums to file f, in either C or Java syntax    
-def writeEnums(f, lang_l: str):
-    if not globalEnums:
+def writeEnums(f: TextIO, lang_l: str, global_enums: list[Any]) -> None:
+    if not global_enums:
         return
 
     if lang_l == "c":
-        for g in globalEnums:
+        for g in global_enums:
             f.write(
                 f'\n// global enum {g.enum_name}\n'
                 f'typedef enum {{\n'
@@ -40,10 +31,10 @@ def writeEnums(f, lang_l: str):
             )
 
     elif lang_l == "java":
-        if not globalEnums:
+        if not global_enums:
             return
 
-        for g in globalEnums:
+        for g in global_enums:
             # Class header
             f.write(
                 f'\n\t// global enum {g.enum_name}\n'
@@ -56,14 +47,29 @@ def writeEnums(f, lang_l: str):
             # Close class
             f.write('\t}\n')
 
+    elif lang_l == "rust":
+        for g in global_enums:
+            f.write(
+                f"\n// global enum {g.enum_name}\n"
+                f"pub mod {g.enum_name} {{\n"
+            )
+            for e in g.entries:
+                f.write(f"    pub const {e.name}: u32 = {int(e.value_int)};\t// {e.value_str}\n")
+            f.write("}\n")
+            f.write(f"pub use {g.enum_name}::*;\n")
+
 
 # Writes constants files for either C or java depending on lang
-def writeConstants(lang, constants_file_path, minId, numMissingIDs, nodeCount, frameCount, globalDefines, missingIDs, num_vitals_to_telem_packets=0):
+def writeConstants(lang: str,
+                   constants_file_path: str,
+                   nodes: List[Node],
+                   fields: ParsedFields,
+                   num_vitals_to_telem_packets: int = 0) -> None:
     lang_l = lang.lower()
 
     # Choose output path and wrappers
     if lang_l == "java":
-        out_path = os.path.join(os.path.dirname(constants_file_path), "Constants.java")
+        out_path = constants_file_path
         pre_wrapper_open  = "package util;\npublic final class Constants {\n    private Constants() {}\n\n"
         pre_wrapper_close = "}\n"
         # The ONLY difference in the main body: how each constant is emitted
@@ -75,6 +81,12 @@ def writeConstants(lang, constants_file_path, minId, numMissingIDs, nodeCount, f
         pre_wrapper_close = "\n#endif\n"
         const_decl = "#define {name} {value}"
         indent = ""       # no extra indent in C
+    elif lang_l == "rust":
+        out_path = constants_file_path
+        pre_wrapper_open = "#![allow(dead_code)]\n#![allow(non_snake_case)]\n#![allow(non_upper_case_globals)]\n#![allow(unused_imports)]\n\n"
+        pre_wrapper_close = ""
+        const_decl = "pub const {name}: u32 = {value};"
+        indent = ""
     else:
         raise ValueError(f"Unsupported lang: {lang!r}")
 
@@ -84,22 +96,20 @@ def writeConstants(lang, constants_file_path, minId, numMissingIDs, nodeCount, f
 
         # ===== Main body (shared) =====
         f.write(f"{indent}//generated Constants\n")
-        f.write(f"{indent}{const_decl.format(name='numberOfNodes', value=nodeCount)}\n")
-        f.write(f"{indent}{const_decl.format(name='totalNumFrames', value=frameCount)}\n")
-        f.write(f"{indent}{const_decl.format(name='numMissingIDs', value=numMissingIDs)}\n")
-        f.write(f"{indent}{const_decl.format(name='startingOffset', value=minId)}\n")
+        f.write(f"{indent}{const_decl.format(name='numberOfNodes', value=len(nodes))}\n")
+        f.write(f"{indent}{const_decl.format(name='totalNumFrames', value=fields.frameCount)}\n")
         if num_vitals_to_telem_packets > 0:
             f.write(f"{indent}{const_decl.format(name='numVitalsToTelemPackets', value=num_vitals_to_telem_packets)}\n")
         f.write(f"\n{indent}//Explicilty defined in sensors.def constants\n")
 
         # Shared loop & eval logic — identical for both languages
-        for define in globalDefines:
+        for define in fields.globalDefines:
             # Single place that switches syntax via const_decl
             f.write(f"{indent}{const_decl.format(name=define.name, value=int(define.value_int))}\t\t// {define.value_str}\n")
-        writeEnums(f, lang)
-         # === Add missingIDs as a static final array (Java only) ===
-        if lang_l == "java" and missingIDs:
-            genNodeIDsJava(f, missingIDs, nodeCount, minId)
+        writeEnums(f, lang, fields.globalEnums)
+        # Java also gets the explicit list of configured node IDs.
+        if lang_l == "java":
+            genNodeIDsJava(f, nodes)
 
         f.write(pre_wrapper_close)
         f.close()

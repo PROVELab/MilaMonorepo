@@ -1,0 +1,8 @@
+[package]
+name = "common-build"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+cc.workspace = true
+bindgen.workspace = true

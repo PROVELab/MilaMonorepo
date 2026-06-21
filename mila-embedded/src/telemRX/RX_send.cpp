@@ -52,7 +52,7 @@ extern "C" {
 
 
 
-//for when ack recieved, clear data buffer
+//for when ack received, clear data buffer
 void flushSendBuffer(){
     ackDataQueued = false;
     sendBufferDataIndex = 0;

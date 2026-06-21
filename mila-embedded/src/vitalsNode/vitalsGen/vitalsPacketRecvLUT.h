@@ -13,17 +13,17 @@ extern "C" {
 #define RECV_PACKET_TYPE_FIXED 0
 #define RECV_PACKET_TYPE_CUSTOM 1
 
-// ----- genericVitalsCommand -----
+// ----- telem_to_vitals -----
 typedef union {
     int32_t i32;
-    vitalsCommands e;
-} union_genericVitalsCommand_vitalsCommands;
+    telem_to_vitals_Commands e;
+} union_telem_to_vitals_telem_to_vitals_Commands;
 
 typedef struct __attribute__((packed)) {
-    union_genericVitalsCommand_vitalsCommands vitalsCommands;
-} genericVitalsCommand_args_t;
+    union_telem_to_vitals_telem_to_vitals_Commands telem_to_vitals_Commands;
+} telem_to_vitals_args_t;
 
-void ongenericVitalsCommand(genericVitalsCommand_args_t args);
+void ontelem_to_vitals(telem_to_vitals_args_t args);
 
 // ----- set_telem_update_frequency -----
 typedef struct __attribute__((packed)) {
@@ -34,29 +34,27 @@ typedef struct __attribute__((packed)) {
 
 void onset_telem_update_frequency(set_telem_update_frequency_args_t args);
 
-// ----- prechargeCommand -----
-typedef union {
-    int32_t i32;
-    prechargeCommands e;
-} union_prechargeCommand_prechargeCommands;
-
+// ----- setChargeCondition -----
 typedef struct __attribute__((packed)) {
-    union_prechargeCommand_prechargeCommands prechargeCommands;
-} prechargeCommand_args_t;
+    int32_t min_MC_Voltage;
+    int32_t minPercentCharged;
+} setChargeCondition_args_t;
 
-void onprechargeCommand(prechargeCommand_args_t args);
+void onsetChargeCondition(setChargeCondition_args_t args);
 
-// ----- intermoduleCommand -----
-typedef union {
-    int32_t i32;
-    prechargeCommands e;
-} union_intermoduleCommand_prechargeCommands;
-
+// ----- setCoolantDutyCycle -----
 typedef struct __attribute__((packed)) {
-    union_intermoduleCommand_prechargeCommands prechargeCommands;
-} intermoduleCommand_args_t;
+    int32_t dutyCycle;
+} setCoolantDutyCycle_args_t;
 
-void onintermoduleCommand(intermoduleCommand_args_t args);
+void onsetCoolantDutyCycle(setCoolantDutyCycle_args_t args);
+
+// ----- setCoolantFrequency_HZ -----
+typedef struct __attribute__((packed)) {
+    int32_t frequency_HZ;
+} setCoolantFrequency_HZ_args_t;
+
+void onsetCoolantFrequency_HZ(setCoolantFrequency_HZ_args_t args);
 
 // ----- forward_packet -----
 typedef struct __attribute__((packed)) {
@@ -69,18 +67,6 @@ typedef struct __attribute__((packed)) {
 
 size_t onforward_packet(forward_packet_args_t args);
 
-typedef struct {
-    const simpleDataPoint* fields;
-    uint8_t num_fields;
-    uint8_t packet_type; // RECV_PACKET_TYPE_FIXED or RECV_PACKET_TYPE_CUSTOM
-    uint32_t mask_val;
-    uint8_t mask_bits;
-    size_t (*callback_wrapper)(const uint8_t* raw_packet, size_t packet_len, int8_t* initial_bitIndex);
-} RecvPacketLUTEntry;
-
-extern const uint8_t MAX_RECV_MASK_BITS;
-extern const RecvPacketLUTEntry recvPacketLUT[];
-extern const size_t recvPacketLUTSize;
 
 #ifdef __cplusplus
 }

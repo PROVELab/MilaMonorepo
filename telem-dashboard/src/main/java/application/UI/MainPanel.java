@@ -84,7 +84,7 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
             System.exit(1);
             return;
         }
-        int minimumSize = Math.max(Math.min( 1  << (info.bitLength() >> 1), 2), 100);
+        int minimumSize = Math.min( 1  << (info.bitLength() >> 6), 4);
         yAxis.setAutoRangeIncludesZero(false);   // dont force include zero
         yAxis.setAutoRangeMinimumSize(minimumSize);     // enforce at least 2 units tall
         plot.getRangeAxis().setLabel(title);

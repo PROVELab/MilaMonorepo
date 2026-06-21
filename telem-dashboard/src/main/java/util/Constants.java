@@ -4,10 +4,8 @@ public final class Constants {
 
     //generated Constants
     public static final int numberOfNodes = 5;
-    public static final int totalNumFrames = 8;
-    public static final int numMissingIDs = 4;
-    public static final int startingOffset = 3;
-    public static final int numVitalsToTelemPackets = 9;
+    public static final int totalNumFrames = 9;
+    public static final int numVitalsToTelemPackets = 7;
 
     //Explicilty defined in sensors.def constants
     public static final int pointsPerData = 8;		// 8
@@ -23,6 +21,7 @@ public final class Constants {
 		public static final int telemetryID = 0;	// 0
 		public static final int vitalsID = 2;	// 2
 		public static final int prechargeID = 3;	// 3
+		public static final int powerDistributionID = 10;	// 10
 	}
 
 	// global enum functionCodes
@@ -30,27 +29,37 @@ public final class Constants {
 		private functionCodes() {}
 		public static final int reservedForMotorController_1 = 0;	// 0b0000
 		public static final int reservedForMotorController_2 = 1;	// 0b0001
-		public static final int warningCode = 2;	// 0b0010
-		public static final int TelemetryCommand = 3;	// 0b0011
-		public static final int statusUpdate = 4;	// 0b0100
-		public static final int HBPing = 5;	// 0b0101
-		public static final int HBPong = 6;	// 0b0110
-		public static final int transmitData = 7;	// 0b0111
+		public static final int vitalsCommand = 2;	// 0b010
+		public static final int warningCode = 3;	// 0b0011
+		public static final int TelemetryCommand = 4;	// 0b0100
+		public static final int statusUpdate = 5;	// 0b0101
+		public static final int HBPing = 6;	// 0b0110
+		public static final int HBPong = 7;	// 0b0111
+		public static final int transmitData = 8;	// 0b1000
 	}
 
 	// global enum vitalsCommands
 	public static final class vitalsCommands {
 		private vitalsCommands() {}
-		public static final int lowPowerLora = 0;	// 0
-		public static final int highPowerLora = 1;	// 1
+		public static final int enableContactor = 0;	// 0b0
+		public static final int disableContactor = 1;	// 0b1
 	}
 
-	// global enum prechargeCommands
-	public static final class prechargeCommands {
-		private prechargeCommands() {}
-		public static final int prechargeRemoveLatch = 0;	// 0
-		public static final int prechargeLatchOff = 1;	// 1
-		public static final int prechargeLatchOn = 2;	// 2
+	// global enum telem_to_vitals_Commands
+	public static final class telem_to_vitals_Commands {
+		private telem_to_vitals_Commands() {}
+		public static final int lowPowerLora = 0;	// 0
+		public static final int highPowerLora = 1;	// 1
+		public static final int enablePrechargeIfSafe = 2;	// 2
+		public static final int disablePrecharge = 3;	// 3
+	}
+
+	// global enum prechargeState
+	public static final class prechargeState {
+		private prechargeState() {}
+		public static final int Off = 0;	// 0
+		public static final int Precharging = 1;	// 1
+		public static final int On = 2;	// 2
 	}
 
 	// global enum TWAI_STATE
@@ -62,6 +71,15 @@ public final class Constants {
 		public static final int TWAI_PECAN_RECOVERING = 3;	// 3
 	}
 
+	// global enum vitalsContactorState
+	public static final class vitalsContactorState {
+		private vitalsContactorState() {}
+		public static final int allOff = 0;	// 0
+		public static final int waitingForIntermoduleContactorEnable = 1;	// 1
+		public static final int waitingForPrechargeContactorEnable = 2;	// 2
+		public static final int allOn = 3;	// 3
+	}
+
 	// global enum statusUpdates
 	public static final class statusUpdates {
 		private statusUpdates() {}
@@ -69,14 +87,8 @@ public final class Constants {
 		public static final int canRecoveryFlag = 1;	// 1
 		public static final int canRXOverunFlag = 2;	// 2
 		public static final int telemetryCommandAck = 3;	// 3
-	}
-
-	// global enum prechargeState
-	public static final class prechargeState {
-		private prechargeState() {}
-		public static final int On = 0;	// 0
-		public static final int Charging = 1;	// 1
-		public static final int Off = 2;	// 2
+		public static final int contactorsSuccess = 4;	// 4
+		public static final int contactorsFailed = 5;	// 5
 	}
 
 	// global enum dataErrorTrigger
@@ -97,5 +109,5 @@ public final class Constants {
 		public static final int resetTimerError = 2;	// 2
 	}
 
-	public static final int[] nodeIDs = new int[]{ 3, 8, 9, 10, 11 };
+	public static final int[] nodeIDs = new int[]{ 3, 7, 8, 9, 10 };
 }

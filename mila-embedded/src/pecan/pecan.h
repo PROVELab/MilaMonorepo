@@ -77,7 +77,7 @@ typedef struct {
  * @param field_info A pointer to a simpleDataPoint describing the field to unpack.
  * @param bitIndex A pointer to the current bit index in the source buffer. This will be incremented by the function.
  */
-void pecan_unpack(int32_t* dest, const uint8_t* src, const simpleDataPoint* field_info, int8_t* bitIndex);
+void pecan_unpack(int32_t *dest, const uint8_t (*src)[8], const simpleDataPoint* field_info, int8_t* bitIndex);
 
 /**
  * @brief Packs a single data field into a destination buffer, applying min/max constraints and bit packing.
@@ -87,7 +87,18 @@ void pecan_unpack(int32_t* dest, const uint8_t* src, const simpleDataPoint* fiel
  * @param value The raw int32_t value to pack.
  * @param field_info A pointer to a simpleDataPoint describing the field's constraints.
  */
-void pecan_pack(uint8_t* dest_buffer, int8_t* bit_index, int32_t value, const simpleDataPoint* field_info);
+void pecan_pack(uint8_t (*dest_buffer)[8], int8_t* bit_index, int32_t value, const simpleDataPoint* field_info);
+
+//helpers for pecan_pack and unpack, can also be used directly
+int16_t copyValueToData(const uint32_t *value, uint8_t (*target)[8], int8_t startBit, int8_t numBits);
+
+int16_t copyDataToValue(uint32_t *target, const uint8_t (*data)[8], int8_t startBit, int8_t numBits);
+
+// returns value constrained to min of min, and max of max
+int32_t squeeze(int32_t value, int32_t min, int32_t max);
+
+//squeeze and subtract min, forces the value to be unsigned and in bounds
+uint32_t formatValue(int32_t value, int32_t min, int32_t max);
 
 void flexiblePrint(const char* str);
 
@@ -105,19 +116,10 @@ void setSensorID(CANPacket* p, uint8_t sensorId);
 uint32_t combinedID(uint32_t fn_id, uint32_t node_id);
 uint32_t combinedIDExtended(uint32_t fn_id, uint32_t node_id, uint32_t extension); // also combines an extended ID
 
-inline uint32_t getNodeId(uint32_t id) { // take the first seven bits of Can Id to isolate nodeId
-    return id & 0b1111111;
-}
-inline uint32_t getFunctionId(uint32_t id) { // take bits 7-10 for functionId
-    return (id >> 7) & 0b1111;
-}
-inline uint32_t getIdExtension(uint32_t id) { // take bits 7-10 for functionId
-    return (id >> 11) & 0b111111111111111111; // 18 bit extension
-}
-inline uint32_t getDataFrameId(uint32_t id) {
-    return getIdExtension(id) &
-           ((0b1 << maxFrameCntBits) - 1); // the Can Frame index is stored in first two bits of extension
-}
+uint32_t getNodeId(uint32_t id);       // take the first seven bits of Can Id to isolate nodeId
+uint32_t getFunctionId(uint32_t id);   // take bits 7-10 for functionId
+uint32_t getIdExtension(uint32_t id);  // take bits 11-28 for extension
+uint32_t getDataFrameId(uint32_t id);
 
 // Returns true if id and func code of id match mask
 bool exact(uint32_t id, uint32_t mask);
@@ -132,35 +134,19 @@ bool matchFunction(uint32_t id, uint32_t mask);
 // For Max Length
 int16_t writeData(CANPacket* p, int8_t* dataPoint, int16_t size);
 
-int32_t squeeze(int32_t value, int32_t min, int32_t max);
-
 // makes a packet an RTR packet
 int16_t setRTR(CANPacket* p);
 // makes a packet an extended packet
 int16_t setExtended(CANPacket* p);
-
-// the below functions are used in base implementation of vitals and sensors, and may be needed elsewhere:
-int32_t squeeze(int32_t value, int32_t min,
-                int32_t max); // identical to arduino constrain macro, other mcs dont have it :(
-
-uint32_t formatValue(
-    int32_t value, int32_t min,
-    int32_t max); // returns value in sensors standard format for CAN data. (forces data in bounds, and makes it signed)
-
-int16_t copyValueToData(uint32_t* value, uint8_t* target, int8_t startBit,
-                        int8_t numBits); // copies the first numBits of value into target, starting from target's
-                                         // startBit'th bit. target must be 8 bytes.
-
-int16_t copyDataToValue(uint32_t* target, const uint8_t* data, int8_t startBit, int8_t numBits); // inverse of above function
 
 // The default handler for a packet who
 // we couldn't match with other params
 int16_t defaultPacketRecv(CANPacket* p); // only platform specific because it prints things. In final implementation, we
                                          // won't need this to print, so could be merged
 
-// Matches any recieved packets with their handler based on plpc
+// Matches any received packets with their handler based on plpc
 // Not thread-safe (only call from one thread). The packet reference is overriden upon call.
-// returns value of the matching function, or NOT_RECIEVED for no new messages
+// returns value of the matching function, or NOT_receiveD for no new messages
 int16_t waitPackets(PCANListenParamsCollection* plpc);
 
 /// Sends a CANPacket p

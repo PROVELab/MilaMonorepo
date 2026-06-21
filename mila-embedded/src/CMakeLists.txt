@@ -1,27 +1,14 @@
-
 # list(APPEND EXTRA_COMPONENT_DIRS icm20948)
-list(APPEND EXTRA_COMPONENT_DIRS icm20948)
+# list(APPEND EXTRA_COMPONENT_DIRS icm20948)
+
+# 1. Initialize a variable to hold component requirements
+set(COMPONENT_REQUIRES "")
 
 if(CMAKE_VITALS_ESP_BUILD)
-    #     file(GLOB TX_LORA_SRC
-    #     #Need pecan
-    #     "sensors/${SENS_DIR}/*.c"
-    #     "sensors/${SENS_DIR}/*.cpp"
-    #     #
-    #     "telemetryTX/*.c"
-    #     "telemetryTX/*.cpp"
-    #     "LoraCommon/*.c"
-    #     "LoraCommon/*.cpp"
-    #     "LoraCommon/Driver/*.c"
-    #     "LoraCommon/Driver/*.cpp"
-    # )
-    # set(SRC_FILES
-    #     ${TX_LORA_SRC}
-    # )
     file(GLOB_RECURSE VITALS_SRC
         "vitalsNode/*.c"
         "vitalsNode/*.cpp"
-        "pecan/common.cpp"
+        "pecan/common.c"
         "pecan/espSpecific.c"
         "pecan/vitalsInit.c"
         "espBase/debug_esp.c"
@@ -42,30 +29,39 @@ endif()
 if(CMAKE_HB_ONLY_BUILD)
     set(SRC_FILES 
         "HB_Only_Test/main.c"
-        "pecan/common.cpp"
+        "pecan/common.c"
         "pecan/espSpecific.c"
         "espBase/debug_esp.c"
     )
 endif()
 
-if(CMAKE_SENSOR_ESP_BUILD)  #CMAKE_SENSOR_ESP_BUILD <- Assumed
+if(CMAKE_SENSOR_ESP_BUILD) 
 
     file(GLOB SENSOR_SRC_FILES
+        "sensors/${SENS_DIR}/**/*.c"
+        "sensors/${SENS_DIR}/**/*.cpp"
         "sensors/${SENS_DIR}/*.c"
         "sensors/${SENS_DIR}/*.cpp"
     )
     set(SRC_FILES
         ${SENSOR_SRC_FILES}
         
-        "sensors/common/sensorHelper.cpp"
-        "pecan/common.cpp"
+        "sensors/common/sensorSpecific.cpp"
+        "sensors/common/sensorCommon.cpp"
+        "pecan/common.c"
         "pecan/espSpecific.c"
         "pecan/vitalsInit.c"
         "espBase/debug_esp.c"
-        # "espMutexes/mutex_declarations.c"
     )
-    # message(SEND_ERROR "DECPATH: ${DECPATH}")
-    # message(SEND_ERROR "Source files: ${SRC_FILES}")
+endif()
+
+if(SENS_DIR STREQUAL "powerDistribution")
+    list(APPEND SRC_FILES "sensors/powerSensor/espPower.c")
+endif()
+
+if(SENS_DIR STREQUAL "IMU")
+    # list(APPEND EXTRA_COMPONENT_DIRS icm20948)
+    list(APPEND COMPONENT_REQUIRES "icm20948" "i2c" "log" "esp_timer" "filters")
 endif()
 
 if(CMAKE_MCU_ESP_BUILD)
@@ -187,7 +183,7 @@ endif()
 if(CMAKE_ESP_LISTEN_BUILD)
     set(SRC_FILES
         "listenCAN/main.c"
-        "pecan/common.cpp"
+        "pecan/common.c"
         "pecan/espSpecific.c"
         "pecan/vitalsInit.c"
         "espBase/debug_esp.c"
@@ -211,20 +207,15 @@ if(CMAKE_HUMID_SENSE)
     )
 endif()
 
-if(CMAKE_COOLANT_PWM)
-    file(GLOB COOLANT_SRC
-        "coolantPWM/*.cpp"
-        "coolantPWM/*.c"
-    )
-    set(SRC_FILES
-        ${COOLANT_SRC}
-        "sensors/powerSensor/espPower.c"
-    )
-endif()
-
 # else()  #assumed "CMAKE_BASIC_NODE" configuration, just using one path
 #     set(SRC_FILES
 #         "${CMAKE_SRC_FILE}"
 #     )   
 # endif()
-idf_component_register(SRCS ${SRC_FILES} INCLUDE_DIRS ".")
+# idf_component_register(SRCS ${SRC_FILES} INCLUDE_DIRS ".")
+
+idf_component_register(
+    SRCS ${SRC_FILES} 
+    INCLUDE_DIRS "."
+    REQUIRES ${COMPONENT_REQUIRES}
+)

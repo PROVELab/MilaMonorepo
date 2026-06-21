@@ -27,12 +27,17 @@ static int32_t clamping_i64_to_i32(int64_t value);
 //Standard Ordinary Least Squares extrapolation for x_(numPoints+1), given (1,y1), ..., (numPoints, y_numPoints)
 static int32_t extrapolateData(const CANFrame* frame, const int data_idx, const int numPoints,
                                const int weight_sub, const int denominator) {
+    critical_dataPoint* critical = frame->dataInfo[data_idx].criticalStructPtr;
+    if (critical == NULL) {
+        return 0;
+    }
+
     int data_buf_index = (frame->dataLocation - numPoints + pointsPerData) % pointsPerData;
     int64_t sum_weighted_y = 0;
 
     // see README for constants derivations
     for (int i = 1, x_weight = 6; i <= numPoints; i++, x_weight+=6) {
-        const int32_t y = frame->data[data_idx][data_buf_index];
+        const int32_t y = critical->data[data_buf_index];
         
         // see README for eq
         const int32_t weight = x_weight - weight_sub; 

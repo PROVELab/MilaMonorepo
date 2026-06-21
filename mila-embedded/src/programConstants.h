@@ -3,10 +3,8 @@
 
 //generated Constants
 #define numberOfNodes 5
-#define totalNumFrames 8
-#define numMissingIDs 4
-#define startingOffset 3
-#define numVitalsToTelemPackets 9
+#define totalNumFrames 9
+#define numVitalsToTelemPackets 7
 
 //Explicilty defined in sensors.def constants
 #define pointsPerData 8		// 8
@@ -20,33 +18,43 @@
 typedef enum {
 	telemetryID = 0,	/* 0 */
 	vitalsID = 2,	/* 2 */
-	prechargeID = 3	/* 3 */
+	prechargeID = 3,	/* 3 */
+	powerDistributionID = 10	/* 10 */
 } specialIDs;
 
 // global enum functionCodes
 typedef enum {
 	reservedForMotorController_1 = 0,	/* 0b0000 */
 	reservedForMotorController_2 = 1,	/* 0b0001 */
-	warningCode = 2,	/* 0b0010 */
-	TelemetryCommand = 3,	/* 0b0011 */
-	statusUpdate = 4,	/* 0b0100 */
-	HBPing = 5,	/* 0b0101 */
-	HBPong = 6,	/* 0b0110 */
-	transmitData = 7	/* 0b0111 */
+	vitalsCommand = 2,	/* 0b010 */
+	warningCode = 3,	/* 0b0011 */
+	TelemetryCommand = 4,	/* 0b0100 */
+	statusUpdate = 5,	/* 0b0101 */
+	HBPing = 6,	/* 0b0110 */
+	HBPong = 7,	/* 0b0111 */
+	transmitData = 8	/* 0b1000 */
 } functionCodes;
 
 // global enum vitalsCommands
 typedef enum {
-	lowPowerLora = 0,	/* 0 */
-	highPowerLora = 1	/* 1 */
+	enableContactor = 0,	/* 0b0 */
+	disableContactor = 1	/* 0b1 */
 } vitalsCommands;
 
-// global enum prechargeCommands
+// global enum telem_to_vitals_Commands
 typedef enum {
-	prechargeRemoveLatch = 0,	/* 0 */
-	prechargeLatchOff = 1,	/* 1 */
-	prechargeLatchOn = 2	/* 2 */
-} prechargeCommands;
+	lowPowerLora = 0,	/* 0 */
+	highPowerLora = 1,	/* 1 */
+	enablePrechargeIfSafe = 2,	/* 2 */
+	disablePrecharge = 3	/* 3 */
+} telem_to_vitals_Commands;
+
+// global enum prechargeState
+typedef enum {
+	Off = 0,	/* 0 */
+	Precharging = 1,	/* 1 */
+	On = 2	/* 2 */
+} prechargeState;
 
 // global enum TWAI_STATE
 typedef enum {
@@ -56,20 +64,23 @@ typedef enum {
 	TWAI_PECAN_RECOVERING = 3	/* 3 */
 } TWAI_STATE;
 
+// global enum vitalsContactorState
+typedef enum {
+	allOff = 0,	/* 0 */
+	waitingForIntermoduleContactorEnable = 1,	/* 1 */
+	waitingForPrechargeContactorEnable = 2,	/* 2 */
+	allOn = 3	/* 3 */
+} vitalsContactorState;
+
 // global enum statusUpdates
 typedef enum {
 	initFlag = 0,	/* 0 */
 	canRecoveryFlag = 1,	/* 1 */
 	canRXOverunFlag = 2,	/* 2 */
-	telemetryCommandAck = 3	/* 3 */
+	telemetryCommandAck = 3,	/* 3 */
+	contactorsSuccess = 4,	/* 4 */
+	contactorsFailed = 5	/* 5 */
 } statusUpdates;
-
-// global enum prechargeState
-typedef enum {
-	On = 0,	/* 0 */
-	Charging = 1,	/* 1 */
-	Off = 2	/* 2 */
-} prechargeState;
 
 // global enum dataErrorTrigger
 typedef enum {

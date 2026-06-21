@@ -2,62 +2,75 @@
 #Update the pedal to no longer be critical when pressed for final use. ts for testing rn
 
 node: id=prechargeID, name=precharge, board=rust
-CANFrame: frequency=100, dataTimeout=500
-battery_V: bitLength=10, min=-100, max=923, minWarning=120, minCritical=80, startingValue=0
-motor_V: bitLength=10, min=-100, max=923,  minWarning=120, minCritical=80, startingValue=0
+CANFrame: period=500, dataTimeout=5000, telemetryDivider=1
+battery_V: bitLength=10, min=-100, max=923, minWarning=120, minCritical=90, startingValue=200
+motor_V: bitLength=10, min=-100, max=923,  minWarning=100, startingValue=0
 prechargeState: enum=prechargeState, startingValue=prechargeState.Off
 contactorState: enum=prechargeState, startingValue=prechargeState.Off
-prechargeLatched: bitLength=1, min=0, max=1, startingValue=0
+
+#freq normal operation is 8-12Hz, duty Safe is 5 to 10% duty cycle.
+IMD_frequency_Hz: bitLength=8, min=0, max=255, startingValue=10, minWarning=8, maxWarning=12, minCritical=7, maxCritical=13
+IMD_Duty_Cycle_Percent: bitLength=7, min=0, max=100, startingValue=7, minWarning=5, maxWarning=10, minCritical=4, maxCritical=11
+IMD_Hardware_Fault_Indicator: bitLength=1, min=0, max=1, startingValue=0
 
 
+CANFrame: period=5000, dataTimeout=15000
+min_MC_Voltage: bitLength=10, min=0, max=1023, startingValue=80
+minPercentCharged: bitLength=6, min=37, max=100, startingValue=90
+#^See telem_to_vitals setChargeCondition
 
+node: id=7, name=testRuster, board=rust
+
+#pedal reading should be internally divided by pedal sensor 1000 times (999/1000 frames should get cancelled)
 node: id=8, name=pedalSensor, board=esp
-CANFrame: frequency=1000, dataTimeout=5000
-pedalPowerReadingmV: bitLength=16, min=-30000, max=35000, minWarning=4700, maxWarning=7100, startingValue=6000
-pedalReadingOne: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
-pedalReadingTwo: bitLength=8, min=-20, max=120, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=30
+CANFrame: period=10, dataTimeout=5000
+pedalPowerReadingmV: bitLength=16, min=-30000, max=35000, minWarning=4500, maxWarning=6000, startingValue=5300
+pedalReadingOne: bitLength=8, min=-20, max=120, startingValue=-1
+pedalReadingTwo: bitLength=8, min=-20, max=120, startingValue=-1
 brakeReading: bitLength=8, min=-20, max=120, minWarning=-10, maxWarning=110, startingValue=-1
 SDIO_det_pin: bitLength=1, min=0, max=1, minWarning=0, startingValue=0
 
 
 node: id=9, name=IMU, board=esp
 
-CANFrame: frequency=100, dataTimeout=500, enableTelemCallback=true
+CANFrame: period=800, dataTimeout=3000, enableTelemCallback=true
 IMU_temp_F: bitLength=10, min=-100, max=923, startingValue=67
-radiator_temp_F: bitLength=10, min=-100, max=923, startingValue=67
-humiditySense_temp_F: bitLength=10, min=-100, max=923, startingValue=67
+radiator_temp_F: bitLength=11, min=-100, max=1947, startingValue=67
+humiditySense_temp_F: bitLength=11, min=-100, max=1947, startingValue=67
 RH: bitLength=8, min=-55, max=200, minWarning=0, maxWarning=100, startingValue=1
 
-CANFrame: frequency=1000, dataTimeout=5000
-posX_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
-posY_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
-posZ_m: bitLength=21, min=-1048576, max=1048575, startingValue=0
+CANFrame: period=800, dataTimeout = 3000
+posX_m: bitLength=21, min=-1048576, max=1048575, startingValue=-1
+posY_m: bitLength=21, min=-1048576, max=1048575, startingValue=-1
+posZ_m: bitLength=21, min=-1048576, max=1048575, startingValue=-1
 
-CANFrame: frequency=1000, dataTimeout=5000
-accelY_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
-accelZ_mm_p_ss: bitLength=16, min=-32768, max=32767, startingValue=0
-gyroX_deg_p_s: bitLength=8, min=-128, max=127, startingValue=0
-gryoY_deg_p_s: bitLength=8, min=-128, max=127, startingValue=0
-gyroZ_deg_p_s: bitLength=8, min=-128, max=127, startingValue=0
+CANFrame: period=800, dataTimeout = 3000
+accelX_miliGs: bitLength=16, min=-32768, max=32767, startingValue=-1
+accelY_miliGs: bitLength=16, min=-32768, max=32767, startingValue=-1
+accelZ_miliGs: bitLength=16, min=-32768, max=32767, startingValue=-1
+
+CANFrame: period = 800, dataTimeout = 3000
+yaw_degrees: bitLength=9, min=-180, max=180, startingValue=-1
+pitch_degrees: bitLength=8, min=-90, max=90, startingValue=-1
+roll_degrees: bitLength=9, min=-180, max=180, startingValue=-1
+gyroX_deciDegree_p_s: bitLength=12, min=-2048, max=2047, startingValue=-1
+gyroY_deciDegree_p_s: bitLength=12, min=-2048, max=2047, startingValue=-1
+gyroZ_deciDegree_p_s: bitLength=14, min=-8192, max=8191, startingValue=-1
 
 
 
-node: id=10, name=powerDistribution, board=esp
-CANFrame: frequency=100, dataTimeout=500
-LV_Battery_mV: bitLength=16, min=-22768, max=42767, startingValue=0
-LV_Battery_mA: bitLength=16, min=-32768, max=32767, startingValue=0
+node: id=powerDistributionID, name=powerDistribution, board=esp
+#LV battery expected to be 20 to 29.2V, and draw ~8-11 Amps (for long distance). with ~13A draw when turning on contactors
+#Note: the adc's for reading this wont be super accurate (especially for current using the HAL effect), so critical points are generous
 
-CANFrame: frequency=200, dataTimeout=1000
-CoolantPumpAvgCurrent_mA: bitLength=16, min=-32768, max=32767, startingValue=0
-CoolantPumpPeakCurrent_mA: bitLength=16, min=-32768, max=32767, startingValue=0
-CoolantPump_Freq_kHz: bitLength=8, min=0, max=255, startingValue=0
-CoolantPumpDutyCycle: bitLength=7, min=0, max=100, startingValue=0
+CANFrame: period=500, dataTimeout=3000
+LV_Battery_mV: bitLength=20, min=-524288, max=524287, minWarning=22000, maxWarning= 29500, minCritical=20000, maxCritical=31000, startingValue=26000
+LV_Battery_mA: bitLength=20, min=-524288, max=524287, minWarning=-1, maxWarning=25000, startingValue=8000
+
+#Note: the coolant current seems terribley inaccurate at our low ranges. it mayonly be useful to identify something is wrong if it way out of bounds.
+CANFrame: period=1000, dataTimeout=3000
+CoolantAvgCurrent_mA: bitLength=16, min=-32768, max=32767, startingValue=0
+CoolantPeakCurrent_mA: bitLength=16, min=-32768, max=32767, startingValue=0
+Coolant_Freq_kHz: bitLength=8, min=0, max=255, startingValue=0
+CoolantDutyCycle: bitLength=7, min=0, max=100, startingValue=0
 CoolantDriver_Fault: bitLength=1, min=0, max=1, startingValue=0
-
-
-
-
-node: id=11, name=APSensorESP, board=esp
-CANFrame: frequency=700, dataTimeout=1500
-airPressure: bitLength=32, min=-2147483648, max=2147483647, minWarning=20, maxWarning=80, minCritical=5, maxCritical=95, startingValue=50
-#airPressure: bitLength=32, min=-2147483648, max=2147483647, startingValue=2147483647

@@ -42,7 +42,8 @@ public final class SerialBridge implements AutoCloseable {
             port.setNumDataBits(8);
             port.setParity(SerialPort.NO_PARITY);
             port.setNumStopBits(SerialPort.ONE_STOP_BIT);
-            port.setComPortTimeouts(SerialPort.TIMEOUT_READ_BLOCKING, 1000, 0);
+            //needs to be semi-blocking (not blocking) so we dont stall a full second before parsing every time
+            port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 1000, 0);
             port.setFlowControl(SerialPort.FLOW_CONTROL_DISABLED);
             
             if (!port.openPort()) {
@@ -103,8 +104,12 @@ public final class SerialBridge implements AutoCloseable {
         return running;
     }
 
-    // Circular buffer state to recv messages
-    private static final int RX_CAP = 256;
+    // Circular buffer state to receive mixed binary frames and ESP32 log text.
+    // A single valid binary frame can be 276 bytes:
+    //   SOF(1) + LEN(2) + metadata+LoRa payload(271 max) + checksum(2)
+    // The buffer must be comfortably larger than that because log text can
+    // arrive adjacent to a frame before we've drained the serial port.
+    private static final int RX_CAP = 4096;
     private final byte[] rx = new byte[RX_CAP];
     private int head = 0;   // start of valid data
     private int len  = 0;   // bytes of valid data
@@ -118,11 +123,6 @@ public final class SerialBridge implements AutoCloseable {
             // This is a blocking read. It will wait for data or timeout (1s).
             // This prevents a busy-wait loop when no data is available.
             System.out.println("waiting for data..."); 
-            try { Thread.sleep(20); }
-            catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
-            }
-
             int bytesRead = in.read(rx, tail, Math.min(space(), RX_CAP - tail));
             System.out.println("read returned with " + bytesRead + " bytes");
 
@@ -134,12 +134,6 @@ public final class SerialBridge implements AutoCloseable {
                 len += bytesRead;
             } else if (bytesRead == -1) {
                 throw new IOException("Serial port stream ended.");
-            }
-        } else {
-            // To prevent a busy-wait loop if the buffer is full but contains no complete frame.
-            try { Thread.sleep(10); }
-            catch (InterruptedException ignored) {
-                Thread.currentThread().interrupt();
             }
         }
 

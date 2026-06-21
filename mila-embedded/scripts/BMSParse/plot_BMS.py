@@ -5,6 +5,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import tkinter as tk
 from tkinter import ttk
+from typing import Any
 
 csv_file = input("give name of BMS.csv file\n")
 if(csv_file == ""):
@@ -43,7 +44,7 @@ canvas_ui.configure(yscrollcommand=scrollbar.set)
 canvas_ui.bind('<Configure>', lambda e: canvas_ui.configure(scrollregion=canvas_ui.bbox("all")))
 
 # Bind mouse wheel scrolling for Linux (X11)
-def _on_mousewheel_linux(event):
+def _on_mousewheel_linux(event: Any) -> None:
     if event.num == 4:
         canvas_ui.yview_scroll(-1, "units")
     elif event.num == 5:
@@ -78,7 +79,7 @@ ax6 = fig.add_subplot(616, sharex=ax1)
 canvas_fig = FigureCanvasTkAgg(fig, scrollable_frame)
 canvas_fig.get_tk_widget().pack(fill=tk.BOTH, expand=1)
 
-def update_plot(frame):
+def update_plot(frame: int) -> None:
     try:
         df = pd.read_csv(csv_file)
     except Exception:
@@ -179,7 +180,7 @@ print("\nStarting visualizer... Close the pop-up window to exit.")
 ani = FuncAnimation(fig, update_plot, interval=1000, cache_frame_data=False)
 
 # Safe closing protocol
-def on_closing():
+def on_closing() -> None:
     root.quit()
     root.destroy()
 root.protocol("WM_DELETE_WINDOW", on_closing)
