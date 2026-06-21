@@ -13,7 +13,7 @@ autogen:
 
 ### Dashboard Stuff ###
 setup_dashboard:
-    (cd dashboard && npm install)
+    (cd dashboard && npm ci)
 
 setup_reverse_camera:
     (cd reverse-camera && uv sync)
