@@ -91,25 +91,42 @@ export function useVehicleTelemetry(pollIntervalMs = 100) {
   const sendMotorCommand = useCallback(
     async (command: BackendMotorCommandRequest) => {
       if (runtime !== "tauri") return;
+      console.log("[dash] sendMotorCommand invoked", {
+        command,
+        runtime,
+        snapshotDriveMode: snapshot.driveMode,
+        isSerialReady: snapshot.isSerialReady,
+      });
       try {
         await invoke("send_motor_command", { command });
+        console.log("[dash] sendMotorCommand invoke resolved", { command });
       } catch (error) {
         console.error("failed to send motor command", error);
       }
     },
-    [runtime],
+    [runtime, snapshot.driveMode, snapshot.isSerialReady],
   );
 
   const changeDriveMode = useCallback(
     (nextMode: DriveMode) => {
-      if (snapshot.driveMode === nextMode) return;
+      console.log("[dash] changeDriveMode requested", {
+        currentMode: snapshot.driveMode,
+        nextMode,
+        isSerialReady: snapshot.isSerialReady,
+      });
+      if (snapshot.driveMode === nextMode) {
+        console.log("[dash] changeDriveMode skipped; mode already active", {
+          nextMode,
+        });
+        return;
+      }
       const command: BackendMotorCommandRequest = { mode: nextMode };
       if (nextMode === "Cruise Control") {
         command.cruiseTargetRpm = toCruiseTargetRpm(snapshot.motorRpm);
       }
       void sendMotorCommand(command);
     },
-    [sendMotorCommand, snapshot.driveMode, snapshot.motorRpm],
+    [sendMotorCommand, snapshot.driveMode, snapshot.isSerialReady, snapshot.motorRpm],
   );
 
   const adjustCruiseRpm = useCallback(

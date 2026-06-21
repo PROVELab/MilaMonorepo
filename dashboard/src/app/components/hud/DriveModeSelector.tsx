@@ -8,8 +8,17 @@ interface Props {
   onChange?: (mode: DriveMode) => void;
 }
 
+type DragState = {
+  pointerId: number;
+  startY: number;
+  startedOnButton: boolean;
+  didDrag: boolean;
+};
+
 export function DriveModeSelector({ value, onChange }: Props) {
-  const dragRef = useRef<{ startY: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const suppressClickRef = useRef(false);
   const modes = useMemo(
     () =>
       [
@@ -34,28 +43,81 @@ export function DriveModeSelector({ value, onChange }: Props) {
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    dragRef.current = { startY: event.clientY };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    const target = event.target as HTMLElement;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startedOnButton: target.closest("button") !== null,
+      didDrag: false,
+    };
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
+
+    const dragDistance = event.clientY - dragRef.current.startY;
+    const threshold = 28;
+    if (Math.abs(dragDistance) <= threshold || dragRef.current.didDrag) return;
+
+    dragRef.current.didDrag = true;
+    suppressClickRef.current = true;
+
+    if (containerRef.current && !containerRef.current.hasPointerCapture(event.pointerId)) {
+      containerRef.current.setPointerCapture(event.pointerId);
+    }
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    if (!dragRef.current) return;
+    if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
+
+    if (containerRef.current?.hasPointerCapture(event.pointerId)) {
+      containerRef.current.releasePointerCapture(event.pointerId);
+    }
 
     const dragDistance = event.clientY - dragRef.current.startY;
+    const didDrag = dragRef.current.didDrag;
+    const startedOnButton = dragRef.current.startedOnButton;
     const threshold = 28;
 
     if (dragDistance > threshold) {
       commitChange(activeIndex + 1);
     } else if (dragDistance < -threshold) {
       commitChange(activeIndex - 1);
+    } else if (!startedOnButton && didDrag) {
+      suppressClickRef.current = false;
     }
 
     dragRef.current = null;
   };
 
+  const handlePointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
+
+    if (containerRef.current?.hasPointerCapture(event.pointerId)) {
+      containerRef.current.releasePointerCapture(event.pointerId);
+    }
+
+    dragRef.current = null;
+    suppressClickRef.current = false;
+  };
+
+  const handleModeClick = (modeIndex: number) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    commitChange(modeIndex);
+  };
+
   return (
-    <div className="drive-selector" onPointerDown={handlePointerDown} onPointerUp={handlePointerUp}>
+    <div
+      ref={containerRef}
+      className="drive-selector"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+    >
       <div className="drive-selector__header">Drive Mode</div>
       <div className="drive-selector__grid">
         {rows.map((row, rowIndex) => (
@@ -68,7 +130,7 @@ export function DriveModeSelector({ value, onChange }: Props) {
                 key={mode.value}
                 type="button"
                 className={`drive-selector__mode ${mode.value === value ? "drive-selector__mode--active" : ""}`}
-                onClick={() => commitChange(modes.indexOf(mode))}
+                onClick={() => handleModeClick(modes.indexOf(mode))}
               >
                 <span>{mode.label}</span>
                 <em>{mode.name}</em>

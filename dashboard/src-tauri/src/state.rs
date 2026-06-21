@@ -117,6 +117,10 @@ impl DashboardState {
     }
 
     pub fn send_motor_command(&self, request: MotorCommandRequest) -> Result<(), String> {
+        println!(
+            "[dash-backend] send_motor_command called: mode={:?} cruise_target_rpm={:?}",
+            request.mode, request.cruise_target_rpm
+        );
         let command = RequestedMotorCommand {
             mode: request.mode,
             cruise_target_rpm: request.cruise_target_rpm,
@@ -130,6 +134,10 @@ impl DashboardState {
                 .inner
                 .lock()
                 .map_err(|_| "vehicle state lock is poisoned".to_string())?;
+            println!(
+                "[dash-backend] serial readiness before queue: ready={} port={:?}",
+                guard.serial_link_ready, guard.serial_port_name
+            );
             if !guard.serial_link_ready {
                 push_log_line(
                     &mut guard.live_text_logs,
@@ -145,6 +153,7 @@ impl DashboardState {
         self.outbound_tx
             .send(OutboundCommand::Motor(command))
             .map_err(|err| format!("failed to queue outbound motor command: {err}"))?;
+        println!("[dash-backend] queued motor command successfully");
         Ok(())
     }
 
