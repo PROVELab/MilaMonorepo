@@ -33,23 +33,23 @@ SDIO_det_pin: bitLength=1, min=0, max=1, minWarning=0, startingValue=0
 
 node: id=9, name=IMU, board=esp
 
-CANFrame: period=800, dataTimeout=3000, enableTelemCallback=true
+CANFrame: period=800, dataTimeout=3000
 IMU_temp_F: bitLength=10, min=-100, max=923, startingValue=67
 radiator_temp_F: bitLength=11, min=-100, max=1947, startingValue=67
 humiditySense_temp_F: bitLength=11, min=-100, max=1947, startingValue=67
 RH: bitLength=8, min=-55, max=200, minWarning=0, maxWarning=100, startingValue=1
 
-CANFrame: period=800, dataTimeout = 3000
+CANFrame: period=800, dataTimeout = 3000, enableTelemCallback=true
 posX_m: bitLength=21, min=-1048576, max=1048575, startingValue=-1
 posY_m: bitLength=21, min=-1048576, max=1048575, startingValue=-1
 posZ_m: bitLength=21, min=-1048576, max=1048575, startingValue=-1
 
-CANFrame: period=800, dataTimeout = 3000
+CANFrame: period=800, dataTimeout = 3000, enableTelemCallback=true
 accelX_miliGs: bitLength=16, min=-32768, max=32767, startingValue=-1
 accelY_miliGs: bitLength=16, min=-32768, max=32767, startingValue=-1
 accelZ_miliGs: bitLength=16, min=-32768, max=32767, startingValue=-1
 
-CANFrame: period = 800, dataTimeout = 3000
+CANFrame: period = 800, dataTimeout = 3000, enableTelemCallback=true
 yaw_degrees: bitLength=9, min=-180, max=180, startingValue=-1
 pitch_degrees: bitLength=8, min=-90, max=90, startingValue=-1
 roll_degrees: bitLength=9, min=-180, max=180, startingValue=-1

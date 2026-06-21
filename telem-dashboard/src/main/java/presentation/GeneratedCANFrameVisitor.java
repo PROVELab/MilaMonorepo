@@ -20,8 +20,18 @@ public class GeneratedCANFrameVisitor implements CANFrameParser.CANFrameVisitor 
     }
 
     @Override
-    public void visit(CANFrameParser.IMU_Frame0Packet p) {
-        new OnIMU_Frame0Packet().handle(p, mainPanel, notifications, lookup);
+    public void visit(CANFrameParser.IMU_Frame1Packet p) {
+        new OnIMU_Frame1Packet().handle(p, mainPanel, notifications, lookup);
+    }
+
+    @Override
+    public void visit(CANFrameParser.IMU_Frame2Packet p) {
+        new OnIMU_Frame2Packet().handle(p, mainPanel, notifications, lookup);
+    }
+
+    @Override
+    public void visit(CANFrameParser.IMU_Frame3Packet p) {
+        new OnIMU_Frame3Packet().handle(p, mainPanel, notifications, lookup);
     }
 
 }
