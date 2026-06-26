@@ -89,7 +89,6 @@ int16_t driverCheck(Func action, const char* msg) {
 //indicate if we failed to perform action with false:
 #define DRIVER_CHECK_BOOL(expression, msg) if (driverCheck([&]{return expression;}, msg)){ return false;}
 
-
 //driver Mutex should be grabbed if this is called
 static bool resetState(){
     ESP_LOGI(TAG, "resetting driver state per user request");
@@ -144,7 +143,7 @@ static void driverCrash(int16_t error, const char* msg){
     strncpy(driver_info.crashMsg, msg, crashMsgSize);
     driver_info.crashMsg[crashMsgSize - 1] = 0; //force null termination
     xSemaphoreGive(driver_info_binary); //notify protocol we crashed
-    //drop the driver mutex if we hold it.
+    //drop the driver mutex
     xSemaphoreGive(Driver_Mutex);
 }
 

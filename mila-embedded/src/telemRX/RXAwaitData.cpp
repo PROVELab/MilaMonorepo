@@ -16,7 +16,7 @@
 
 static const char* TAG = "RX_AwaitData";
 
-//allow user to view the bitmap  asynchronously (to help judge losses). not atomicity, so not necessarily accurate.
+//allow user to view the bitmap  asynchronously (to help judge losses). no atomicity, so not necessarily accurate.
 void getBitmap(uint16_t* bitmap, uint8_t* burstSize){
     *bitmap = burstState.last_sent_ack_bitmap;
     *burstSize = burstState.last_sent_ack_burst_size;
@@ -70,13 +70,6 @@ ProtocolState awaitData(){
     return handleTimeout(receivedAnything);
 }
 
-inline bool burstHeaderChanged(int recordedBurstSize, TXProtocolPacket* TXPacket){
-    if(recordedBurstSize != FrameTrack::get_burstSize(TXPacket->frameNum)){
-        ESP_LOGE(TAG, "burstSize changed un-expectdly, disregarding previous burst");
-        return true;
-    }
-    return false;
-}
 inline bool frameNumDecreasedInBurst(int lastFrameRecv, int currentFrameNum){
     // if lastFrameRecv is -1, it's the first frame of a burst, so it's not a decrease.
     if(lastFrameRecv != -1 && currentFrameNum < lastFrameRecv) {
@@ -86,36 +79,42 @@ inline bool frameNumDecreasedInBurst(int lastFrameRecv, int currentFrameNum){
     return false;
 }
 
-//returns true if we are done parsing this burst
-//false if packet is invalid, or  is in the middle
-//updates the timeoutDuration if we are in the middle of the burst
-bool processBurst(driverRecvPacket* packet, uint64_t &timerExpireTime_us){
-    // To safely access the packet data without violating strict-aliasing rules,
-    // we copy the data into a local, aligned struct.
-    TXProtocolPacket TXPacket;
-    std::memcpy(&TXPacket, packet->data, packet->dataSize);
-    int currentFrameNum = FrameTrack::get_frameNum(TXPacket.frameNum);
-
-    bool newBurstRecv = false;
+inline bool newBurstReceived(TXProtocolPacket& TXPacket, const int currentFrameNum){
     if (!burstState.paritySet) {
         // First packet since init/restart. Always start a new context.
         ESP_LOGI(TAG, "First packet received. Starting new burst context.");
-        newBurstRecv = true;
-    } else if ((TXPacket.flags & txFlagMasks::firstBurstMask) && !burstState.firstBurstEncounter) {
+        return true;
+    }
+    if ((TXPacket.flags & txFlagMasks::firstBurstMask) && !burstState.firstBurstEncounter) {
         // TX has restarted. This is a new burst.                  ^^that we havent already seen
         ESP_LOGW(TAG, "TX restart detected (firstBurst flag). Starting new burst context.");
-        newBurstRecv = true;
-    } else if (burstState.recordedAckParity != (TXPacket.flags & txFlagMasks::ackParityMask)) {
+        return true;
+    } 
+    if (burstState.recordedAckParity != (TXPacket.flags & txFlagMasks::ackParityMask)) {
         // Normal new burst after successful ACK.
         ESP_LOGI(TAG, "Parity toggled. Starting new burst context.");
-        newBurstRecv = true;
-        flushSendBuffer(); // Only flus here, since can b confident TX got our ACK.
-    } else if (burstHeaderChanged(burstState.latestBurstSize, &TXPacket) || frameNumDecreasedInBurst(burstState.lastFrameRecv, currentFrameNum)) {
-        // Unexpected change, likely from a missed packet that would have toggled parity. Treat it as a new burst
-        newBurstRecv = true;
+        flushSendBuffer(); // Only flush here, since can now be confident TX got our last msg.
+        return true;
     }
+    if(burstState.latestBurstSize != FrameTrack::get_burstSize(TXPacket.frameNum)){
+        ESP_LOGI(TAG, "burstSize changed un-expectedly, disregarding previous burst");
+        return true; //likely missed ack that would cause a parity toggle
+    }
+    if(frameNumDecreasedInBurst(burstState.lastFrameRecv, currentFrameNum)) {
+        ESP_LOGI(TAG, "unexpected frame num decrease");
+        return true; //Likely missed ack that would cause a parity toggle
+    }
+    return false;
+}
 
-    if(newBurstRecv){
+//returns true if we are done parsing this burst
+//false if packet is invalid, or  is in the middle
+//updates the timerExpireTime_us if we are in the middle of the burst
+bool processBurst(driverRecvPacket* packet, uint64_t &timerExpireTime_us){
+    TXProtocolPacket TXPacket; 
+    std::memcpy(&TXPacket, packet->data, packet->dataSize); //strict aliasing cringe
+    int currentFrameNum = FrameTrack::get_frameNum(TXPacket.frameNum);
+    if(newBurstReceived(TXPacket, currentFrameNum)){
         //if parity toggles or the header changes, they are sending on a new burst
         burstState.latestBurstSize = FrameTrack::get_burstSize(TXPacket.frameNum);
         burstState.recordedAckParity = (TXPacket.flags & txFlagMasks::ackParityMask) != 0;
@@ -124,22 +123,24 @@ bool processBurst(driverRecvPacket* packet, uint64_t &timerExpireTime_us){
         // Update firstBurstEncounter based on the flag in the new burst's first packet
         burstState.firstBurstEncounter = (TXPacket.flags & txFlagMasks::firstBurstMask) != 0;
     }
-    burstState.paritySet = true;
+
+    burstState.paritySet = true; // have recv at least one packet, so parity is up to date.
 
     //handle this specific frame within the burst
     burstState.lastFrameRecv = currentFrameNum;
     ESP_LOGI(TAG, "got frame %d in burst of size: %d", burstState.lastFrameRecv, burstState.latestBurstSize);
+    xQueueSend(recvQueue, packet, 0);   //send this packet to be parsed
 
     if(burstState.latestBurstSize == burstState.lastFrameRecv){
         //we got the last packet in the burst
         burstState.bitmap |= (1<<burstState.lastFrameRecv);
-        xQueueSend(recvQueue, packet, portMAX_DELAY);   //send this packet to be parsed
-        return true;
+        return true; //done parsing this burst
     }
 
     //otherwise, its a packet in the middle.
-    timerExpireTime_us = esp_timer_get_time() + (packetTimeOnAir_us * (burstState.latestBurstSize - currentFrameNum + 1)); //how long until we expect this burst to be done
+    timerExpireTime_us = esp_timer_get_time() 
+                        + (packetTimeOnAir_us * (burstState.latestBurstSize - currentFrameNum));
+                        //how much time until we expect this burst to be done.
     burstState.bitmap |= (1<<burstState.lastFrameRecv);
-    xQueueSend(recvQueue, packet, portMAX_DELAY);   //send this packet to be parsed
-    return false;
+    return false; //not done parsing this burst
 }

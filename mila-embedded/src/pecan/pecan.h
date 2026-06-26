@@ -69,39 +69,6 @@ typedef struct {
     int pin2; // for ESP: rxLine. for Arduino: csPin
 } pecanInit;
 
-/**
- * @brief Unpacks a single data field from a byte buffer, adds the min offset, and advances a bit index.
- * 
- * @param dest A pointer to an int32_t to store the final unpacked value.
- * @param src The source byte buffer to unpack from.
- * @param field_info A pointer to a simpleDataPoint describing the field to unpack.
- * @param bitIndex A pointer to the current bit index in the source buffer. This will be incremented by the function.
- */
-void pecan_unpack(int32_t *dest, const uint8_t (*src)[8], const simpleDataPoint* field_info, int8_t* bitIndex);
-
-/**
- * @brief Packs a single data field into a destination buffer, applying min/max constraints and bit packing.
- *
- * @param dest_buffer The destination byte buffer to pack into.
- * @param bit_index A pointer to the current bit index in the destination buffer. This will be incremented by the function.
- * @param value The raw int32_t value to pack.
- * @param field_info A pointer to a simpleDataPoint describing the field's constraints.
- */
-void pecan_pack(uint8_t (*dest_buffer)[8], int8_t* bit_index, int32_t value, const simpleDataPoint* field_info);
-
-//helpers for pecan_pack and unpack, can also be used directly
-int16_t copyValueToData(const uint32_t *value, uint8_t (*target)[8], int8_t startBit, int8_t numBits);
-
-int16_t copyDataToValue(uint32_t *target, const uint8_t (*data)[8], int8_t startBit, int8_t numBits);
-
-// returns value constrained to min of min, and max of max
-int32_t squeeze(int32_t value, int32_t min, int32_t max);
-
-//squeeze and subtract min, forces the value to be unsigned and in bounds
-uint32_t formatValue(int32_t value, int32_t min, int32_t max);
-
-void flexiblePrint(const char* str);
-
 void pecan_CanInit(pecanInit config);
 
 // Initializes HB response
@@ -109,9 +76,6 @@ void vitalsInit(PCANListenParamsCollection* plpc, uint16_t nodeID);
 
 /// Adds a CANListenParam to the collection
 int16_t addParam(PCANListenParamsCollection* plpc, CANListenParam clp);
-
-// Only in use with sensor stuff
-void setSensorID(CANPacket* p, uint8_t sensorId);
 
 uint32_t combinedID(uint32_t fn_id, uint32_t node_id);
 uint32_t combinedIDExtended(uint32_t fn_id, uint32_t node_id, uint32_t extension); // also combines an extended ID
@@ -153,6 +117,39 @@ int16_t waitPackets(PCANListenParamsCollection* plpc);
 void sendPacket(CANPacket* p);
 // shorthand for sending status update. Atm, indicates node init, and bus recovery
 void sendStatusUpdate(uint8_t flag, uint32_t Id);
+
+/**
+ * @brief Unpacks a single data field from a byte buffer, adds the min offset, and advances a bit index.
+ * 
+ * @param dest A pointer to an int32_t to store the final unpacked value.
+ * @param src The source byte buffer to unpack from.
+ * @param field_info A pointer to a simpleDataPoint describing the field to unpack.
+ * @param bitIndex A pointer to the current bit index in the source buffer. This will be incremented by the function.
+ */
+void pecan_unpack(int32_t *dest, const uint8_t (*src)[8], const simpleDataPoint* field_info, int8_t* bitIndex);
+
+/**
+ * @brief Packs a single data field into a destination buffer, applying min/max constraints and bit packing.
+ *
+ * @param dest_buffer The destination byte buffer to pack into.
+ * @param bit_index A pointer to the current bit index in the destination buffer. This will be incremented by the function.
+ * @param value The raw int32_t value to pack.
+ * @param field_info A pointer to a simpleDataPoint describing the field's constraints.
+ */
+void pecan_pack(uint8_t (*dest_buffer)[8], int8_t* bit_index, int32_t value, const simpleDataPoint* field_info);
+
+//helpers for pecan_pack and unpack, can also be used directly
+int16_t copyValueToData(const uint32_t *value, uint8_t (*target)[8], int8_t startBit, int8_t numBits);
+
+int16_t copyDataToValue(uint32_t *target, const uint8_t (*data)[8], int8_t startBit, int8_t numBits);
+
+// returns value constrained to min of min, and max of max
+int32_t squeeze(int32_t value, int32_t min, int32_t max);
+
+//squeeze and subtract min, forces the value to be unsigned and in bounds
+uint32_t formatValue(int32_t value, int32_t min, int32_t max);
+
+void flexiblePrint(const char* str);
 
 #ifdef __cplusplus
 } // End extern "C"

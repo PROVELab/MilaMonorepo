@@ -113,5 +113,9 @@ int8_t sensorInit(PCANListenParamsCollection* plpc,
     vitalsInit(plpc, myId); // creates listen param for heartbeats
     // send init status update
 
+#ifdef SENSOR_HAS_COMMANDS
+	registerCommandHandler(plpc);
+#endif
+
     return 0;
 }

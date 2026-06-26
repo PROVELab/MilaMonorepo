@@ -3,10 +3,10 @@ use embassy_time::Duration;
 use rtt_target::rprintln;
 
 use crate::ffi::{
-    PCANListenParamsCollection, myId, myframes, numFrames, sendFrame, vitalsInit,
+    PCANListenParamsCollection, myId, myframes, numFrames, sendFrame, vitalsInit, registerCommandHandler
 };
 
-const MAX_FRAMES: usize = 10;
+const MAX_FRAMES: usize =  numFrames as usize;
 
 #[embassy_executor::task(pool_size = MAX_FRAMES)]
 async fn send_frame_task(frame_num: usize) {
@@ -29,4 +29,7 @@ pub fn sensor_init(spawner: &Spawner, plpc: &mut PCANListenParamsCollection) {
         spawner.spawn(send_frame_task(i)).unwrap();
     }
     rprintln!("Initializing Rust-specific sensor tasks for node {}...", myId);
+    unsafe{
+        registerCommandHandler(plpc);
+    }
 }

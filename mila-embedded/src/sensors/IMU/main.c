@@ -14,6 +14,7 @@
 #include "esp_log.h"
 
 #include "imu_manager.h"
+#include "temp_humid/temp_humid.h"
 
 static const char* TAG = "SensorMain";
 //add declerations to allocate space for additional tasks here as needed
@@ -53,13 +54,11 @@ int32_t collect_radiator_temp_F(bool* cancelFrameSend){
 }
 
 int32_t collect_humiditySense_temp_F(bool* cancelFrameSend){
-    int32_t humiditySense_temp_F = 67; // Starting value
-    return humiditySense_temp_F;
+    return getTempF();
 }
 
 int32_t collect_RH(bool* cancelFrameSend){
-    int32_t RH = 1; // Starting value
-    return RH;
+    return getRH();
 }
 
 
@@ -178,6 +177,7 @@ void app_main(void){
 	base_ESP_init();
 	pecanInit config={.nodeId= myId, .pin1= defaultPin, .pin2= defaultPin};
 	imu_init();
+    initTempHumid();
 	pecan_CanInit(config);   //initialize CAN
 
 	//Declare tasks here as needed

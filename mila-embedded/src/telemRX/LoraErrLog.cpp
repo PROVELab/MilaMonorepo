@@ -10,7 +10,7 @@ void initErr(){
 }
 
 void logErr(const char* TAG, int16_t err){
-    ESP_LOGE(TAG, "Lora Err code raised: %d", err);
+    ESP_LOGE(TAG, "RX Lora Err code raised: %d", err);
 }
 
 //only used by TX side atm

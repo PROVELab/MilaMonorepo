@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "autogen/vsr",
+    "dashboard/src-tauri"
+]
+resolver = "3"

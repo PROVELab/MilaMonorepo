@@ -93,33 +93,6 @@ vitals_to_telem = [
             msgField(name="HBMask", bits=get_nodeCount)
         ]
      },
-    # {"name": "HBTiming", "mask_bits": PACK_MINIMUM_BITS, "containsPayload": False, "dataTimeout": 3000, #expected every second
-    #     "msgFields": [
-    #         msgField(name="slowestNode1_ID", bits=get_maxnodeValueBits, plottable=True, maxWarning=100), #should be <100ms to respond to HB
-    #         msgField(name="slowestNode1_time", bits=10, plottable=True),
-    #         msgField(name="slowestNode2_ID", bits=get_maxnodeValueBits, plottable=True, maxWarning=100),
-    #         msgField(name="slowestNode2_time", bits=10, plottable=True),
-    #         msgField(name="slowestNode3_ID", bits=get_maxnodeValueBits, plottable=True, maxWarning=100),
-    #         msgField(name="slowestNode3_time", bits=10, plottable=True),
-    #     ]
-    #  },
-    # {"name": "HBStatus", "mask_bits": PACK_MINIMUM_BITS, "containsPayload": False, "dataTimeout": 3000, #expected every second
-    #     "msgFields": [
-    #         msgField(name="HBMask", bits=get_nodeCount)
-    #     ]
-    # },
-    # {"name": "BusStatus", "mask_bits": PACK_MINIMUM_BITS, "containsPayload": False, "dataTimeout": 3000, #expected every second
-    #     "msgFields": [
-    #         msgField(name = "TWAI_STATE", enum = True),     #TODO: add reaspmable warning values here
-    #         msgField(name="TWAI_TX_Err_Cnt", bits=8, min=-10, max=245, plottable=True),
-    #         msgField(name="TWAI_RX_Err_Cnt", bits=8, plottable=True),
-    #         msgField(name="TWAI_Err_Cnt", bits=12, plottable=True),
-    #         msgField(name="failed_TX_Cnt", bits=12, plottable=True),
-    #         msgField(name="RX_Overrun_Cnt", bits=11, plottable=True),
-    #         msgField(name="RX_Missed_Cnt", bits=11, plottable=True),
-    #         msgField(name="RX_Recv_Queue_Cnt", bits=4, plottable=True)
-    #     ]
-    #  },
     {"name": "vitalsErr", "mask_bits": PACK_MINIMUM_BITS, "containsPayload": True, "dataTimeout": 0,
         #Lora errors, can be variable length, as are 2 byte errors with 1 byte count of how mnany
         "msgFields": [
@@ -197,11 +170,6 @@ telem_to_vitals = [
             # msgField(name="prechargeCommands", enum=True)
         ]
     },
-    # {"name": "intermoduleCommand", "targetNode": "powerDistribution", "mask_bits": PACK_MINIMUM_BITS, "containsPayload": False,
-    #     "msgFields": [
-    #         msgField(name="inter", enum=True)
-    #     ]
-    # },
 
     {"name": "setCoolantDutyCycle", "targetNode": "powerDistribution", "mask_bits": 4, "containsPayload": False,
     "msgFields": [

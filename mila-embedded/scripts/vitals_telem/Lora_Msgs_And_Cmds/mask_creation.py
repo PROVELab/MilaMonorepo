@@ -7,6 +7,7 @@ from config.parseFile import expression_to_int, ACCESS
 
 def reverse_bits(n: int, length: int) -> int:
     """Reverses the bottom `length` bits of an integer `n`."""
+    """if n is 0b01001, and lengtg=3, returns 0b01100 as an integer"""
     result = 0
     for i in range(length):
         if (n >> i) & 1:
@@ -33,23 +34,24 @@ def _assign_prefix_free_masks(
     next_code = 0
     current_len = 0
     current_len = sorted_msgs[0].get("mask_bits", 0)
-
+    
     for msg in sorted_msgs:
-        mask_len = msg.get("mask_bits", 0)
+        mask_len = msg["mask_bits"]
         if mask_len > current_len:
-            next_code <<= (mask_len - current_len)
+            #reduce the relative significance of the bit used on code by how much mask size changes
+            next_code <<= (mask_len - current_len) 
             current_len = mask_len
         if len(bin(next_code)[2:]) > mask_len:
             raise ValueError(f"Not enough mask space for all {packet_direction_name} packets. Failed at packet '{msg['name']}'. Ran out of codes of length {mask_len}.")
         
         #convert from most significant bit prefix free (easier to generate like this, bc can just shift left for more room) 
-        # to least significant bit prefix, so that its parse-able
+        # to least significant bit prefix, so that its parse-able, with bit0 parsed first
         reversed_code = reverse_bits(next_code, mask_len)
         msg["mask"] = reversed_code
         
         map_file.write(f"{msg['name']} ({mask_len} bits): {reversed_code} (0b{reversed_code:0{mask_len}b}) "
                        f"<- reversed from canonical {next_code} (0b{next_code:0{mask_len}b})\n")
-        next_code += 1
+        next_code += 1 #the bottom most bit of code is used on each iteration
 
 def _assign_can_forwarding_masks(
     packet_list: list[dict[str, Any]],
@@ -63,42 +65,43 @@ def _assign_can_forwarding_masks(
     node_map_by_name = {node.name: node for node in nodes}
     node_map_by_id = {node.node_id: node for node in nodes}
 
-    def get_canonical_node_name(target_str: str | None) -> str | None:
-        if not target_str or target_str == "vitals":
-            return None  # Not a forwarded packet
-
-        # 1. Match by direct name
-        if target_str in node_map_by_name:
-            return target_str
-
-        # 2. Match by evaluating target_str as an ID expression
-        try:
-            target_id = expression_to_int(target_str)
-            if target_id in node_map_by_id:
-                return node_map_by_id[target_id].name
-        except (ValueError, NameError):
-            pass # It's not a valid expression or name known to python, that's ok.
-
-        # Fallback for unknown targets
-        return target_str
-
+    ##-----------Create a lookup of the different nodes that packets are forwarded to
     forwarded_packets_by_node = {}
     for msg in packet_list:
         target_node_str = msg.get("targetNode")
-        canonical_name = get_canonical_node_name(target_node_str)
-        if canonical_name:
-            forwarded_packets_by_node.setdefault(canonical_name, []).append(msg)
+        if not target_node_str:
+            raise ValueError(f"targetNode is not known for msg: {msg}")        
+        # "vitals" is a valid target. do not try to map to a sensor ID
+        if target_node_str == "vitals": 
+            continue
 
-    for node_name, msgs in forwarded_packets_by_node.items():
-        if len(msgs) > 1:
-            can_mask_bits = math.ceil(math.log2(len(msgs)))
-            for i, msg in enumerate(msgs):
-                msg['can_mask'] = i
-                msg['can_mask_bits'] = can_mask_bits
-        else:
-            for msg in msgs:
-                msg['can_mask'] = 0
-                msg['can_mask_bits'] = 0
+        # 2. If it's not a known name, try the sensor name as an integer ID
+        if target_node_str not in node_map_by_name:
+            try:
+                target_id = expression_to_int(target_node_str)
+                # Check if the id exists
+                if target_id not in node_map_by_id:
+                    raise ValueError(f"Mapped ID {target_id} (from '{target_node_str}') does not exist in nodes.")
+                #if so, assign the id to the node
+                target_node_str = node_map_by_id[target_id].name
+
+            except (ValueError, NameError) as e:
+                # Catch expression errors and abort with context
+                raise ValueError(f"Could not map target '{target_node_str}' to a valid node.") from e
+            
+        forwarded_packets_by_node.setdefault(target_node_str, []).append(msg)
+    ##-----------
+
+    #Set the mask bits of each msg based on how many msgs are going to that node
+    for msgs in forwarded_packets_by_node.values():
+        if not msgs:
+            continue # Skip empty lists safely
+            
+        can_mask_bits = math.ceil(math.log2(len(msgs)))
+        for i, msg in enumerate(msgs):
+            msg['can_mask'] = i
+            msg['can_mask_bits'] = can_mask_bits
+
 
 def assign_all_masks(generated_code_dir: str, nodes: list[Any]) -> None:
     """

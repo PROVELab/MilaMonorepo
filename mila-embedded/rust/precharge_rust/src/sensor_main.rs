@@ -60,13 +60,6 @@ pub extern "C" fn onsetChargeCondition(args: ffi::setChargeCondition_args_t) {
     contactors::set_charge_condition(args.min_MC_Voltage, args.minPercentCharged);
 }
 
-unsafe fn register_sensor_command_handlers(plpc: *mut ffi::PCANListenParamsCollection) {
-    ffi::registerCommandHandler(plpc);
-}
-
 pub fn init_sensor(spawner: &Spawner, plpc: &mut ffi::PCANListenParamsCollection) {
-    unsafe {
-        register_sensor_command_handlers(plpc as *mut ffi::PCANListenParamsCollection);
-    }
     sensor_specific::sensor_init(spawner, plpc);
 }

@@ -139,8 +139,9 @@ inline RadioPinout getRadioPins() {
 //the ones mentioned in getRadioPins, and: 
 //T/R CTRL <-> DIO2 (chip-chip connection)
 //Enable <-> 3.3V
-//Vcc is 5.1V for Ebyte (5.5 absolute max), ideally always just above 5.
-//Resistor is 10k, capacitors are 100nF. Neither R nor C specified anywhere. Hopefully these values are ok. SX seems to use similar values in other parts of their chips. (tbh I have no clue)
+//Vcc is 5.3V for Ebyte (5.5 absolute max), ideally always just above 5.
+//Resistor is 10k, capacitors are 100nF. Neither R nor C specified anywhere. 
+//Hopefully these values are ok. SX seems to use similar values in other parts of their chips. (tbh I have no clue)
 
 //Pin uses: //SCLK, Miso, and Mosi. Spi communication with the chip
             //NSS = SPI chip select 

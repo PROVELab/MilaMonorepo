@@ -1,5 +1,4 @@
 #node Definitions
-#Update the pedal to no longer be critical when pressed for final use. ts for testing rn
 
 node: id=prechargeID, name=precharge, board=rust
 CANFrame: period=500, dataTimeout=5000, telemetryDivider=1
@@ -28,8 +27,6 @@ pedalPowerReadingmV: bitLength=16, min=-30000, max=35000, minWarning=4500, maxWa
 pedalReadingOne: bitLength=8, min=-20, max=120, startingValue=-1
 pedalReadingTwo: bitLength=8, min=-20, max=120, startingValue=-1
 brakeReading: bitLength=8, min=-20, max=120, minWarning=-10, maxWarning=110, startingValue=-1
-SDIO_det_pin: bitLength=1, min=0, max=1, minWarning=0, startingValue=0
-
 
 node: id=9, name=IMU, board=esp
 

@@ -1,0 +1,37 @@
+use std::path::PathBuf;
+
+use clap::Parser;
+use vsr::{
+    c_gen::write_vsr_state_files, construct_vsr::load_all_vsr_substructs,
+    proto_gen::write_proto_file,
+};
+
+use anyhow::Result;
+
+#[derive(Parser, Debug)]
+#[command(about = "Generate VSR proto + C artifacts to an output directory.")]
+struct Args {
+    #[arg(value_name = "OUTPUT_DIR")]
+    output_dir: PathBuf,
+}
+
+fn main() -> Result<()> {
+    let args = Args::parse();
+    println!("starting");
+    let substructs = load_all_vsr_substructs()?;
+
+    let proto_out = args.output_dir.join("vsr.proto");
+    write_proto_file(&substructs, &proto_out)?;
+    println!("wrote {}", proto_out.display());
+
+    let options_out = args.output_dir.join("vsr.options");
+    std::fs::write(&options_out, "vsr.Log.message max_size:128 max_count:16\n")?;
+    println!("wrote {}", options_out.display());
+
+    let state_h_out = args.output_dir.join("vsr_state.h");
+    let state_c_out = args.output_dir.join("vsr_state.c");
+    write_vsr_state_files(&substructs, &state_h_out, &state_c_out)?;
+    println!("wrote {}", state_h_out.display());
+    println!("wrote {}", state_c_out.display());
+    Ok(())
+}

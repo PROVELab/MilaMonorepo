@@ -29,7 +29,6 @@ void checkBusStatus(void* pvParameters) {
     esp_err_t alertStatus;
     for (;;) {
         alertStatus = twai_read_alerts(&alerts, portMAX_DELAY);
-        // mutexPrint("reading alert\n");
         if (alertStatus == ESP_OK) {
             ESP_LOGI(TAG, "TWAI alerts received: 0x%" PRIX32, alerts);
             if (alerts & TWAI_ALERT_BUS_OFF) {

@@ -15,11 +15,18 @@ name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
+prost-build = "0.14.1"
 tauri-build = { version = "2.2.0", features = [] }
+vsr = { path = "../../autogen/vsr" }
 
 [dependencies]
-serde_json = "1.0"
+enumset = "1.1.5"
+mcap = { version = "0.24.0", default-features = false, features = ["zstd"] }
+prost = "0.13.5"
+prost-reflect = "0.14.7"
+serialport = "4.8.1"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.5.0", features = [] }
 tauri-plugin-log = "2.0.0-rc"
+vsr = { path = "../../autogen/vsr" }

@@ -8,11 +8,10 @@ nodeID,frameIndex,dataIndex,nodeName,numFrames,dataName,plottable,nodeIndex,numD
 3,0,6,precharge,2,IMD_Hardware_Fault_Indicator,true,0,7,5000,0,0,1,1,0,1,,0,0,1
 3,1,0,precharge,2,min_MC_Voltage,true,0,2,15000,0,0,1023,10,0,1023,,0,0,1023
 3,1,1,precharge,2,minPercentCharged,true,0,2,15000,0,37,100,6,37,100,,0,37,100
-8,0,0,pedalSensor,1,pedalPowerReadingmV,true,2,5,5000,0,-30000,35000,16,4500,6000,,0,-30000,35000
-8,0,1,pedalSensor,1,pedalReadingOne,true,2,5,5000,0,-20,120,8,-20,120,,0,-20,120
-8,0,2,pedalSensor,1,pedalReadingTwo,true,2,5,5000,0,-20,120,8,-20,120,,0,-20,120
-8,0,3,pedalSensor,1,brakeReading,true,2,5,5000,0,-20,120,8,-10,110,,0,-20,120
-8,0,4,pedalSensor,1,SDIO_det_pin,true,2,5,5000,0,0,1,1,0,1,,0,0,1
+8,0,0,pedalSensor,1,pedalPowerReadingmV,true,2,4,5000,0,-30000,35000,16,4500,6000,,0,-30000,35000
+8,0,1,pedalSensor,1,pedalReadingOne,true,2,4,5000,0,-20,120,8,-20,120,,0,-20,120
+8,0,2,pedalSensor,1,pedalReadingTwo,true,2,4,5000,0,-20,120,8,-20,120,,0,-20,120
+8,0,3,pedalSensor,1,brakeReading,true,2,4,5000,0,-20,120,8,-10,110,,0,-20,120
 9,0,0,IMU,4,IMU_temp_F,true,3,4,3000,0,-100,923,10,-100,923,,0,-100,923
 9,0,1,IMU,4,radiator_temp_F,true,3,4,3000,0,-100,1947,11,-100,1947,,0,-100,1947
 9,0,2,IMU,4,humiditySense_temp_F,true,3,4,3000,0,-100,1947,11,-100,1947,,0,-100,1947

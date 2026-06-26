@@ -38,12 +38,13 @@ typedef struct SensorRecvPacketLUTEntry_s {
     void (*callback_wrapper)(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex);
 } SensorRecvPacketLUTEntry;
 
-void registerCommandHandler(PCANListenParamsCollection* plpc);
-
 // Extern declarations for the command lookup table, defined in sensorRecvLUT.cpp
 extern const SensorRecvPacketLUTEntry sensorRecvPacketLUT[];
 extern const size_t sensorRecvPacketLUTSize;
 #endif
+
+void registerCommandHandler(PCANListenParamsCollection* plpc);
+
 
 #ifdef __cplusplus
 }  // End extern "C"

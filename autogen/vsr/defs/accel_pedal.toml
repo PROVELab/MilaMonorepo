@@ -1,0 +1,22 @@
+alias = "accel_pedal"
+desc = "Acceleration Pedal"
+
+[pedal_supply_voltage]
+type = "f32"
+unit = "mV"
+desc = "Pedal Supply Voltage"
+
+[pedal_position_pct]
+type = "f32"
+unit = "%"
+desc = "Pedal Position as a percentage"
+
+[pedal_raw_1]
+type = "f32"
+unit = ""
+desc = "Pedal Raw ADC 1"
+
+[pedal_raw_2]
+type = "f32"
+unit = ""
+desc = "Pedal Raw ADC 2"

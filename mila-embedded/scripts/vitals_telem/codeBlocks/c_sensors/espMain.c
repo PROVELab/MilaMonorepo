@@ -1,9 +1,6 @@
 void receiveMSG(void* pvParameters){  //task handles recieving Messages
 	PCANListenParamsCollection plpc={ .arr={{0}}, .defaultHandler = defaultPacketRecv, .size = 0, };
 	sensorInit(&plpc,NULL); //vitals Compliance
-#ifdef SENSOR_HAS_COMMANDS
-	registerCommandHandler(&plpc);
-#endif
 
 	//declare CanListenparams here, each param has 3 entries:
 	//When recv msg with id = 'listen_id' according to matchtype (or 'mt'), 'handler' is called.

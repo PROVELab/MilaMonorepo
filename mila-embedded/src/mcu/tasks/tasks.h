@@ -6,13 +6,13 @@
  * Tasks themselves, however, are defined in their own .c files
  * and usually not exposed.
  *
- * Most of them are in tasks/ but motor-specific tasks are in motor_h300/
+ * Most of them are in tasks/ but motor-specific tasks are in motor_h300/firmware/
  */
 
 #ifndef TASKS_H
 #define TASKS_H
 
-#include "../vsr.h" // vehicle status register, holds all the information about the vehicle
+#include "../vsr/vsr_state.h" // vehicle status register, holds all the information about the vehicle
 #include "driver/twai.h"
 
 #include "freertos/FreeRTOS.h"
@@ -31,8 +31,16 @@ void start_send_motor_task();
 #define CONSOLE_TASK_PRIO 11 // Mostly low priority but
 void start_console_task();
 
-// Logging
-#define LOGGING_TASK_PRIO 11 // Similar priority to ~console
-void start_logging_task();
+// VSR stream over USB serial (UART0) at 10 Hz
+#define VSR_STREAM_TASK_PRIO 12
+void start_vsr_stream_task();
+
+// MCU health metrics snapshot on VSR at 1 Hz
+#define MCU_HEALTH_TASK_PRIO 10
+void start_mcu_health_task();
+
+// Dashboard motor-command stream over USB serial (UART0)
+#define MOTOR_COMMAND_RX_TASK_PRIO 12
+void start_motor_command_rx_task();
 
 #endif

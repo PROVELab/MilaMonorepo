@@ -68,16 +68,22 @@ static int16_t handleTelemetryCommand(CANPacket* p) {
     }
     return 0;
 }
+#endif // SENSOR_HAS_COMMANDS
+
+
 
 void registerCommandHandler(PCANListenParamsCollection* plpc) {
-    CANListenParam telemCommandParam;
-    memset(&telemCommandParam, 0, sizeof(telemCommandParam));
-    telemCommandParam.listen_id = combinedID(TelemetryCommand, myId);
-    telemCommandParam.handler = handleTelemetryCommand;
-    telemCommandParam.mt = MATCH_EXACT;
-    if (addParam(plpc, telemCommandParam) != SUCCESS) {
-        flexiblePrint("Failed to add telemetry command handler");
-    }
+    #ifdef SENSOR_HAS_COMMANDS
+        CANListenParam telemCommandParam;
+        memset(&telemCommandParam, 0, sizeof(telemCommandParam));
+        telemCommandParam.listen_id = combinedID(TelemetryCommand, myId);
+        telemCommandParam.handler = handleTelemetryCommand;
+        telemCommandParam.mt = MATCH_EXACT;
+        if (addParam(plpc, telemCommandParam) != SUCCESS) {
+            flexiblePrint("Failed to add telemetry command handler");
+        }
+    #else
+        (void)plpc;    //ack that ts is doing nothing in this case
+    #endif
 }
 
-#endif // SENSOR_HAS_COMMANDS

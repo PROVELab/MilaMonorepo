@@ -7,11 +7,7 @@ use embassy_executor::Spawner;
 // --- Data Collectors ---
 
 // --- Command Handling ---
-unsafe fn register_sensor_command_handlers(plpc: *mut ffi::PCANListenParamsCollection) {
-    let _ = plpc;
-}
 
 pub fn init_sensor(spawner: &Spawner, plpc: &mut ffi::PCANListenParamsCollection) {
-    register_sensor_command_handlers(plpc as *mut ffi::PCANListenParamsCollection);
     sensor_specific::sensor_init(spawner, plpc);
 }

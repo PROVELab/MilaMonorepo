@@ -24,7 +24,6 @@ if __name__ == "__main__":
     vitals_dir = os.path.join(src_dir, "vitalsNode")
     vitals_gen_dir = os.path.join(vitals_dir, "vitalsGen")
     vitals_callbacks_dir = os.path.join(vitals_dir, "callbacks")
-    vitals_lora_gen_dir = os.path.join(vitals_dir, "loraGen")
 
     telem_main_dir = os.path.normpath(
         os.path.join(script_dir, "..", "..", "..", "telem-dashboard", "src", "main")
@@ -46,7 +45,6 @@ if __name__ == "__main__":
     os.makedirs(gen_dir, exist_ok=True)
     os.makedirs(src_sensors_dir, exist_ok=True)
     os.makedirs(vitals_gen_dir, exist_ok=True)
-    os.makedirs(vitals_lora_gen_dir, exist_ok=True)
     os.makedirs(vitals_callbacks_dir, exist_ok=True)
     os.makedirs(telem_util_dir, exist_ok=True)
     os.makedirs(telem_lookup_dir, exist_ok=True)

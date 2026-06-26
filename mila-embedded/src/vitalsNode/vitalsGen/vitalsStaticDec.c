@@ -37,16 +37,15 @@ CANFrame n1[0]={
 };
 
 // Node 2: pedalSensor
-dataPoint n2f0DPs [5]={
+dataPoint n2f0DPs [4]={
     {.min=-30000, .max=35000, .bits=16, .minWarning=4500, .maxWarning=6000, .inWarningState=0, .criticalStructPtr=NULL},
     {.min=-20, .max=120, .bits=8, .minWarning=-20, .maxWarning=120, .inWarningState=0, .criticalStructPtr=NULL},
     {.min=-20, .max=120, .bits=8, .minWarning=-20, .maxWarning=120, .inWarningState=0, .criticalStructPtr=NULL},
     {.min=-20, .max=120, .bits=8, .minWarning=-10, .maxWarning=110, .inWarningState=0, .criticalStructPtr=NULL},
-    {.min=0, .max=1, .bits=1, .minWarning=0, .maxWarning=1, .inWarningState=0, .criticalStructPtr=NULL},
 };
 
 CANFrame n2[1]={
-    {.nodeIndex=2, .frameID=2, .numData=5, .dataTimeout=5000, .telemetryDivider=1, .hasCriticalData=0, .telemetryDivider_Count=0, .dataLocation=0, .consecutiveMisses=0, .dataInfo=n2f0DPs},
+    {.nodeIndex=2, .frameID=2, .numData=4, .dataTimeout=5000, .telemetryDivider=1, .hasCriticalData=0, .telemetryDivider_Count=0, .dataLocation=0, .consecutiveMisses=0, .dataInfo=n2f0DPs},
 };
 
 // Node 3: IMU

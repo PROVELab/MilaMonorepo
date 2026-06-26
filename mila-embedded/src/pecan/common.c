@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <inttypes.h>
-#include <stdio.h>
 #include <string.h> // memcpy
 // #include <memory>
 
@@ -21,19 +20,30 @@ uint32_t getDataFrameId(uint32_t id) {
     return getIdExtension(id) & ((0b1 << maxFrameCntBits) - 1);
 }
 
-void setSensorID(CANPacket* p, uint8_t sensorId) { p->data[0] = sensorId; }
+//helper for default print
+static void printHex(uint8_t value) {
+    static const char hex_digits[] = "0123456789ABCDEF";
+    char buf[4] = {
+        hex_digits[(value >> 4) & 0x0F],
+        hex_digits[value & 0x0F],
+        ' ',
+        '\0',
+    };
+    flexiblePrint(buf);
+}
 
 int16_t defaultPacketRecv(CANPacket* p) {
-    char buf[48];
-    // Print the header
-    snprintf(buf, sizeof(buf), "Default recv: id %" PRIi32 "\n with data:", p->id);
-    flexiblePrint(buf);
+    // Print the id
+    flexiblePrint("Default recv: id 0x");
+    for(int i = 0; i < 4; i++){
+        printHex(((uint8_t*)p->id)[i]);
+    }
 
     // Print each data element
+    flexiblePrint("\n with data: 0x");
     if (p->rtr == false) {
         for (int i = 0; i < p->dataSize; i++) {
-            snprintf(buf, sizeof buf, " %02X", (unsigned) p->data[i]); // two-digit uppercase hex
-            flexiblePrint(buf);
+            printHex(p->data[i]);
         }
     }
 

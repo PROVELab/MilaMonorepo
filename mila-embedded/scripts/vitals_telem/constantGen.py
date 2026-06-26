@@ -59,11 +59,11 @@ def writeEnums(f: TextIO, lang_l: str, global_enums: list[Any]) -> None:
             f.write(f"pub use {g.enum_name}::*;\n")
 
 
-# Writes constants files for either C or java depending on lang
+# Writes constants files for either C, java, or rust depending on lang
 def writeConstants(lang: str,
                    constants_file_path: str,
                    nodes: List[Node],
-                   fields: ParsedFields,
+                   fields: ParsedFields, #uses globalDefines and globalEnums (the constants)
                    num_vitals_to_telem_packets: int = 0) -> None:
     lang_l = lang.lower()
 

@@ -5,9 +5,6 @@ void setup() {
 	pecanInit config={.nodeId= myId, .pin1= defaultPin, .pin2= defaultPin};
 	pecan_CanInit(config);
 	sensorInit(&plpc, &ts);
-#ifdef SENSOR_HAS_COMMANDS
-	registerCommandHandler(&plpc);
-#endif
 }
 
 void loop() {

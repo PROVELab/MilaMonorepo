@@ -63,7 +63,8 @@ result safeLoraTx(const driverSendPacket* packet, const uint64_t timerExpireTime
     }
 
     //wait for transmission to complete
-    if (waitForTXDone(2)){
+    const int numPacketTimes = 2;
+    if (waitForTXDone(numPacketTimes)){
         return Success;
     }
     ESP_LOGI(TAG, "wait for tx failed");
