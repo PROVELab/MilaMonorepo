@@ -63,3 +63,11 @@ mila-embedded/sdkconfig.*
 mila-embedded/sdkconfig*.old
 !mila-embedded/sdkconfig.default
 !mila-embedded/sdkconfig.mcu
+
+#Telem
+telem-dashboard/bin/
+
+#Random logs
+mila-embedded/scripts/BMSParse/*.txt
+mila-embedded/scripts/BMSParse/*.csv
+mila-embedded/scripts/telemetry_benchmark/long_walk/*.txt
