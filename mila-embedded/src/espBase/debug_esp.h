@@ -9,6 +9,7 @@ extern "C" { // Ensure C linkage
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "stdint.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 

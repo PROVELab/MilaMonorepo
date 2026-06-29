@@ -1,0 +1,13 @@
+name: Setup dev shell
+description: Install Nix and realize the repository dev shell.
+runs:
+  using: composite
+  steps:
+    - name: Install Nix
+      uses: cachix/install-nix-action@v31
+      with:
+        github_access_token: ${{ github.token }}
+
+    - name: Warm dev shell
+      shell: bash
+      run: nix develop --command true

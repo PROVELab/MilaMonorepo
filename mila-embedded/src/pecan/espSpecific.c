@@ -34,29 +34,32 @@ void checkBusStatus(void* pvParameters) {
             if (alerts & TWAI_ALERT_BUS_OFF) {
                 ESP_LOGW(TAG, "Bus-off detected, initiating recovery");
                 if (twai_initiate_recovery() != ESP_OK) {
-                    ESP_LOGE(TAG, "invalid recovery attempting to reboot. This should never happen");
-                    esp_restart();
+                    ESP_LOGE(__func__, "Invalid recovery attempt");
+                    // esp_restart(); 
                 }
 
             } else if (alerts & TWAI_ALERT_BUS_RECOVERED) {
                 // After recovering, twai enters stopped state. Lets enter the start state
                 int err = twai_start();
                 if (err != ESP_OK) {
-                    ESP_LOGE(TAG, "error restarting Can: %d. Attempting to reboot", err);
+                    // restarts commented out to make shynn happy
+                    // ESP_LOGE(TAG, "error restarting Can: %d. Attempting to reboot", err);
                     // esp_restart();
+                    ESP_LOGE(__func__, "Error Starting CAN");
                 } else {
-                    ESP_LOGI(TAG, "Can Driver Started after recovery");
+                    ESP_LOGI(__func__, "CAN Drier Started after recovery");
+                    // mutexPrint("Can Driver Started\n\n");
                     // send update indicating Bus restarted
                     sendStatusUpdate(canRecoveryFlag, myNodeId);
                 }
             }
             if (alerts & TWAI_ALERT_RX_FIFO_OVERRUN) {
                 // Hardware RX FIFO overrun (frames were dropped)
-                ESP_LOGW(TAG, "TWAI: RX FIFO overrun detected — at least one frame was lost");
+                ESP_LOGE(__func__, "TWAI: RX FIFO overrun detected — at least one frame was lost\n");
                 sendStatusUpdate(canRXOverunFlag, myNodeId);
             }
         } else if (alertStatus != ESP_ERR_TIMEOUT) {
-            ESP_LOGE(TAG, "Unknown CAN state. Rebooting.");
+            ESP_LOGE(__func__, "confused on what state we are in. Should never happen. rebooting\n");
             esp_restart();
         }
     }
@@ -72,28 +75,24 @@ void pecan_CanInit(pecanInit config) {
     const int txPin = config.pin1 == defaultPin ? defaultTxPin : config.pin1;
     const int rxPin = config.pin2 == defaultPin ? defaultRxPin : config.pin2;
 
-    // Initialize configuration structures using macro initializers
-    // TWAI_MODE_NORMAL
-    //  twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NO_ACK); //TWAI_MODE_NORMAL
-    //  for standard behavior
-    twai_general_config_t g_config =
-        TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NORMAL); // TWAI_MODE_NORMAL for standard behavior
+    // Initialize configuration structures using macro initializers.
+    twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(txPin, rxPin, TWAI_MODE_NORMAL);
     twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
     twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
     // Install TWAI driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-        ESP_LOGI(TAG, "Driver installed");
+        ESP_LOGI(__func__, "Driver installed");
     } else {
-        ESP_LOGE(TAG, "Failed to install driver in pecan_CanInit");
-        exit(1);
+        ESP_LOGE(__func__, "Failed to install driver in pecan_CanInit");
+        // esp_restart();
     }
 
     // Start TWAI driver
     if (twai_start() == ESP_OK) {
-        ESP_LOGI(TAG, "Driver started");
+        ESP_LOGI(__func__, "Driver started");
     } else {
-        ESP_LOGE(TAG, "Failed to start TWAI driver in pecan_CanInit");
-        exit(1);
+        ESP_LOGE(__func__, "Failed to start TWAI driver in pecan_CanInit");
+        // esp_restart();
     }
 
     if (twai_reconfigure_alerts(

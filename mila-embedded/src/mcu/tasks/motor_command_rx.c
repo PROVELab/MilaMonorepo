@@ -113,7 +113,6 @@ static void update_vsr_motor_command(const vsr_DriveMode* command) {
     ACQ_REL_VSRSEM_R(vsr, drive_mode, { from = VSR_DATA.drive_mode; });
 
     if (check_valid_transition(&from, command)) {
-
         ACQ_REL_VSRSEM_W(vsr, drive_mode, {
             VSR_DATA.drive_mode = *command;
             VSR_DATA.drive_mode.has_command = true;

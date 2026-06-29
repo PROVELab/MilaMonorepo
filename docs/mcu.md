@@ -5,14 +5,22 @@
 Building the MCU is unfortunately a little more complex
 than some of the other targets.
 
-A normal esp32 build needs to just be built via `pio run -e mcu`
+A normal esp32 build needs to just be built via `pio run -e mcu` 
 to build it. However the MCU also needs: the vehicle state register
-(VSR) generated as well as the private NDA `motor_h300` checkout
-(the Motor Controller interface code). Keep that repo adjacent to
-this one at `../motor_h300/`. The firmware sources live under
-`../motor_h300/firmware/`; `just autogen` and `just build_embedded mcu`
-will refresh `mila-embedded/src/mcu/motor_h300/` to point there before
-building.
+(VSR) generated as well as the private NDA submodule for the h300
+code at `motor_h300/` (the Motor Controller interface code). The firmware
+sources from that submodule live under `motor_h300/firmware/`; the 
+`mila-embedded/src/mcu/motor_h300/` directory is a symlink pointing 
+directly to that firmware section for the MCU build.
+
+First, get the submodule synced up via 
+```bash
+git submodule sync --recursive && git submodule update --init --recursive motor_h300
+```
+
+(run it twice for funsies; I've aliased this in my .gitconfig)
+
+If you don't have permission to do this, ask an admin of the repo.
 
 Then you can build the firmware via:
 

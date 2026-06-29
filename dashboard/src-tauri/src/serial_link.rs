@@ -228,12 +228,6 @@ fn process_outbound_commands(
             return false;
         }
 
-        println!(
-            "[dash-serial] wrote outbound command payload={}B frame={}B",
-            payload.len(),
-            frame.len()
-        );
-
         with_state(shared, |state| match command {
             OutboundCommand::Motor(command) => {
                 push_log_line(

@@ -1,0 +1,32 @@
+name: Embedded Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  platformio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.MOTOR_SUBMODULE_TOKEN || github.token }}
+          submodules: recursive
+
+      - uses: ./.github/actions/setup-devshell
+
+      - name: Cache PlatformIO packages
+        uses: actions/cache@v4
+        with:
+          path: .platformio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('mila-embedded/platformio.ini') }}
+          restore-keys: ${{ runner.os }}-platformio-
+
+      - name: Build all PlatformIO environments
+        run: |
+          nix develop --command just ci_embedded
