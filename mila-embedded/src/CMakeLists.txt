@@ -65,6 +65,8 @@ if(CMAKE_MCU_ESP_BUILD)
         "${CMAKE_CURRENT_SOURCE_DIR}/mcu/*.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/mcu/*.cxx"
 
+        "${CMAKE_CURRENT_SOURCE_DIR}/mcu/motor_h300/*.c"
+
         "${CMAKE_CURRENT_SOURCE_DIR}/sensors/common/sensorHelper.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/sensors/powerSensor/espPower.c"
     )

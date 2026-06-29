@@ -1,28 +1,14 @@
 # Justfile - Build, Setup, and Run Commands
 
 ### Autogen ###
-ensure_motor_h300:
-    @if [ -e mila-embedded/src/mcu/motor_h300 ] && [ ! -L mila-embedded/src/mcu/motor_h300 ]; then \
-        echo "mila-embedded/src/mcu/motor_h300 exists and is not a symlink; refusing to replace it."; \
-        exit 1; \
-    elif [ -d ../motor_h300/firmware ]; then \
-        ln -sfn ../../../../motor_h300/firmware mila-embedded/src/mcu/motor_h300; \
-    elif [ -d motor_h300/firmware ]; then \
-        ln -sfn ../../../motor_h300/firmware mila-embedded/src/mcu/motor_h300; \
-    else \
-        echo "Could not find motor_h300 checkout. Expected ../motor_h300 or ./motor_h300 relative to MilaMonorepo."; \
-        exit 1; \
-    fi
-
-autogen: ensure_motor_h300
+autogen:
     @command -v protoc >/dev/null || (echo "Missing protoc (Protocol Buffers compiler)." && exit 1)
-    @command -v protoc-gen-nanopb >/dev/null || (echo "Missing protoc-gen-nanopb. Install nanopb for your active Python environment." && exit 1)
     # Generate into generated/ (makes it easy to test)
-    (cd autogen/vsr && cargo run -- generated); \
-    (cd autogen/vsr && protoc -I generated --plugin=protoc-gen-nanopb="$(command -v protoc-gen-nanopb)" --nanopb_opt=-f,generated/vsr.options --nanopb_out=generated generated/vsr.proto); \
+    (cd autogen/vsr && cargo run -- generated)
+    (cd autogen/vsr && protoc -I generated --plugin=protoc-gen-nanopb="../../deps/nanopb/generator/protoc-gen-nanopb" --nanopb_opt=-f,generated/vsr.options --nanopb_out=generated generated/vsr.proto)
     # Generate into the actual vsr spot
-    (cd autogen/vsr && cargo run -- ../../mila-embedded/src/mcu/vsr); \
-    (cd autogen/vsr && protoc -I ../../mila-embedded/src/mcu/vsr --plugin=protoc-gen-nanopb="$(command -v protoc-gen-nanopb)" --nanopb_opt=-f,../../mila-embedded/src/mcu/vsr/vsr.options --nanopb_out=../../mila-embedded/src/mcu/vsr ../../mila-embedded/src/mcu/vsr/vsr.proto)
+    (cd autogen/vsr && cargo run -- ../../mila-embedded/src/mcu/vsr)
+    (cd autogen/vsr && protoc -I ../../mila-embedded/src/mcu/vsr --plugin="../../deps/nanopb/generator/protoc-gen-nanopb" --nanopb_opt=-f,../../mila-embedded/src/mcu/vsr/vsr.options --nanopb_out=../../mila-embedded/src/mcu/vsr ../../mila-embedded/src/mcu/vsr/vsr.proto)
 
 
 ### Dashboard Stuff ###
