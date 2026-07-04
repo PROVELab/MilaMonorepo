@@ -50,6 +50,62 @@ static imu_vector3_t cache_gravity = {0, 0, 0};
 static imu_orientation_t cache_madgwick_ori = {0, 0, 0};
 static float cache_heading = 0.0f;
 
+static imu_vector3_t cache_velocity = {0, 0, 0};
+static imu_vector3_t cache_position = {0, 0, 0};
+static imu_vector3_t prev_world_accel = {0, 0, 0}; /* for trapezoidal integration */
+
+/* Bias calibration */
+static constexpr int CALIBRATION_SAMPLES = 50; /* ~at 30ms/sample (FRESHNESS_TIMEOUT_MS) ~1.5s */
+static bool bias_calibrated = false;
+static int calibration_count = 0;
+static imu_vector3_t accel_bias = {0, 0, 0};
+static imu_vector3_t accel_bias_accum = {0, 0, 0};
+
+//Zero velocity update thresholds
+static constexpr float ZUPT_ACCEL_THRESHOLD = 0.03f;   /*DON"T HAVE IMU TO SEE WHAT THE THRESHOLD SHOULD BE.*/
+static constexpr float ZUPT_GYRO_THRESHOLD = 2.0f;     /*CHANGE TO ACCURATE NUMBER ONCE IMU THRESHOLD TESTING IS DONE */
+
+
+/* Position helper functions */
+static inline float vec3_mag(const imu_vector3_t &v) {
+    return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+static imu_vector3_t rotate_body_to_world(const imu_vector3_t &v, float roll, float pitch, float yaw) {
+    float cr = cosf(roll),  sr = sinf(roll);
+    float cp = cosf(pitch), sp = sinf(pitch);
+    float cy = cosf(yaw),   sy = sinf(yaw);
+
+    // R = Rz(yaw) * Ry(pitch) * Rx(roll)
+    float r00 = cy * cp;
+    float r01 = cy * sp * sr - sy * cr;
+    float r02 = cy * sp * cr + sy * sr;
+
+    float r10 = sy * cp;
+    float r11 = sy * sp * sr + cy * cr;
+    float r12 = sy * sp * cr - cy * sr;
+
+    float r20 = -sp;
+    float r21 = cp * sr;
+    float r22 = cp * cr;
+
+    imu_vector3_t out;
+    out.x = r00 * v.x + r01 * v.y + r02 * v.z;
+    out.y = r10 * v.x + r11 * v.y + r12 * v.z;
+    out.z = r20 * v.x + r21 * v.y + r22 * v.z;
+    return out;
+}
+
+void imu_reset_position(void) {
+    cache_position = {0, 0, 0};
+    cache_velocity = {0, 0, 0};
+    prev_world_accel = {0, 0, 0};
+    accel_bias = {0, 0, 0};
+    accel_bias_accum = {0, 0, 0};
+    calibration_count = 0;
+    bias_calibrated = false; // forces re-calibration assuming vehicle is still at the moment of reset
+}
+
 /* Filter helper functions */
 static Imu::Value kalman_filter_fn(float dt, const Imu::Value &accel, const Imu::Value &gyro, const Imu::Value &mag) {
     float accelRoll = atan2(accel.y, accel.z);
@@ -208,6 +264,66 @@ bool imu_refreshData(void) {
     
     cache_heading = fmod((cache_madgwick_ori.yaw * 180.0f / static_cast<float>(M_PI)) + 360.0f, 360.0f);
 
+    /*Dead reckoning IMU position calculations*/
+    if (!bias_calibrated) {
+        accel_bias_accum.x += cache_accel.x - cache_gravity.x;
+        accel_bias_accum.y += cache_accel.y - cache_gravity.y;
+        accel_bias_accum.z += cache_accel.z - cache_gravity.z;
+        calibration_count++;
+
+        if (calibration_count >= CALIBRATION_SAMPLES) {
+            accel_bias.x = accel_bias_accum.x / calibration_count;
+            accel_bias.y = accel_bias_accum.y / calibration_count;
+            accel_bias.z = accel_bias_accum.z / calibration_count;
+            bias_calibrated = true;
+            printf("IMU position: bias calibration done (bias x=%.4f y=%.4f z=%.4f g)\n",
+                   accel_bias.x, accel_bias.y, accel_bias.z);
+        }
+    } else {
+        imu_vector3_t linear_accel_g = {
+            cache_accel.x - cache_gravity.x - accel_bias.x,
+            cache_accel.y - cache_gravity.y - accel_bias.y,
+            cache_accel.z - cache_gravity.z - accel_bias.z
+        };
+
+        // Zero update velocity point
+        bool is_stationary = (vec3_mag(linear_accel_g) < ZUPT_ACCEL_THRESHOLD) &&
+                              (vec3_mag(cache_gyro) < ZUPT_GYRO_THRESHOLD);
+
+        if (is_stationary) {
+            cache_velocity = {0, 0, 0};
+            prev_world_accel = {0, 0, 0}; // avoid a stale jump in trapezoidal integration when motion resumes
+        } else if (dt > 0.0f && dt < 1.0f) { // sanity bound on dt (skip first-call / stale dt)
+            static constexpr float G_TO_MPS2 = 9.80665f;
+            imu_vector3_t linear_accel_mps2 = {
+                linear_accel_g.x * G_TO_MPS2,
+                linear_accel_g.y * G_TO_MPS2,
+                linear_accel_g.z * G_TO_MPS2
+            };
+
+            imu_vector3_t world_accel = rotate_body_to_world(
+                linear_accel_mps2,
+                cache_madgwick_ori.roll,
+                cache_madgwick_ori.pitch,
+                cache_madgwick_ori.yaw
+            );
+
+            // Trapezoidal Integration
+            imu_vector3_t new_velocity = {
+                cache_velocity.x + dt * 0.5f * (prev_world_accel.x + world_accel.x),
+                cache_velocity.y + dt * 0.5f * (prev_world_accel.y + world_accel.y),
+                cache_velocity.z + dt * 0.5f * (prev_world_accel.z + world_accel.z)
+            };
+
+            cache_position.x += dt * 0.5f * (cache_velocity.x + new_velocity.x);
+            cache_position.y += dt * 0.5f * (cache_velocity.y + new_velocity.y);
+            cache_position.z += dt * 0.5f * (cache_velocity.z + new_velocity.z);
+
+            cache_velocity = new_velocity;
+            prev_world_accel = world_accel;
+        }
+    }
+
     last_update_time_us = esp_timer_get_time();
 
     return true;
@@ -222,6 +338,8 @@ imu_vector3_t read_gravity_vector(void) { return cache_gravity; }
 imu_orientation_t read_madgwick_orientation(void) { return cache_madgwick_ori; }
 float read_heading(void) { return cache_heading; }
 
+imu_vector3_t read_position(void) { return cache_position; }
+imu_vector3_t read_velocity(void) { return cache_velocity; }
 
 
 } // extern "C"

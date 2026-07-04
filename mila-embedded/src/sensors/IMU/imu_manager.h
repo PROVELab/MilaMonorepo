@@ -36,6 +36,10 @@ imu_vector3_t read_gravity_vector(void);
 imu_orientation_t read_madgwick_orientation(void);
 float read_heading(void);
 
+imu_vector3_t read_position(void);
+imu_vector3_t read_velocity(void);
+void imu_reset_position(void);
+
 #ifdef __cplusplus
 }
 #endif

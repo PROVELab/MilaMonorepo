@@ -67,20 +67,24 @@ int32_t collect_RH(bool* cancelFrameSend){
 int32_t collect_posX_m(bool* cancelFrameSend){
 	if(!imu_refreshData()){
         ESP_LOGI(TAG, "error refreshing imu data. is it initialized? Cancelling data collection");
-        *cancelFrameSend = true;
+        *cancelFrameSend = true;    
         return -1;
     }
-    int32_t posX_m = -1; // Starting value
+
+    imu_vector3_t pos = read_position();
+    int32_t posX_m = (int32_t)pos.x;
     return posX_m;
 }
 
 int32_t collect_posY_m(bool* cancelFrameSend){
-    int32_t posY_m = -1; // Starting value
+    imu_vector3_t pos = read_position();
+    int32_t posY_m = (int32_t)pos.y;
     return posY_m;
 }
 
 int32_t collect_posZ_m(bool* cancelFrameSend){
-    int32_t posZ_m = -1; // Starting value
+    imu_vector3_t pos = read_position();
+    int32_t posZ_m = (int32_t)pos.z;
     return posZ_m;
 }
 
