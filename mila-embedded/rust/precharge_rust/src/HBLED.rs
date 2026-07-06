@@ -1,5 +1,5 @@
-use embassy_time::{Duration, Timer};
 use embassy_stm32::gpio::{Level, Output, Speed};
+use embassy_time::{Duration, Timer};
 #[embassy_executor::task]
 pub async fn HBLED_task(HB_led_pin: embassy_stm32::peripherals::PA3) {
     let mut led = Output::new(HB_led_pin, Level::Low, Speed::Low);

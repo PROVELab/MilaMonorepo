@@ -5,10 +5,10 @@
 use rtt_target::rprintln;
 
 // At the top of src/vsense.rs (add these imports)
-use embassy_stm32::i2c::{I2c, Config as I2cConfig};
+use embassy_stm32::i2c::{Config as I2cConfig, I2c};
+use embassy_stm32::peripherals::{DMA1_CH0, DMA1_CH6, I2C1, PB6, PB7};
 use embassy_stm32::time::Hertz;
 use embassy_time::{Duration, Timer};
-use embassy_stm32::peripherals::{I2C1, PB6, PB7, DMA1_CH6, DMA1_CH0};
 
 use core::sync::atomic::AtomicU32;
 use core::sync::atomic::Ordering;
@@ -25,19 +25,18 @@ use embassy_sync::signal::Signal;
 // The Signal carries no data (()), it's just a "poke" to wake up waiters.
 static NEW_VOLTAGE_SIGNAL: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
-
 /// Resistor dividers (same as the C code)
-const MC_R_TOP_OHMS:  i64 = 2_040_000;
-const MC_R_BOT_OHMS:  i64 =   12_100;
+const MC_R_TOP_OHMS: i64 = 2_040_000;
+const MC_R_BOT_OHMS: i64 = 12_100;
 const BAT_R_TOP_OHMS: i64 = 2_040_000;
-const BAT_R_BOT_OHMS: i64 =   12_100;
+const BAT_R_BOT_OHMS: i64 = 12_100;
 
 /// Error type for our simple driver
 #[derive(Debug)]
 pub enum VsenseError<I2cErr> {
     I2cWrite(I2cErr),
     I2cRead(I2cErr),
-    NotReady,      // ADC never became ready (if we add a timeout)
+    NotReady, // ADC never became ready (if we add a timeout)
 }
 
 pub static MC_BUS_MV: AtomicU32 = AtomicU32::new(0);
@@ -78,11 +77,11 @@ pub async fn voltage_reader_task(
         i2c_peri,
         scl,
         sda,
-        I2cIrqs,     
-        tx_dma, 
+        I2cIrqs,
+        tx_dma,
         rx_dma,
         Hertz(10_000),
-        i2c_config, 
+        i2c_config,
     );
 
     let addr7: u8 = 0x69;
@@ -90,25 +89,25 @@ pub async fn voltage_reader_task(
     loop {
         // --- Read CH1 (Motor Controller) ---
         let cfg1 = mcp3422_cfg_oneshot_ch(1);
-        
+
         if i2c.write(addr7, &[cfg1]).await.is_ok() {
             let mut rx = [0u8; 3];
             let mut success = false;
-            
+
             // Poll for RDY=0 with a 100ms timeout
             for _ in 0..20 {
                 match i2c.read(addr7, &mut rx).await {
                     Ok(_) => {
                         let status = rx[2];
-                        if (status & 0x80) == 0 { 
+                        if (status & 0x80) == 0 {
                             success = true;
-                            break; 
-                        } 
+                            break;
+                        }
                     }
                     Err(_) => {
                         // I2C bus error, break to avoid an infinite loop
                         rprintln!("VSENSE I2C read error on CH1");
-                        break; 
+                        break;
                     }
                 }
                 Timer::after(Duration::from_millis(5)).await;
@@ -120,7 +119,7 @@ pub async fn voltage_reader_task(
                 let mc_adc_mV: i32 = (uV / 1000) as i32;
                 let mc_bus_mV = adc_to_bus_mV_ch(mc_adc_mV, 1);
                 MC_BUS_MV.store(mc_bus_mV as u32, Ordering::Relaxed);
-                
+
                 rprintln!("VSENSE: CH1 Raw: {} mV -> Bus: {} mV", mc_adc_mV, mc_bus_mV);
             } else {
                 rprintln!("VSENSE Error: CH1 RDY timeout or I2C read failure");
@@ -131,25 +130,25 @@ pub async fn voltage_reader_task(
 
         // --- Read CH2 (Battery) ---
         let cfg2 = mcp3422_cfg_oneshot_ch(2);
-        
+
         if i2c.write(addr7, &[cfg2]).await.is_ok() {
             let mut rx = [0u8; 3];
             let mut success = false;
-            
+
             // Poll for RDY=0 with a 100ms timeout
             for _ in 0..20 {
                 match i2c.read(addr7, &mut rx).await {
                     Ok(_) => {
                         let status = rx[2];
-                        if (status & 0x80) == 0 { 
+                        if (status & 0x80) == 0 {
                             success = true;
-                            break; 
-                        } 
+                            break;
+                        }
                     }
                     Err(_) => {
                         // I2C bus error, break to avoid an infinite loop
                         rprintln!("VSENSE I2C read error on CH2");
-                        break; 
+                        break;
                     }
                 }
                 Timer::after(Duration::from_millis(5)).await;
@@ -162,29 +161,33 @@ pub async fn voltage_reader_task(
                 let bat_bus_mV = adc_to_bus_mV_ch(bat_adc_mV, 2);
                 BAT_BUS_MV.store(bat_bus_mV as u32, Ordering::Relaxed);
 
-                rprintln!("VSENSE: CH2 Raw: {} mV -> Bus: {} mV", bat_adc_mV, bat_bus_mV);
+                rprintln!(
+                    "VSENSE: CH2 Raw: {} mV -> Bus: {} mV",
+                    bat_adc_mV,
+                    bat_bus_mV
+                );
             } else {
                 rprintln!("VSENSE Error: CH2 RDY timeout or I2C read failure");
             }
         } else {
             rprintln!("VSENSE I2C Error: Device not responding on CH2");
         }
-        
+
         NEW_VOLTAGE_SIGNAL.signal(()); // Notify waiters that new voltage data is available (even if stale due to an error)
-        
+
         //ADC reset check. 0V likely means a reset is needed:
         let current_bat_mv = BAT_BUS_MV.load(Ordering::Relaxed);
-        
+
         if current_bat_mv == 0 {
             rprintln!("VSENSE Warning: Battery reads 0V! Sending General Call Reset to ADC...");
-            
+
             // I2C General Call Address is 0x00, Reset Command is 0x06
             if i2c.write(0x00, &[0x06]).await.is_err() {
                 rprintln!("VSENSE Error: Failed to send I2C reset command.");
             } else {
                 rprintln!("VSENSE: ADC Reset sent successfully.");
             }
-            
+
             // Give the MCP3422 a brief moment to reboot before the next loop
             Timer::after(Duration::from_millis(10)).await;
         }
@@ -201,7 +204,6 @@ fn mcp3422_cfg_oneshot_ch(ch: u8) -> u8 {
     0x80 | ch_bits | 0x10 | 0x08 | 0x00
     //  RDY=1   CH      one-shot  16-bit  PGA=1
 }
-
 
 /// Convert ADC pin mV to actual bus mV with the per-channel divider.
 fn adc_to_bus_mV_ch(adc_mV: i32, ch: u8) -> i32 {

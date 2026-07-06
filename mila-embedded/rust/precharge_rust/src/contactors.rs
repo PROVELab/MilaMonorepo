@@ -1,16 +1,18 @@
 #![allow(non_snake_case)]
 
-use embassy_time::{Duration, Timer, with_timeout};
-use embassy_stm32::gpio::{Output, Level, Speed};
-use core::sync::atomic::{AtomicU8, Ordering};
 use core::sync::atomic::AtomicI32;
+use core::sync::atomic::{AtomicU8, Ordering};
+use embassy_futures::select::{select, Either};
+use embassy_stm32::gpio::{Level, Output, Speed};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
-use embassy_futures::select::{select, Either};
+use embassy_time::{with_timeout, Duration, Timer};
 use rtt_target::rprintln;
 
-use crate::ffi::{CANPacket, sendStatusUpdate};
-use crate::programConstants::{contactorsSuccess, disableContactor, enableContactor, prechargeID};
+use sensor_common::ffi::{sendStatusUpdate, CANPacket};
+use sensor_common::program_constants::{
+    contactorsSuccess, disableContactor, enableContactor, prechargeID,
+};
 
 use crate::vsense::get_voltages_fresh;
 
@@ -20,7 +22,11 @@ use crate::vsense::get_voltages_fresh;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[repr(u8)]
-pub enum PrechargeState { Off = 0, Precharging = 1, On = 2 }
+pub enum PrechargeState {
+    Off = 0,
+    Precharging = 1,
+    On = 2,
+}
 
 #[derive(Copy, Clone, Debug)]
 #[repr(u8)]
@@ -48,12 +54,12 @@ pub extern "C" fn contactorsOff(_p: *mut CANPacket) -> i16 {
 }
 
 #[no_mangle]
-pub extern "C" fn handle_vitals_precharge_command(p: *mut CANPacket) -> i16 {
+pub unsafe extern "C" fn handle_vitals_precharge_command(p: *mut CANPacket) -> i16 {
     if p.is_null() {
         return 0;
     }
 
-    let packet = unsafe { &*p };
+    let packet = &*p;
     if packet.dataSize < 1 {
         rprintln!("ignoring empty vitals precharge command");
         return 0;
@@ -100,11 +106,9 @@ pub fn set_charge_condition(min_mc_voltage: i32, min_percent_charged: i32) {
     MIN_PERCENT_CHARGED.store(min_percent_charged, Ordering::Relaxed);
 }
 
-
 //************************ */
 // MAIN FSM for controlling contactors:
 //************************ */
-
 #[embassy_executor::task]
 pub async fn contactor_control_task(
     pc_pin: embassy_stm32::peripherals::PC6,
@@ -119,13 +123,14 @@ pub async fn contactor_control_task(
     loop {
         // The single match block handles Output -> Wait -> Print -> Parse
         match current_state {
-            
             // ==========================================
             // STATE: OFF
             // ==========================================
             PrechargeState::Off => {
                 //set output
-                pc.set_low(); neg.set_low(); pos.set_low();
+                pc.set_low();
+                neg.set_low();
+                pos.set_low();
                 CONTACTOR_STATE.store(0, Ordering::Relaxed);
 
                 //wait for command
@@ -146,12 +151,14 @@ pub async fn contactor_control_task(
                 //check if safe
 
                 //set output
-                pc.set_high(); neg.set_high(); pos.set_low();
+                pc.set_high();
+                neg.set_high();
+                pos.set_low();
                 CONTACTOR_STATE.store(1, Ordering::Relaxed);
 
                 //start a timer for precharge complete
                 let mut timeout = Timer::after(Duration::from_secs(5));
-                
+
                 //the same timer persists until exiting precharge
                 while current_state == PrechargeState::Precharging {
                     //wait for command (or timer), then set next state.
@@ -183,7 +190,8 @@ pub async fn contactor_control_task(
                     Ok((v_bat, v_mc)) => {
                         let min_percent_charged = MIN_PERCENT_CHARGED.load(Ordering::Relaxed);
                         let min_mc_voltage_mv = MIN_MC_VOLTAGE_MV.load(Ordering::Relaxed);
-                        if (v_mc < (v_bat * min_percent_charged) / 100) || v_mc < min_mc_voltage_mv {
+                        if (v_mc < (v_bat * min_percent_charged) / 100) || v_mc < min_mc_voltage_mv
+                        {
                             current_state = PrechargeState::Precharging;
                             rprintln!("not precharged yet. returning to precharge (vbat: {} mV, vmotor: {} mV)", v_bat, v_mc);
                             continue;
@@ -191,7 +199,6 @@ pub async fn contactor_control_task(
                         unsafe {
                             sendStatusUpdate(contactorsSuccess as u8, prechargeID);
                         }
-
                     }
                     Err(_) => {
                         current_state = PrechargeState::Off;
@@ -203,8 +210,9 @@ pub async fn contactor_control_task(
                 //set output
                 pos.set_high();
                 //give some time for pos contactor to open
-                Timer::after(Duration::from_millis(10)).await; 
-                pc.set_low(); neg.set_high();
+                Timer::after(Duration::from_millis(10)).await;
+                pc.set_low();
+                neg.set_high();
                 CONTACTOR_STATE.store(2, Ordering::Relaxed);
 
                 //wait for command

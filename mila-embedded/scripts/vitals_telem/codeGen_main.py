@@ -40,7 +40,7 @@ if __name__ == "__main__":
     telem_records_path = os.path.join(telem_lookup_dir, "TelemetryRecords.java")
 
     rust_root_dir = os.path.normpath(os.path.join(script_dir, "..", "..", "rust"))
-    rust_constants_path = os.path.join(rust_root_dir, "programConstants.rs")
+    rust_constants_path = os.path.join(rust_root_dir, "sensor_common", "src", "program_constants.rs")
 
     os.makedirs(gen_dir, exist_ok=True)
     os.makedirs(src_sensors_dir, exist_ok=True)

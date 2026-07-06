@@ -16,6 +16,7 @@ embassy-executor.workspace = true
 embassy-time.workspace = true
 embassy-sync.workspace = true
 embassy-futures.workspace = true
+sensor_common.workspace = true
 
 [build-dependencies]
 common-build.workspace = true

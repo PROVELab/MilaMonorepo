@@ -28,7 +28,7 @@ def generate_rust_main(
             current_data_idx += 1
 
     command_defs = ""
-    ffi_import = "use crate::ffi;\n"
+    ffi_import = "use crate::ffi;\n" if has_commands else ""
 
     if has_commands:
         for cmd in sensor_commands:
@@ -43,12 +43,13 @@ def generate_rust_main(
 
 use crate::sensor_specific;
 {ffi_import}use embassy_executor::Spawner;
+use sensor_common::ffi::PCANListenParamsCollection;
 
 // --- Data Collectors ---
 {collector_defs}
 // --- Command Handling ---
 {command_defs}
-pub fn init_sensor(spawner: &Spawner, plpc: &mut ffi::PCANListenParamsCollection) {{
+pub fn init_sensor(spawner: &Spawner, plpc: &mut PCANListenParamsCollection) {{
     sensor_specific::sensor_init(spawner, plpc);
 }}
 """

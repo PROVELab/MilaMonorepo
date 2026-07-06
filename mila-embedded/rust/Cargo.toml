@@ -1,12 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["*_rust", "sensor_common/common-build"]
+members = ["*_rust", "sensor_common"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
+
+# Embassy STM
 cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
 cortex-m-rt = "0.7.5"
 panic-halt = "1.0.0"
@@ -19,10 +21,19 @@ embassy-executor = { version = "0.6.0", features = ["task-arena-size-32768", "ar
 embassy-time = { version = "0.3.2", features = ["tick-hz-32_768"] }
 embassy-sync = "0.6.0"
 embassy-futures = "0.1.0"
+
+# Compiling and linking to C code
 bindgen = "0.69"
 cc = "1.0"
+
+# Local src files
 common-build = { path = "sensor_common/common-build" }
+sensor_common = { path = "sensor_common" }
+
+[profile.dev]
+panic = "abort"
 
 [profile.release]
+panic = "abort"
 opt-level = "z"
 lto = true

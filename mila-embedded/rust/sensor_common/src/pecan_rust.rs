@@ -11,7 +11,8 @@ use embassy_stm32::bind_interrupts;
 use embassy_stm32::can::bxcan::filter::Mask32;
 use embassy_stm32::can::bxcan::{Data, ExtendedId, Fifo, Frame, Id, StandardId};
 use embassy_stm32::can::{
-    Can, CanRx, CanTx, Rx0InterruptHandler, Rx1InterruptHandler, SceInterruptHandler, TxInterruptHandler,
+    Can, CanRx, CanTx, Rx0InterruptHandler, Rx1InterruptHandler, SceInterruptHandler,
+    TxInterruptHandler,
 };
 use embassy_stm32::peripherals::CAN1;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -20,10 +21,9 @@ use embassy_time::Duration;
 use rtt_target::{rprint, rprintln};
 use static_cell::StaticCell;
 
-use crate::ffi;
 use crate::ffi::{
     exact, matchFunction, matchID, pecanInit, sendStatusUpdate, CANListenParam, CANPacket,
-    MAX_SIZE_PACKET_DATA, PCANListenParamsCollection,
+    PCANListenParamsCollection, MAX_SIZE_PACKET_DATA, PCAN_ERR_NOT_RECEIVED,
 };
 
 bind_interrupts!(struct Irqs {
@@ -102,7 +102,10 @@ pub async fn pecan_CanInit(
     can.as_mut()
         .modify_filters()
         .enable_bank(0, Fifo::Fifo0, Mask32::accept_all());
-    can.as_mut().modify_config().set_loopback(false).leave_disabled();
+    can.as_mut()
+        .modify_config()
+        .set_loopback(false)
+        .leave_disabled();
     can.set_bitrate(500_000);
     can.enable().await;
 
@@ -194,12 +197,12 @@ pub extern "C" fn sendPacket(p: *mut CANPacket) {
 #[no_mangle]
 pub extern "C" fn waitPackets(plpc: *mut PCANListenParamsCollection) -> i16 {
     if plpc.is_null() {
-        return ffi::PCAN_ERR_NOT_RECEIVED as i16;
+        return PCAN_ERR_NOT_RECEIVED as i16;
     }
 
     let mut recv = match RX_CHANNEL.try_receive() {
         Ok(packet) => packet,
-        Err(_) => return ffi::PCAN_ERR_NOT_RECEIVED as i16,
+        Err(_) => return PCAN_ERR_NOT_RECEIVED as i16,
     };
 
     if recv.extendedID {
@@ -243,5 +246,5 @@ pub extern "C" fn waitPackets(plpc: *mut PCANListenParamsCollection) -> i16 {
         }
     }
 
-    ffi::PCAN_ERR_NOT_RECEIVED as i16
+    PCAN_ERR_NOT_RECEIVED as i16
 }

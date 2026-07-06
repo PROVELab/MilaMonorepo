@@ -24,9 +24,7 @@ pub fn build_sensor() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("unable to write generated Rust bindings");
 
-    // ==========================================
     // 2. BUILD THE PURE C CODE (No .cpp(true))
-    // ==========================================
     cc::Build::new()
         .file("../../src/pecan/common.c")
         .file("../../src/pecan/vitalsInit.c")
@@ -38,9 +36,7 @@ pub fn build_sensor() {
         .define("NODE_CONFIG", Some("C_Helper/myDefines.hpp"))
         .compile("pecan_c"); // This creates libpecan_c.a
 
-    // ==========================================
     // 3. BUILD THE C++ CODE (With .cpp(true))
-    // ==========================================
     let mut build_cpp = cc::Build::new();
     build_cpp
         .cpp(true)

@@ -1,0 +1,16 @@
+[package]
+name = "sensor_common"
+version.workspace = true
+edition.workspace = true
+
+[build-dependencies]
+bindgen.workspace = true
+
+[dependencies]
+cortex-m.workspace = true
+embassy-executor.workspace = true
+embassy-stm32.workspace = true
+embassy-sync.workspace = true
+embassy-time.workspace = true
+rtt-target.workspace = true
+static_cell.workspace = true
