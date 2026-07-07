@@ -1,4 +1,6 @@
 import javax.swing.*;
+
+import application.UI.PositionGraphing;
 import com.formdev.flatlaf.FlatDarkLaf;
 
 import application.MessageHandler;
@@ -6,6 +8,7 @@ import application.UI.MainFrame;
 import application.UI.MainPanel;
 import application.UI.NotificationPanel;
 import application.UI.SensorSelectionPanel;
+import com.rinearn.graph3d.RinearnGraph3D;
 import lookup.TelemetryLookup;
 
 import java.io.IOException;
@@ -42,6 +45,8 @@ public class MainApp {
                 MainFrame frame = new MainFrame(lookup, selectionPanel, notifications, mainPanel);
                 mainPanel.connectFrame(frame);
                 frame.setVisible(true);
+                PositionGraphing graph3d = new PositionGraphing(new RinearnGraph3D());
+                PositionGraphing.setInstance(graph3d);
                 System.out.println("parsing");
 
                 // Parse Can Messages, and update UI for them

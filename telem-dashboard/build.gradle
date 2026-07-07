@@ -17,6 +17,9 @@ dependencies {
 
     //UART
     implementation("com.fazecast:jSerialComm:2.10.4")
+
+    //RinearnGraph3D graphgi
+    implementation files("lib/RinearnGraph3D.jar")
 }
 
 application {
