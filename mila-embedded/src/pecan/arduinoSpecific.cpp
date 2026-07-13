@@ -93,9 +93,9 @@ void onReceive(int packetSize) {
     queuePacket(recv_pack); // queue packet for later use
 }
 
-// Matches any recieved packets with their handler
+// Matches any received packets with their handler
 // Not thread-safe (only call from one thread). The packet reference is overriden upon call.
-// returns value of the matching function, or NOT_RECIEVED for no new messages
+// returns value of the matching function, or NOT_receiveD for no new messages
 int16_t waitPackets(PCANListenParamsCollection* plpc) {
     static CANPacket recv_pack = {0};
     // TODO: would be nice to check for RX overruns. However, the CAN libarary we use doesnt expose this

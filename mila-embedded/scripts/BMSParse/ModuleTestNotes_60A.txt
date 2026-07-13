@@ -1,0 +1,46 @@
+Torrey has removed the corresponding csv's for brevity in the size of commit messages. i dont think actually seeing them is relevant to anyone,
+I have thrown all these chunky data files recorded during testing onto teams. Look for something like Documentation/oldTests
+
+To view the module test graph, run:
+python3 plot_BMS.py
+enter "Saved_csvs/BMS_Parsed60ATest.csv"
+press enter twice to view all data (or enter specific time stamps)
+
+BMS Module test timestamps and Amps:
+
+For super long one:
+Note: Temp2 is the flex one
+Temp1 is the stick one (one the batteries terminals)
+BMS temp should be inside BMS (it was high at start due to balancing)
+25 and 25.6 on the thermal couple one (the manual one) at the start
+At 13000 seconds: bryan tightened the connections with alen wrench (and cell 2 restored!)
+
+at end (14210):
+ambient is 38 degrees celcius, manual measured 42.8 C
+
+15A at 780. went to 60 closely after
+
+Note: the measured pack amps in the graph for this test
+is not accurate, we dont have they shunt resistors yet, so left 
+the current sensor disconnected
+
+Instead, here are manual recording of when we set the load to
+each given amp amonut
+
+set up to test around 150
+
+Set to 10 Amps on each channel around 200
+
+At 750s set to 40A (turning on one at a time)
+Turned off at 880a
+
+At 1200s set to 60A draw
+Note: there was some delay (until around 1220s before we had all 4 channels on)
+
+we cant draw more than 60A at 16V on our load :(
+
+We ran until the BMS shut off, due to reaching 11V total, that is when data stopped coming
+The manual measurement one was on 34.6 and 33.4 degrees Ceclius in space between the pack when the batteries got overused
+
+All the batteries died fr. Cel 4 was at 2.3V, Cel 2 at 2.358V, with highest cell 1 being at 2.375V
+With the minimum of 2.5V, these all died pretty quickly together.

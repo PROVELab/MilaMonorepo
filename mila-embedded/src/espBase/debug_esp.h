@@ -16,10 +16,6 @@ extern "C" { // Ensure C linkage
 #define STACK_SIZE 10000 // for how big we need tasks to be, This value should be plenty
 
 void base_ESP_init();
-void setMutexPrintEnabled(bool enabled);
-// mutexPrint
-void mutexPrint(const char* str);
-extern SemaphoreHandle_t printfMutex;
 
 // tracing functionality to give warning for free or alloc.
 #include "esp_heap_caps.h"

@@ -1,9 +1,74 @@
-.venv/
-target/
-vsr.h
-vsr.c
-compile_commands.json
-.cache/
-*.mcap
+#i asked chat to merge the gitignores, and clean this up.
+
+# ==========================================
+# OS, IDEs, and Environments
+# ==========================================
+.DS_Store
+.vscode/
 .codex
-__pycache__
+.devbox/
+.cache/
+compile_commands.json
+
+# Python
+venv/
+.venv/
+__pycache__/
+
+# ==========================================
+# Rust (Global)
+# ==========================================
+**/target/
+# .lock files included so ppl know what versions of packages previous people were building with
+# **/Cargo.lock
+
+# ==========================================
+# C/C++ / ESP-IDF / PlatformIO (Global)
+# ==========================================
+.pio/
+**/.pio-core/
+build/
+managed_components/
+*.bin
+*.out
+*.d
+*.mcap
+*.bak
+
+# ==========================================
+# Monorepo Specific Folders (Root Level)
+# ==========================================
+deps/esp-idf/
+deps/**/build/
+deps/**/.git/
+motor_h300/
+/motor_h300/
+BMS-commands/
+
+# Generated Protobuf/Nanopb files
+**/vsr.h
+**/vsr.c
+
+# ==========================================
+# Mila-Embedded Specific
+# ==========================================
+# Scripts & Code Generation
+mila-embedded/scripts/Gen*/
+mila-embedded/scripts/Gen_For_sensors/
+mila-embedded/scripts/Gen_For_simpleTest/
+
+# ESP-IDF SDK Configs
+# Ignores all sdkconfig files in mila-embedded, but explicitly 
+# allows the custom mcu one (needed for FreeRTOS trace & runtime stats)
+mila-embedded/sdkconfig.*
+mila-embedded/sdkconfig*.old
+!mila-embedded/sdkconfig.default
+!mila-embedded/sdkconfig.mcu
+
+#Telem
+telem-dashboard/bin/
+
+#Random logs
+mila-embedded/scripts/BMSParse/*.txt
+mila-embedded/scripts/BMSParse/*.csv
+mila-embedded/scripts/telemetry_benchmark/long_walk/*.txt

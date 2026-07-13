@@ -34,7 +34,9 @@ Future:
 ```
 
 ### Vehicle Dashboard
-The in-vehicle dashboard can be setup and run via `just start_dashboard`
+The in-vehicle dashboard can be setup and run via `just dashboard`
+You can runt the vehicle just dashboard in a vscode terminal. it inserts wierd env vars.
+You need to be in a regular linux terminal (and have protobuf and nanopb)
 
 ### Telemetry Dashboard
 The telemetry (home-base) dashboard can be run via `just start_telem_dashboard`

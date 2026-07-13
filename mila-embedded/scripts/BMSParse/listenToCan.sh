@@ -1,0 +1,1 @@
+pio run -e espListen -t upload -t monitor | tee scripts/BMSParse/BMSSCANLOG.txt

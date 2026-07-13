@@ -5,7 +5,6 @@
 #include "freertos/task.h"
 
 #include "esp_log.h"
-
 #include <pb_decode.h>
 #include <stdint.h>
 #include <string.h>

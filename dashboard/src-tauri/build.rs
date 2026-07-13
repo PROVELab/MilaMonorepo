@@ -8,7 +8,7 @@ use vsr::{
 fn main() {
     tauri_build::build();
 
-    for dir in vsr_definition_dirs() {
+    for dir in vsr_definition_dirs().expect("failed to locate VSR definition dirs") {
         println!("cargo:rerun-if-changed={}", dir.display());
     }
     println!("cargo:rerun-if-changed=../../autogen/vsr/templates/vsr.proto.j2");

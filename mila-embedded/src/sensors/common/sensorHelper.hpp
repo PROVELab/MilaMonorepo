@@ -1,37 +1,52 @@
+#include <stdbool.h> // For bool type
 #ifndef SENSOR_HELP
 #define SENSOR_HELP
 
 #ifdef __cplusplus
-extern "C" { // Need C linkage since ESP uses C "C"
+extern "C" { //Need C linkage since ESP uses C "C"
 #endif
 #include "../../programConstants.h"
-#define STRINGIZE_(a) #a
-#define STRINGIZE(a)  STRINGIZE_(a)
-#include STRINGIZE(../NODE_CONFIG) //includes node Constants
-
 #include "../../pecan/pecan.h"
 #include <stdint.h>
+#include <stddef.h> // For size_t
 
-// universal globals. Used by every sensor
-typedef struct {
-    int8_t bitLength;
-    int32_t min;
-    int32_t max;
-} dataPoint;
+// This needs to be included before its macros are used by other declarations
+#define STRINGIZE_(a) #a
+#define STRINGIZE(a) STRINGIZE_(a)
+#include STRINGIZE(NODE_CONFIG)  //includes node Constants
 
-typedef struct { // identified by a 2 bit identifier 0-3 in function code
+//universal globals. Used by every sensor
+typedef struct { //identified by a 2 bit identifier 0-3 in function code
     int8_t numData;
-    int32_t frequency;
-    int8_t startingDataIndex; // what is the starting index of data in this frame? (needed for calling appropriate
-                              // collector function)
-    dataPoint* dataInfo;
+    int32_t period;
+    int8_t startingDataIndex;  //starting index of data in this frame. used by collector function
+    simpleDataPoint *dataInfo;
 } CANFrame;
-extern CANFrame myframes[numFrames]; // defined in sensorStaticDec.cpp in <sensor_name> folder
 
-// shortened versions of vitals structs, containing only stuff the sensors need for sending
-int8_t sensorInit(PCANListenParamsCollection* plpc,
-                  void* ts); // for arduino, this should be a PScheduler*. Otherwise, just pass Null
+extern CANFrame myframes[numFrames];
+
+//For ts, pass PScheduler* for arduino, else pass NULL
+int8_t sensorInit(PCANListenParamsCollection* plpc, void* ts);
+void sendFrame(int8_t frameNum);
+
+#ifdef SENSOR_HAS_COMMANDS
+// Struct for command lookup table entries
+typedef struct SensorRecvPacketLUTEntry_s {
+    const simpleDataPoint* fields;
+    uint8_t num_fields;
+    bool packetIsCustom;
+    void (*callback_wrapper)(const uint8_t* raw_packet, size_t packet_len, int8_t* bitIndex);
+} SensorRecvPacketLUTEntry;
+
+// Extern declarations for the command lookup table, defined in sensorRecvLUT.cpp
+extern const SensorRecvPacketLUTEntry sensorRecvPacketLUT[];
+extern const size_t sensorRecvPacketLUTSize;
+#endif
+
+void registerCommandHandler(PCANListenParamsCollection* plpc);
+
+
 #ifdef __cplusplus
-} // End extern "C"
+}  // End extern "C"
 #endif
 #endif

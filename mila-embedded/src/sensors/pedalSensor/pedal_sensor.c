@@ -11,7 +11,7 @@
 #include "../../espBase/debug_esp.h"
 #include "../../pecan/pecan.h"                   //used for CAN
 #include "../../sensors/common/sensorHelper.hpp" //used for compliance with vitals and sending data
-#include "myDefines.hpp"                         //contains #define statements specific to this node like myId.
+#include "helper/myDefines.hpp"                         //contains #define statements specific to this node like myId.
 
 #include "../../mcu/motor_h300/h300.h"
 #include "../../mcu/vsr/vsr_state.h"
@@ -32,7 +32,7 @@ selfPowerStatus_t ADC_ReadingStatuses[numADCChannels];
 
 #include <stdint.h>
 
-int32_t collect_pedalPowerReadingmV() {
+int32_t collect_pedalPowerReadingmV(bool* cancelFrameSend) {
     // mutexPrint("collecting pedalPowerReadingmV\n");
     collectSelfPowerAllmV(ADC_Readings, ADC_ReadingStatuses);
 
@@ -52,7 +52,7 @@ int32_t collect_pedalPowerReadingmV() {
     return ADC_Readings[pedalPower_Index];
 }
 
-int32_t collect_pedalReadingOne() {
+int32_t collect_pedalReadingOne(bool* cancelFrameSend) {
     if (ADC_ReadingStatuses[reading1_Index] != READ_SUCCESS) {
         // we should not be driving if we cant read something
         ADC_Readings[reading1_Index] = -1;
@@ -68,7 +68,7 @@ int32_t collect_pedalReadingOne() {
     return ADC_Readings[reading1_Index];
 }
 
-int32_t collect_pedalReadingTwo() {
+int32_t collect_pedalReadingTwo(bool* cancelFrameSend) {
     if (ADC_ReadingStatuses[reading2_Index] != READ_SUCCESS) {
         // we should not be driving if we cant read something
         ADC_Readings[reading2_Index] = -1;
@@ -78,24 +78,13 @@ int32_t collect_pedalReadingTwo() {
         ADC_Readings[reading2_Index] =
             transformPedalReading(ADC_Readings[reading2_Index], ADC_Readings[pedalPower_Index], fallingPedalIndex);
     }
-    // char buffer[64];
-    // sprintf(buffer, "collecting pedalReadingTwo: %ld\n", ADC_Readings[reading2_Index]);
-    // mutexPrint(buffer);
-    if (ADC_ReadingStatuses[brake_Index] != READ_SUCCESS) {
-        // we should not be driving if we cant read something
-        ADC_Readings[brake_Index] = -1;
-        // mutexPrint("invalid pedal reading 2\n");
-    } else {
-        // transform pedal power reading mV to pedal reading percentage
-        // ADC_Readings[brake_Index] =
-        //     transformPedalReading(ADC_Readings[brake_Index], ADC_Readings[pedalPower_Index], fallingPedalIndex);
-    }
 
     // speed stuff
     int a = (ADC_Readings[reading1_Index] < ADC_Readings[reading2_Index]) ? ADC_Readings[reading1_Index]
                                                                           : ADC_Readings[reading2_Index];
-
-    if (a < 15) a = 0;
+    a -= 30; //safe margin, dont want to start zoomin without thorough press
+    if (a < 0) a = 0;
+    a/=4;
 
     // Send the speed (if necessary)
     volatile vehicle_status_reg_t* vsr = &vsr_global; // easier to type
@@ -106,13 +95,32 @@ int32_t collect_pedalReadingTwo() {
         VSR_DATA.accel_pedal.pedal_supply_voltage = (float) ADC_Readings[pedalPower_Index];
     });
 
+    // ACQ_REL_VSRSEM_W(vsr, brake_pedal, {
+    //     VSR_DATA.brake_pedal.brake_raw_1 = (float) ADC_Readings[brake_Index];
+    //     VSR_DATA.brake_pedal.brake_position_pct = 200.0f * (float) ADC_Readings[brake_Index] / 1000.0f - 90;
+    //     VSR_DATA.brake_pedal.brake_supply_voltage = (float) ADC_Readings[pedalPower_Index];
+    // });
+    //dont want the brake reading trolling me rn
+
+    return ADC_Readings[reading2_Index];
+}
+
+int32_t collect_brakeReading(bool* cancelFrameSend){
+    if (ADC_ReadingStatuses[brake_Index] != READ_SUCCESS) {
+        ADC_Readings[brake_Index] = -1;
+    }
+    //TODO: this pos needs to be accurately scaled for 0 to 0.5V.
+    //      I think we did this a while ago, but the scaling wasnt put on main
+    int32_t pos = ADC_Readings[brake_Index];
+
+    volatile vehicle_status_reg_t* vsr = &vsr_global; // easier to type
     ACQ_REL_VSRSEM_W(vsr, brake_pedal, {
         VSR_DATA.brake_pedal.brake_raw_1 = (float) ADC_Readings[brake_Index];
-        VSR_DATA.brake_pedal.brake_position_pct = 200.0f * (float) ADC_Readings[brake_Index] / 1000.0f - 90;
+        VSR_DATA.brake_pedal.brake_position_pct = (float) pos;
         VSR_DATA.brake_pedal.brake_supply_voltage = (float) ADC_Readings[pedalPower_Index];
     });
 
-    return ADC_Readings[reading2_Index];
+    return pos;
 }
 
 int16_t defaultPacketRecv2(CANPacket* p) { return 1; }

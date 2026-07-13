@@ -184,8 +184,13 @@ fn process_outbound_commands(
         let command = match outbound_rx.try_recv() {
             Ok(command) => command,
             Err(mpsc::TryRecvError::Empty) => break,
-            Err(mpsc::TryRecvError::Disconnected) => break,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                println!("[dash-serial] outbound command channel disconnected");
+                break;
+            }
         };
+
+        println!("[dash-serial] dequeued outbound command: {:?}", command);
 
         let payload = match encode_outbound_command_payload(&command) {
             Ok(payload) => payload,

@@ -3,6 +3,7 @@ use anyhow::{self, Context, Result};
 use glob::glob;
 use indexmap::IndexMap;
 use std::{
+    env,
     fs,
     path::{Path, PathBuf},
 };
@@ -18,18 +19,41 @@ pub fn load_subtype_from_file(path: &Path) -> Result<VsrSubstruct> {
     Ok(def)
 }
 
-pub fn vsr_definition_dirs() -> Vec<PathBuf> {
+fn motor_h300_dir() -> Result<PathBuf> {
     let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    vec![
+    let repo_root = manifest_dir.join("../..");
+    let mut candidates = Vec::new();
+
+    if let Some(path) = env::var_os("MOTOR_H300_DIR") {
+        candidates.push(PathBuf::from(path));
+    }
+
+    candidates.push(repo_root.join("../motor_h300"));
+    candidates.push(repo_root.join("motor_h300"));
+
+    for candidate in candidates {
+        if candidate.join("vsr_defs").is_dir() {
+            return Ok(candidate);
+        }
+    }
+
+    anyhow::bail!(
+        "Could not find motor_h300 checkout. Set MOTOR_H300_DIR or place it at ../motor_h300 or ./motor_h300 relative to the MilaMonorepo root."
+    );
+}
+
+pub fn vsr_definition_dirs() -> Result<Vec<PathBuf>> {
+    let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+    Ok(vec![
         manifest_dir.join("defs"),
-        manifest_dir.join("../../motor_h300/vsr_defs"),
-    ]
+        motor_h300_dir()?.join("vsr_defs"),
+    ])
 }
 
 pub fn load_all_vsr_substructs() -> Result<IndexMap<String, VsrSubstruct>> {
     let mut indexmap = IndexMap::new();
 
-    for resources_dir in vsr_definition_dirs() {
+    for resources_dir in vsr_definition_dirs()? {
         if !resources_dir.is_dir() {
             anyhow::bail!(
                 "VSR definition dir does not exist: {}",

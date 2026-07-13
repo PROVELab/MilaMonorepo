@@ -97,7 +97,7 @@ export function useVehicleTelemetry(pollIntervalMs = 100) {
         console.error("failed to send motor command", error);
       }
     },
-    [runtime],
+    [runtime, snapshot.driveMode, snapshot.isSerialReady],
   );
 
   const changeDriveMode = useCallback(
@@ -109,7 +109,7 @@ export function useVehicleTelemetry(pollIntervalMs = 100) {
       }
       void sendMotorCommand(command);
     },
-    [sendMotorCommand, snapshot.driveMode, snapshot.motorRpm],
+    [sendMotorCommand, snapshot.driveMode, snapshot.isSerialReady, snapshot.motorRpm],
   );
 
   const adjustCruiseRpm = useCallback(

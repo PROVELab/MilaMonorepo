@@ -1,0 +1,2 @@
+All files in here are fully auto-generated, and are not intended for direct modification by the user
+They are used as LUTs for recieving packets from telemetry, sending packets to telemetry, and parsing and error checking sensor data

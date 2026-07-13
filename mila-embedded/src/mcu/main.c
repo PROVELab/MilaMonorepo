@@ -74,7 +74,6 @@ static int vsr_log_vprintf(const char* fmt, va_list ap) {
 
 void app_main() {
     // Stream-only mode for USB serial: no text logging on UART0.
-    setMutexPrintEnabled(false);
     esp_log_level_set("*", ESP_LOG_INFO);
 
     // Initialize the global VSR

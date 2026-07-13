@@ -1,6 +1,5 @@
 
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 #include "pecan/pecan.h"
@@ -10,10 +9,7 @@ static uint16_t savedId;
 // function to respond to HB. Thats really all this file does.
 static int16_t respondToHB(CANPacket* recvPack) {
 
-    (void) recvPack; // if unused in your implementation
-    char buffer[30];
-    sprintf(buffer, "saved id: %u", savedId);
-    flexiblePrint(buffer);
+    (void) recvPack; 
     flexiblePrint("responding to HB\n");
     CANPacket responsePacket;
     memset(&responsePacket, 0, sizeof(CANPacket));

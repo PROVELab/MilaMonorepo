@@ -1,0 +1,44 @@
+# Justfile - Rust embedded workflows
+
+# Check the shared crate and each flashable Rust target.
+check:
+    cargo check --manifest-path sensor_common/Cargo.toml
+    @for manifest in *_rust/Cargo.toml; do \
+        cargo check --manifest-path "$manifest" || exit $?; \
+    done
+
+# Build a Rust target without flashing.
+build target='':
+    @crate_dir="{{target}}"; \
+    if [ -z "$crate_dir" ]; then read -p "Rust target dir: " crate_dir; fi; \
+    cargo build --manifest-path "$crate_dir/Cargo.toml"
+
+# Flash a Rust target with cargo embed.
+flash target='':
+    @crate_dir="{{target}}"; \
+    if [ -z "$crate_dir" ]; then read -p "Rust target dir: " crate_dir; fi; \
+    cargo embed --manifest-path "$crate_dir/Cargo.toml"
+
+# Build all flashable Rust targets.
+build_all:
+    @status=0; \
+    passed=""; \
+    failed=""; \
+    for manifest in *_rust/Cargo.toml; do \
+        crate_dir=${manifest%/Cargo.toml}; \
+        if cargo build --manifest-path "$manifest"; then \
+            passed="$passed $crate_dir"; \
+        else \
+            status=1; \
+            failed="$failed $crate_dir"; \
+        fi; \
+    done; \
+    echo ""; \
+    echo "Build summary:"; \
+    for crate_dir in $passed; do echo "  PASS $crate_dir"; done; \
+    for crate_dir in $failed; do echo "  FAIL $crate_dir"; done; \
+    exit $status
+
+# Clean all Rust build artifacts.
+clean_all:
+    cargo clean

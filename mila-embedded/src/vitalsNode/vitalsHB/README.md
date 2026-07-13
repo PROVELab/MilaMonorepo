@@ -1,0 +1,2 @@
+responsible for sending vitalsHB every 1 second. This code give 250ms for nodes to respond
+After this time, it sends a status update to telemetry, indicating wich nodes responded, the slowest response times (in ms), as well as vitals state info, like is CAN Bus status, and contactor state

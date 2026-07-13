@@ -1,40 +1,71 @@
+package util;
+
 import com.fazecast.jSerialComm.SerialPort;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.function.Consumer;
 
 public final class SerialBridge implements AutoCloseable {
-    private final SerialPort port;
-    private final OutputStream out;
+    private final String portName;
+    private final int baud;
+    private final Consumer<byte[]> onMessageRecv;
+    private final Consumer<Boolean> onStatusChange;
+    private final String logFileName;
+
+    private SerialPort port;
+    private OutputStream out;
+    private FileOutputStream logFileStream;
     private Thread readerThread;
     private volatile boolean running = false;
 
-    public SerialBridge(String portName, int baud) throws IOException {
-        this.port = SerialPort.getCommPort(portName);
-        port.setBaudRate(baud);
-        port.setNumDataBits(8);
-        port.setParity(SerialPort.NO_PARITY);
-        port.setNumStopBits(SerialPort.ONE_STOP_BIT);
-        port.setComPortTimeouts(SerialPort.TIMEOUT_NONBLOCKING, 0, 0);
-        port.setFlowControl(SerialPort.FLOW_CONTROL_DISABLED);
-        port.setDTR();
-        port.setRTS();
-        if (!port.openPort()) throw new IOException("Failed to open port " + portName);
-
-        try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-        this.out = port.getOutputStream();
-    }
-    //Optionally also start the reader
     public SerialBridge(String portName, int baud,
                         Consumer<byte[]> onMessageRecv,
-                        Consumer<byte[]> onMessageInvalid) throws IOException {
-        this(portName, baud);                 // do all open/config
-        startReader(onMessageRecv, onMessageInvalid);  // kick off thread
+                        Consumer<Boolean> onStatusChange,
+                        String logFileName) {
+        this.portName = portName;
+        this.baud = baud;
+        this.onMessageRecv = onMessageRecv;
+        this.onStatusChange = onStatusChange;
+        this.logFileName = logFileName;
     }
 
-    //Start a task for recieving messages, and calls the callback onMessageRecv
-    public void startReader(Consumer<byte[]> onMessageRecv, Consumer<byte[]> onMessageInvalid) {
+    public synchronized boolean connect() {
+        if (running) {
+            System.out.println("SerialBridge is already running or connecting.");
+            return true;
+        }
+        try {
+            this.port = SerialPort.getCommPort(portName);
+            port.setBaudRate(baud);
+            port.setNumDataBits(8);
+            port.setParity(SerialPort.NO_PARITY);
+            port.setNumStopBits(SerialPort.ONE_STOP_BIT);
+            //needs to be semi-blocking (not blocking) so we dont stall a full second before parsing every time
+            port.setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 1000, 0);
+            port.setFlowControl(SerialPort.FLOW_CONTROL_DISABLED);
+            
+            if (!port.openPort()) {
+                throw new IOException("Failed to open port " + portName);
+            }
+            port.setDTR();
+            port.setRTS();
+
+            try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+            this.out = port.getOutputStream();
+            this.logFileStream = new FileOutputStream(this.logFileName);
+            startReader();
+            onStatusChange.accept(true);
+            return true;
+        } catch (Exception e) {
+            System.err.println("SerialBridge connection failed: " + e.getMessage());
+            close(); // Ensure everything is cleaned up
+            return false;
+        }
+    }
+
+    private void startReader() {
         if (running) return;
         running = true;
         readerThread = new Thread(() -> {
@@ -43,80 +74,167 @@ public final class SerialBridge implements AutoCloseable {
                 System.out.println("init success");
                 while (running) {
                     try {
-                        receiveFrames(in, onMessageRecv, onMessageInvalid);
+                        receiveFrames(in);
                     } catch (IOException e) {
-                        if (running) System.out.println("[SerialBridge error] " + e.getMessage());
+                        // A read timeout in jSerialComm throws an IOException. This is expected if the
+                        // ESP32 is silent. We should not treat it as a fatal error, but just loop again.
+                        if (e.getMessage() != null && e.getMessage().contains("timed out")) {
+                            // This is a normal timeout. Continue waiting for data.
+                            continue;
+                        }
+                        // For any other I/O error, we assume the connection is lost.
+                        if (running) System.err.println("[SerialBridge fatal read error] " + e.getMessage());
+                        close(); // Close the connection.
+                        break;   // Exit the reader thread loop.
                     }
-                    Thread.yield();
                 }
                 System.out.println("reader thread exiting");
             } catch (IOException e) {
-                if (running) System.out.println("[SerialBridge error] " + e.getMessage());
+                if (running) {
+                    System.err.println("[SerialBridge stream error] " + e.getMessage());
+                    close();
+                }
             }
         }, "serial-reader");
         readerThread.setDaemon(true);
         readerThread.start();
     }
 
-    // Circular buffer state to recv messages
-    private static final int RX_CAP = 256;
+    public boolean isConnected() {
+        return running;
+    }
+
+    // Circular buffer state to receive mixed binary frames and ESP32 log text.
+    // A single valid binary frame can be 276 bytes:
+    //   SOF(1) + LEN(2) + metadata+LoRa payload(271 max) + checksum(2)
+    // The buffer must be comfortably larger than that because log text can
+    // arrive adjacent to a frame before we've drained the serial port.
+    private static final int RX_CAP = 4096;
     private final byte[] rx = new byte[RX_CAP];
     private int head = 0;   // start of valid data
     private int len  = 0;   // bytes of valid data
 
-    private void receiveFrames(InputStream in,
-                            Consumer<byte[]> onMessageRecv,
-                            Consumer<byte[]> onMessageInvalid) throws IOException {
-        final byte SOF = (byte)0xFF;
-        final int FRAME_AFTER_SOF = 14;           // 2 + 4 + 8
-        final int MIN_FRAME_TOTAL = 1 + FRAME_AFTER_SOF; // 15
+    private void receiveFrames(InputStream in) throws IOException {
+        final byte SOF = (byte) 0xFF;
 
-        // read available bytes into ring (may wrap)
-        int avail = port.bytesAvailable();
-        if (avail > 0 && space() > 0) {
+        // Read available bytes into ring buffer
+        if (space() > 0) {
             int tail = (head + len) % RX_CAP;
-            int toRead = Math.min(avail, space());
-            int c1 = Math.min(toRead, RX_CAP - tail);
-            int r1 = in.read(rx, tail, c1);
-            if (r1 > 0) { len += r1; toRead -= r1; }
-            if (toRead > 0) {
-                int r2 = in.read(rx, 0, Math.min(toRead, RX_CAP - len));
-                if (r2 > 0) { len += r2; }
+            // This is a blocking read. It will wait for data or timeout (1s).
+            // This prevents a busy-wait loop when no data is available.
+            System.out.println("waiting for data..."); 
+            int bytesRead = in.read(rx, tail, Math.min(space(), RX_CAP - tail));
+            System.out.println("read returned with " + bytesRead + " bytes");
+
+            if (bytesRead > 0) {
+                if (logFileStream != null) {
+                    try { logFileStream.write(rx, tail, bytesRead); }
+                    catch (IOException e) { System.err.println("Failed to write to log file: " + e.getMessage()); }
+                }
+                len += bytesRead;
+            } else if (bytesRead == -1) {
+                throw new IOException("Serial port stream ended.");
             }
         }
 
-        // parse as many frames as possible
-        while (len >= MIN_FRAME_TOTAL) {
+        // Parse log lines and binary frames from the buffer
+        while (len > 0) {
+            System.out.println("buffer has " + len + " bytes to process");
+            // We are primarily looking for a binary frame starting with SOF.
             int sofOff = indexOf(SOF, 0, len);
+
             if (sofOff < 0) {
-                if (len > 128) { head = 0; len = 0; }
-                break;
+                // No SOF found. Let's see if we have any complete text lines to process while we wait.
+                int newlineOff = indexOf((byte) '\n', 0, len);
+                if (newlineOff >= 0) {
+                    // We have a line. It could be a log message or bootloader junk.
+                    // We'll print it and discard it.
+                    byte[] lineBytes = new byte[newlineOff];
+                    copyOut(lineBytes, 0, 0, newlineOff);
+                    String line = new String(lineBytes).trim();
+                    if (!line.isEmpty()) {
+                        System.out.println("[ESP32 Log] " + line);
+                    }
+                    drop(newlineOff + 1);
+                    continue; // Restart loop to process next part of the buffer.
+                }
+
+                // No SOF and no complete lines. If buffer is full, it's all un-parsable.
+                if (len == RX_CAP) {
+                    System.out.println("[SerialBridge] Buffer full with no SOF or newline, discarding.");
+                    drop(len);
+                }
+                break; // Wait for more data
             }
-            if (len - sofOff < MIN_FRAME_TOTAL) break;
 
-            int c0 = get(sofOff + 1) & 0xFF;
-            int c1 = get(sofOff + 2) & 0xFF;
-            int chk16 = c0 | (c1 << 8);
+            // SOF was found at sofOff. Discard any prefix before it.
+            if (sofOff > 0) {
+                byte[] prefixBytes = new byte[sofOff];
+                copyOut(prefixBytes, 0, 0, sofOff);
+                String prefix = new String(prefixBytes).trim();
+                if (!prefix.isEmpty()) {
+                    // This will catch the "B (...)" marker and other junk.
+                    System.out.println("[ESP32 Log] " + prefix);
+                }
+                drop(sofOff);
+            }
 
-            byte[] payload = new byte[12];                 // ID(4 LE) + DATA(8 LE)
-            copyOut(payload, 0, sofOff + 3, 12);
-            int calc16 = inetChecksum16(payload, 0, 12);
+            // Now SOF is at the head. Parse the binary frame.
+            // C++ sends: [SOF(1)][LEN(2)][PAYLOAD(N)][CSUM(2)]
+            final int MIN_FRAME_LEN = 1 + 2 + 0 + 2; // SOF + len + (empty payload) + checksum
+            if (len < MIN_FRAME_LEN) {
+                break; // Not enough data for even the smallest frame.
+            }
 
-            int consume;    //how many bytes we consumed with this msg
-            if (chk16 == calc16) {
-                onMessageRecv.accept(payload);  //callback for valid message :)
-                consume = sofOff + MIN_FRAME_TOTAL;
+            int payloadLen = (get(1) & 0xFF) | ((get(2) & 0xFF) << 8);
+
+            // The payload from the ESP32 always contains a 16-byte metadata header.
+            final int MIN_PAYLOAD_LEN = 16;
+            // Max payload is 16B metadata + 255B LoRa packet = 271 bytes.
+            final int MAX_PAYLOAD_LEN = 271;
+            if (payloadLen < MIN_PAYLOAD_LEN || payloadLen > MAX_PAYLOAD_LEN) {
+                System.out.println(String.format(
+                        "[SerialBridge warning] Invalid payload length: %d. Expected %d-%d. Discarding SOF.",
+                        payloadLen, MIN_PAYLOAD_LEN, MAX_PAYLOAD_LEN));
+                drop(1);
+                continue;
+            }
+
+            int frameTotalLen = 1 + 2 + payloadLen + 2; // SOF + len_bytes + payload + csum_bytes
+            if (len < frameTotalLen) {
+                // If havent found a complete frame, but the buffer is full.
+                // Discard the SOF to try and re-sync.
+                if (len == RX_CAP) {
+                    System.err.println(String.format(
+                        "[SerialBridge] Buffer full with partial frame. Discarding SOF to re-sync. (payloadLen=%d, frameTotalLen=%d, bufferLen=%d)",
+                        payloadLen, frameTotalLen, len));
+                    drop(1);
+                    continue; // Re-run the while loop on the modified buffer
+                }
+                break; // Not enough data yet, and there's space to read more.
+           
+            }
+
+            byte[] payload = new byte[payloadLen];
+            copyOut(payload, 0, 1 + 2, payloadLen);
+
+            int csumOffset = 1 + 2 + payloadLen;
+            int recvChk = (get(csumOffset) & 0xFF) | ((get(csumOffset + 1) & 0xFF) << 8);
+            int calcChk = inetChecksum16(payload, 0, payloadLen);
+
+            if (calcChk == recvChk) {
+                System.out.println("passed checksum, parsing payload with data: " + Arrays.toString(payload));
+                // The entire payload is one unit. Let MessageHandler parse it,
+                // which is assumed to consume the whole payload.
+                onMessageRecv.accept(payload);
             } else {
-                //Indicate checksum issue, and call invalid msg callback
-                System.out.print(String.format(
-                    "[SerialBridge warning] checksum failed: got=0x%04X expected=0x%04X.",
-                    chk16, calc16));
-                onMessageInvalid.accept(payload);
-
-                int next = indexOf(SOF, sofOff + 1, MIN_FRAME_TOTAL - 1);
-                consume = (next >= 0) ? next : (sofOff + MIN_FRAME_TOTAL);
+                System.out.println(String.format(
+                        "[SerialBridge warning] Checksum failed for C++ frame: got=0x%04X expected=0x%04X. Discarding SOF and retrying.",
+                        recvChk, calcChk));
+                drop(1);
+                continue;
             }
-            drop(consume);
+            drop(frameTotalLen);
         }
     }
 
@@ -139,48 +257,42 @@ public final class SerialBridge implements AutoCloseable {
     private int inetChecksum16(byte[] data, int off, int len) {
         long sum = 0;                       // 32-bit accumulator
         int i = off;
-        int end = off + len;
 
         // Sum 16-bit words (LE pairing)
-        while (i + 1 < end) {
-            int word = (data[i] & 0xFF) | ((data[i + 1] & 0xFF) << 8); // low,high
+        while (len > 1) {
+            int word = (data[i++] & 0xFF) | ((data[i++] & 0xFF) << 8); // low,high
             sum += word;
-            i += 2;
+            len -= 2;
         }
 
         // Odd trailing byte goes into LOW byte
-        if (i < end) {
+        if (len == 1) {
             sum += (data[i] & 0xFF);
         }
 
         // Fold to 16 bits with end-around carry, then one's complement
-        sum = (sum & 0xFFFF) + (sum >> 16);
+        sum = (sum >> 16) + (sum & 0xFFFF);
         sum = (sum & 0xFFFF) + (sum >> 16);
         return (int)(~sum) & 0xFFFF;
     }
 
-    // Send a  message of 8 data byes. 1 byte SOF, 2 byte Checksum, 8 byte data
+    // Send a message with variable length payload.
+    // Frame: [SOF=0xFF][LEN 2b LE][DATA][CHK16 2b LE]
     public void sendMessage(byte[] data) throws IOException {
         if (data == null) {
             System.out.println("ignoring null msg ");
             return;
         }
-        byte[] newData = new byte[8];
-        if(data.length != 8){   //pad with 0's
-            System.out.println("data length not 8, padding with 0's");
-            System.arraycopy(data, 0, newData, 0, Math.min(data.length, 8));
-            data = newData;
-        }
 
-        // Internet checksum over the 8-byte payload
-        int chk16 = inetChecksum16(data, 0, 8) & 0xFFFF;
+        int payloadLen = data.length;
+        int chk16 = inetChecksum16(data, 0, payloadLen) & 0xFFFF;
 
-        // Build frame: [SOF=0xFF][CHK16 BE][DATA 8 bytes]
-        byte[] frame = new byte[1 + 2 + 8];
-        frame[0] = (byte) 0xFF;
-        frame[1] = (byte)(chk16 & 0xFF);
-        frame[2] = (byte)(chk16 >>> 8);  
-        System.arraycopy(data, 0, frame, 3, 8);
+        byte[] frame = new byte[1 + 2 + payloadLen + 2];
+        ByteBuffer bb = ByteBuffer.wrap(frame).order(ByteOrder.LITTLE_ENDIAN);
+        bb.put((byte) 0xFF);
+        bb.putShort((short) payloadLen);
+        bb.put(data);
+        bb.putShort((short) chk16);
 
         synchronized (out) {
             out.write(frame);
@@ -189,12 +301,22 @@ public final class SerialBridge implements AutoCloseable {
     }
     @Override
     public void close() {
-        running = false;
-        if (port != null && port.isOpen()) port.closePort();  // breaks blocking read
-        if (readerThread != null) {
-            readerThread.interrupt();
-            try { readerThread.join(500); } catch (InterruptedException ignored) {}
+        // Use synchronized to prevent race conditions if close() is called from multiple threads.
+        synchronized (this) {
+            if (!running) {
+                return; // Already closed or in the process of closing.
+            }
+            running = false;
         }
+        onStatusChange.accept(false);
+
+        // Closing the port will cause the blocking in.read() to throw an exception,
+        // which is caught by the reader thread, allowing it to exit gracefully.
+        if (port != null && port.isOpen()) port.closePort();
+        // Interrupt the thread in case it's sleeping for any reason.
+        if (readerThread != null) readerThread.interrupt();
+
         try { if (out != null) out.close(); } catch (IOException ignored) {}
+        try { if (logFileStream != null) { logFileStream.flush(); logFileStream.close(); } } catch (IOException ignored) {}
     }
 }

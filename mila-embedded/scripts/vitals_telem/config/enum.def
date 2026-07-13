@@ -1,0 +1,87 @@
+#General Constants
+global: pointsPerData=8
+global enum: specialIDs = {
+    telemetryID = 0, # Special ID for vitals-generated telemetry packets
+    vitalsID    = 2,
+    prechargeID = 3,
+    powerDistributionID = 10
+}
+global: nodeIDSizeBits = 7
+global: slowestNodeCount = 3
+
+//set motor controller ID = 1.
+global enum: functionCodes = {
+    reservedForMotorController_1 = 0b0000,
+    reservedForMotorController_2 = 0b0001,
+    vitalsCommand           = 0b010,
+    warningCode             = 0b0011,
+    TelemetryCommand        = 0b0100,
+    statusUpdate            = 0b0101,
+    HBPing                  = 0b0110,
+    HBPong                  = 0b0111,
+    transmitData            = 0b1000
+}
+
+global enum: vitalsCommands = {
+    enableContactor = 0b0,
+    disableContactor = 0b1
+}
+
+# mark for "pecan packet" is not set
+
+global enum: telem_to_vitals_Commands = {
+    lowPowerLora = 0,
+    highPowerLora = 1,
+    enablePrechargeIfSafe = 2,
+    disablePrecharge = 3
+}
+
+#LatchOn forces precharge on, overriding vitals. avoid using unless needed
+global enum: prechargeState = {
+    Off = 0,
+    Precharging = 1,
+    On = 2
+}
+
+global enum: TWAI_STATE = {
+    TWAI_PECAN_STOPPED    = 0,            
+    TWAI_PECAN_RUNNING    = 1,             
+    TWAI_PECAN_BUS_OFF    = 2,             
+    TWAI_PECAN_RECOVERING = 3
+}
+
+global enum: vitalsContactorState ={
+    allOff = 0,
+    waitingForIntermoduleContactorEnable = 1,
+    waitingForPrechargeContactorEnable = 2,
+    allOn = 3
+}
+
+#flags for status Updates. The data sent will just be this flag
+global enum: statusUpdates = {
+    initFlag =                      0,
+    canRecoveryFlag =               1,
+    # ATM, only ESP's indicate RX Overruns, Arduino's do not.
+    canRXOverunFlag =               2,
+    telemetryCommandAck =           3,
+
+    #Sent by precharge and power distribution to indicate if their charging succeeds/fails
+    contactorsSuccess =  4,
+    contactorsFailed =   5
+}
+
+#Ignore this value if dataOk
+global enum: dataErrorTrigger = {
+    singleCritical = 0,
+    extrap4 = 1,
+    extrap8 = 2,
+    confirmedCritical = 3,
+    enteredWarningRange = 4
+}
+
+#Data timeout triggers extrapolation. repeatedDataTimeout will not (dont want to over-extrapolate), user should consider that data dead if seen
+global enum: frameErrorTrigger = {
+    dataTimeout = 0,
+    repeatedDataTimeout = 1,
+    resetTimerError=2,   
+}

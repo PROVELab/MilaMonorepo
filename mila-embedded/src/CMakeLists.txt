@@ -1,39 +1,56 @@
 
-# list(APPEND EXTRA_COMPONENT_DIRS icm20948)
+# Initialize a variable to hold component requirements
+set(COMPONENT_REQUIRES "")
 
 if(CMAKE_VITALS_ESP_BUILD)
-    set(SRC_FILES 
-        "vitalsNode/vitalsHelper/vitalsStaticDec.c"
-        "vitalsNode/vitalsHelper/vitalsHelper.c"
-        "pecan/common.cpp"
+    file(GLOB_RECURSE VITALS_SRC
+        "vitalsNode/*.c"
+        "vitalsNode/*.cpp"
+        "pecan/common.c"
         "pecan/espSpecific.c"
-        "vitalsNode/main.c"
+        "pecan/vitalsInit.c"
         "espBase/debug_esp.c"
-        "vitalsNode/vitalsData.c"
-        "vitalsNode/vitalsHB.c"
+        "telemTX/*.c"
+        "telemTX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        # "LoraCommon/Driver/*.c"
+        # "LoraCommon/Driver/*.cpp"
     )
+    set(SRC_FILES
+        ${VITALS_SRC}
+    )
+
     # message(SEND_ERROR "SRC_FILES for VITALS_BUILD: ${SRC_FILES}")
 endif()
 
-if(CMAKE_SENSOR_ESP_BUILD)  #CMAKE_SENSOR_ESP_BUILD <- Assumed
-    # message(SEND_ERROR "Path is set to: ${DECPath}")
+if(CMAKE_SENSOR_ESP_BUILD) 
 
     file(GLOB SENSOR_SRC_FILES
+        "sensors/${SENS_DIR}/**/*.c"
+        "sensors/${SENS_DIR}/**/*.cpp"
         "sensors/${SENS_DIR}/*.c"
         "sensors/${SENS_DIR}/*.cpp"
     )
     set(SRC_FILES
-        # "sensors/${SENS_DIR}/main.c"
-        "sensors/${SENS_DIR}/staticDec.cpp"
+        ${SENSOR_SRC_FILES}
         
-        "sensors/common/sensorHelper.cpp"
-        "pecan/common.cpp"
+        "sensors/common/sensorSpecific.cpp"
+        "sensors/common/sensorCommon.cpp"
+        "pecan/common.c"
         "pecan/espSpecific.c"
         "pecan/vitalsInit.c"
-        # "espMutexes/mutex_declarations.c"
+        "espBase/debug_esp.c"
     )
-    # message(SEND_ERROR "DECPATH: ${DECPATH}")
-    # message(SEND_ERROR "Source files: ${SRC_FILES}")
+endif()
+
+if(SENS_DIR STREQUAL "powerDistribution")
+    list(APPEND SRC_FILES "sensors/powerSensor/espPower.c")
+endif()
+
+if(SENS_DIR STREQUAL "IMU")
+    # list(APPEND EXTRA_COMPONENT_DIRS icm20948)
+    list(APPEND COMPONENT_REQUIRES "icm20948" "i2c" "log" "esp_timer" "filters")
 endif()
 
 if(CMAKE_MCU_ESP_BUILD)
@@ -48,20 +65,142 @@ if(CMAKE_MCU_ESP_BUILD)
         "${CMAKE_CURRENT_SOURCE_DIR}/mcu/*.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/mcu/*.cxx"
 
+        "${CMAKE_CURRENT_SOURCE_DIR}/mcu/motor_h300/*.c"
+
         "${CMAKE_CURRENT_SOURCE_DIR}/sensors/common/sensorHelper.cpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/sensors/powerSensor/espPower.c"
-        "${CMAKE_CURRENT_SOURCE_DIR}/sensors/pedalSensor/*.c"
+    )
+    file(GLOB MCU_SENSOR_SRC
+        "${CMAKE_CURRENT_SOURCE_DIR}/sensors/${SENS_DIR}/*.c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/sensors/${SENS_DIR}/*.cpp"
     )
 
     # If you also want to include other existing files outside mcu/, add them here:
     set(SRC_FILES
-        ${MCU_SRC} ${SRC_FILES}
+        ${MCU_SRC} ${MCU_SENSOR_SRC} ${SRC_FILES}
     )
 endif()
 
-# else()  #assumed "CMAKE_BASIC_NODE" configuration, just using one path
-#     set(SRC_FILES
-#         "${CMAKE_SRC_FILE}"
-#     )   
-# endif()
-idf_component_register(SRCS ${SRC_FILES} INCLUDE_DIRS ".")
+if(CMAKE_TELEM_TX_BENCHMARK)
+
+    file(GLOB TX_LORA_SRC
+        #Need pecan
+        "sensors/${SENS_DIR}/*.c"
+        "sensors/${SENS_DIR}/*.cpp"
+        #
+        "telemTXBenchmark/*.c"
+        "telemTXBenchmark/*.cpp"
+        "telemTX/*.c"
+        "telemTX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
+        "vitalsNode/vitalsGen/vitalsPacketSendLUT.c"
+        "vitalsNode/loraStaticHelper/vitalsSendData.c"
+        "pecan/common.c"
+        "pecan/espSpecific.c"
+    )
+    set(SRC_FILES
+        ${TX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_TELEM_RX_MAIN)
+    file(GLOB_RECURSE RX_LORA_SRC
+        "telemRXMain/*.c"
+        "telemRXMain/*.cpp"
+        "telemRX/*.c"
+        "telemRX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
+        "vitalsNode/vitalsGen/vitalsPacketSendLUT.c"
+        "vitalsNode/loraStaticHelper/vitalsSendData.c"
+
+    )
+    set(SRC_FILES
+        ${RX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_TELEM_RX_BENCHMARK)
+    file(GLOB_RECURSE RX_LORA_SRC
+        "telemRXBenchmark/*.c"
+        "telemRXBenchmark/*.cpp"
+        "telemRX/*.c"
+        "telemRX/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
+        "vitalsNode/vitalsGen/vitalsPacketSendLUT.c"
+        "vitalsNode/loraStaticHelper/vitalsSendData.c"
+    )
+    set(SRC_FILES
+        ${RX_LORA_SRC}
+    )
+endif()
+
+
+if(CMAKE_TELEM_Listen)
+    file(GLOB_RECURSE RX_LORA_SRC
+        "LoraSimpleListen/*.c"
+        "LoraSimpleListen/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
+    )
+    set(SRC_FILES
+        ${RX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_TELEM_SIMPLE_TRANSMIT)
+    file(GLOB_RECURSE SIMPLE_TX_LORA_SRC
+        "LoraTestTransmit/*.c"
+        "LoraTestTransmit/*.cpp"
+        "LoraCommon/*.c"
+        "LoraCommon/*.cpp"
+        "LoraCommon/Driver/*.c"
+        "LoraCommon/Driver/*.cpp"
+    )
+    set(SRC_FILES
+        ${SIMPLE_TX_LORA_SRC}
+    )
+endif()
+
+if(CMAKE_ESP_LISTEN_BUILD)
+    set(SRC_FILES
+        "listenCAN/main.c"
+        "pecan/common.c"
+        "pecan/espSpecific.c"
+        "pecan/vitalsInit.c"
+        "espBase/debug_esp.c"
+    )
+endif()
+
+if(CMAKE_BMS)
+    file(GLOB BMS_SRC
+        "BMS_Test/*.c"
+    )
+    set(SRC_FILES
+        ${BMS_SRC}
+    )
+endif()
+if(CMAKE_HUMID_SENSE)
+    file(GLOB BMS_SRC
+        "temp_humid/*.cpp"
+    )
+    set(SRC_FILES
+        ${BMS_SRC}
+    )
+endif()
+
+idf_component_register(
+    SRCS ${SRC_FILES} 
+    INCLUDE_DIRS "."
+    REQUIRES ${COMPONENT_REQUIRES}
+)

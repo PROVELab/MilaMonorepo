@@ -33,8 +33,25 @@ You can use vscode's git view to make this easier.
 - Treat generated files as owned by codegen: edit the source schema/generator, not the generated C.
 
 ## Tasks
+-From Torrey: I am not super sure about what Shynn wrote here, if he does not update the stuff below here,
+              perhaps disregard this text
 
 - The esp32 has 2 cores running at 240 Mhz each
+- We split the CAN buses: one specific for motor controller
+    (high priority) and one for sensors (lower priority)
+
+### Core 0
+- Core 0 has the following, critical tasks:
+    - Lowest priority tasks (i.e. always running):
+        Read Data from CAN bus and put it into relevant
+        queue (only motor controller queue for now)
+    - High priority task: At 200 hz, send current RPM
+    - High priority task: Block on queue, and when
+        there are things in the queue, parse them
+        and update the VSR
+
+### Core 1
+- TODO
 - Current startup path (`src/mcu/main.c`) initializes `vsr_global`, registers CAN listeners,
   starts pedal sensor flow (`pedal_main`), and starts motor send task (`start_send_motor_task`).
 - Console and SD logging tasks are present but currently optional/integration-in-progress.
