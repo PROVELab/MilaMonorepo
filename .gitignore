@@ -19,7 +19,8 @@ __pycache__/
 # Rust (Global)
 # ==========================================
 **/target/
-**/Cargo.lock
+# .lock files included so ppl know what versions of packages previous people were building with
+# **/Cargo.lock
 
 # ==========================================
 # C/C++ / ESP-IDF / PlatformIO (Global)

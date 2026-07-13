@@ -62,7 +62,7 @@ void uartRxTask(void* pvParameters) {
             }
 
             // 2. Check for minimum frame length: SOF(1) + LEN(2) + CSUM(2)
-            const size_t MIN_FRAME_LEN = 1 + 2 + 2;
+            constexpr size_t MIN_FRAME_LEN = 1 + 2 + 2;
             if (buffer_len < MIN_FRAME_LEN) {
                 break; // Not enough data for a minimal frame yet
             }

@@ -1,3 +1,6 @@
+Torrey has removed the corresponding csv's for brevity in the size of commit messages. i dont think actually seeing them is relevant to anyone,
+I have thrown all these chunky data files recorded during testing onto teams. Look for something like Documentation/oldTests
+
 To view the module test graph, run:
 python3 plot_BMS.py
 enter "Saved_csvs/BMS_Parsed60ATest.csv"
