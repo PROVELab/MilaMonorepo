@@ -7,6 +7,34 @@ repositories {
     mavenCentral()
 }
 
+//This automates the Rinearn3DGraph dependency
+def rinearnZipUrl = 'https://download.rinearn.com/archive/graph3d/rinearn_graph_3d_5_6_46_en.zip'
+def rinearnJar = file('lib/RinearnGraph3D.jar')
+def rinearnZip = layout.buildDirectory.file("/tmp/rinearn_graph_3d.zip").get().asFile
+
+tasks.register('downloadRinearnGraph3D') {
+    outputs.file(rinearnJar)
+    onlyIf { !rinearnJar.exists() }
+
+    doLast {
+        rinearnZip.parentFile.mkdirs()
+        project.ant.get(src: rinearnZipUrl, dest: rinearnZip, skipexisting: true)
+
+        project.copy {
+from(zipTree(rinearnZip)) {
+    include '**/RinearnGraph3D.jar'
+    eachFile { fcd -> fcd.path = fcd.name } // flatten nested folder from the zip
+}
+            into 'lib'
+            includeEmptyDirs = false
+        }
+    }
+}
+
+tasks.named('compileJava') {
+    dependsOn 'downloadRinearnGraph3D'
+}
+
 dependencies {
     // UI Stuff
     implementation 'com.formdev:flatlaf:3.3'
@@ -28,5 +56,5 @@ application {
 
 java {
     sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_22
 }
