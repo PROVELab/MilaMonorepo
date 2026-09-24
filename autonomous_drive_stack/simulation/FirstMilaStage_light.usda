@@ -1,0 +1,2375 @@
+#usda 1.0
+(
+    customLayerData = {
+        dictionary cameraSettings = {
+            dictionary Front = {
+                double3 position = (5, 0, 0)
+                double radius = 5
+            }
+            dictionary Perspective = {
+                double3 position = (4.014303527964486, 4.336783658073194, 2.526707408535144)
+                double3 target = (0.000024293962033183902, 0.32250442407074154, -0.022041518092783097)
+            }
+            dictionary Right = {
+                double3 position = (0, -5, 0)
+                double radius = 5
+            }
+            dictionary Top = {
+                double3 position = (0, 0, 5)
+                double radius = 4.628478622436523
+            }
+            string boundCamera = "/OmniverseKit_Persp"
+        }
+        dictionary metricsAssembler = {
+            dictionary "/MILA_substitute" = {
+            }
+            dictionary "/buick_rivera_ANKA3DCITY_" = {
+            }
+            dictionary "/buick_rivera_ANKA3DCITY__01" = {
+            }
+            dictionary "/buick_rivera_ANKA3DCITY__02" = {
+            }
+            dictionary "/buick_rivera_ANKA3DCITY__03" = {
+            }
+            dictionary "/buick_rivera_ANKA3DCITY__04" = {
+            }
+            dictionary "/buick_rivera_ANKA3DCITY__05" = {
+            }
+            int version = 1
+        }
+        dictionary omni_layer = {
+            string authoring_layer = "./FirstMilaStage.usd"
+            dictionary locked = {
+            }
+            dictionary muteness = {
+            }
+        }
+        dictionary renderSettings = {
+        }
+    }
+    endTimeCode = 1000000
+    metersPerUnit = 1
+    startTimeCode = 0
+    timeCodesPerSecond = 60
+    upAxis = "Z"
+)
+
+def "Render" (
+    hide_in_stage_window = true
+    no_delete = true
+)
+{
+    def "OmniverseKit"
+    {
+        def "HydraTextures" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </OmniverseKit_Persp>
+                token omni:rtx:ambientOcclusion:denoiserMode = "none"
+                token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
+                bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
+                token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
+                bool omni:rtx:dlss:frameGeneration = 0
+                float3 omni:rtx:domeLight:rotationAxis = (0, 0, 1)
+                bool omni:rtx:indirectDiffuse:denoiser:enabled = 0
+                bool omni:rtx:material:db:syncLoads = 1
+                token omni:rtx:post:dlss:execMode = "performance"
+                bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
+                bool omni:rtx:post:registeredCompositing:invertToneMap = 1
+                bool omni:rtx:pt:adaptiveSampling:filterError = 0
+                uint omni:rtx:pt:adaptiveSampling:fixedSppIterations = 2
+                uint omni:rtx:pt:maxSamplesPerLaunch = 2073600
+                uint omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                bool omni:rtx:reflections:denoiser:enabled = 0
+                token omni:rtx:rendermode = "RealTimePathTracing"
+                color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
+                bool omni:rtx:rt:demoire = 0
+                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                int omni:rtx:rt:sss:samples = 1
+                uint omni:rtx:rtpt:maxVolumeBounces = 15
+                float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
+                bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
+                bool omni:rtx:scene:useViewLightingMode
+                rel orderedVars = </Render/Vars/LdrColor>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1280, 720)
+            }
+
+            def RenderProduct "Replicator" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </MILA_substitute/OS1/sensor>
+                bool omni:rtx:material:db:syncLoads = 1
+                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                rel orderedVars = </Render/Vars/GenericModelOutput>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1280, 720)
+            }
+        }
+    }
+
+    def RenderSettings "OmniverseGlobalRenderSettings" (
+        prepend apiSchemas = ["OmniRtxSettingsGlobalRtAdvancedAPI_1", "OmniRtxSettingsGlobalPtAdvancedAPI_1"]
+        no_delete = true
+    )
+    {
+        rel products = [
+            </Render/OmniverseKit/HydraTextures/omni_kit_widget_viewport_ViewportTexture_0>,
+            </Render/OmniverseKit/HydraTextures/Replicator>,
+        ]
+    }
+
+    def "Vars"
+    {
+        def RenderVar "LdrColor" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            uniform string sourceName = "LdrColor"
+            uniform token sourceType = "raw"
+        }
+
+        def RenderVar "GenericModelOutput"
+        {
+            custom string[] channels = ["NONE"]
+            uniform string sourceName = "GenericModelOutput"
+        }
+    }
+}
+
+over "OmniverseKit_Persp" (
+    prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (0.01, 10000000)
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
+    float focalLength = 18.147562
+    float focusDistance = 400
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.22294115576177)
+    float3 xformOp:rotateXYZ = (65.82198, -9.541664e-15, 135)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (4.014303527964486, 4.336783658073194, 2.526707408535144)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+def "World"
+{
+    def Xform "ground" (
+        prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/Environments/Grid/default_environment.usd@
+    )
+    {
+        token visibility = "inherited"
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0.16371329143841695, 0.07949615699584989, -0.8688906179970731)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "GroundPlane"
+        {
+            token visibility = "inherited"
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+            over "CollisionPlane" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI"]
+            )
+            {
+                bool physics:collisionEnabled = 1
+            }
+        }
+
+        over "Environment"
+        {
+            token visibility = "inherited"
+
+            over "Geometry" (
+                prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxTriangleMeshCollisionAPI", "PhysicsMeshCollisionAPI"]
+            )
+            {
+                uniform token physics:approximation = "none"
+                bool physics:collisionEnabled = 1
+                token visibility = "inherited"
+                quatd xformOp:orient = (1, 0, 0, 0)
+                double3 xformOp:scale = (100, 100, 1)
+                double3 xformOp:translate = (-0.425, 0.425, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+            }
+        }
+
+        over "SphereLight"
+        {
+            token visibility = "inherited"
+            quatd xformOp:orient = (0.4999999999999999, 0.5, 0.5000000000000001, 0.5)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (1.965094753586527e-14, 1.1891284333038339, 5.982300909218988)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        over "Looks"
+        {
+            token visibility = "inherited"
+        }
+    }
+}
+
+def PhysicsScene "PhysicsScene" (
+    prepend apiSchemas = ["NewtonSceneAPI", "PhysxSceneAPI"]
+)
+{
+    uniform token physxScene:broadphaseType = "MBP"
+    bool physxScene:enableGPUDynamics = 0
+    uint physxScene:timeStepsPerSecond = 60
+}
+
+def "buick_rivera_ANKA3DCITY_" (
+    active = false
+    displayName = "buick rivera-ANKA3DCITY_"
+    prepend payload = @./assets/buick/buick rivera-ANKA3DCITY_.usd@
+)
+{
+    double xformOp:rotateX:unitsResolve = 90
+    float3 xformOp:rotateXYZ = (0, 0, 0)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:scale:unitsResolve = (0.01, 0.01, 0.01)
+    double3 xformOp:translate = (0, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale", "xformOp:rotateX:unitsResolve", "xformOp:scale:unitsResolve"]
+}
+
+def "MILA_substitute" (
+    prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI"]
+    prepend payload = @./assets/buick/buick rivera-ANKA3DCITY_.usd@
+)
+{
+    bool physics:kinematicEnabled = 0
+    bool physics:rigidBodyEnabled = 1
+    token visibility = "inherited"
+    double xformOp:rotateX:unitsResolve = 90
+    float3 xformOp:rotateXYZ = (721.5615, 0, 0)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:scale:unitsResolve = (0.01, 0.01, 0.01)
+    double3 xformOp:translate = (0, 7.261564187982236e-17, -0.35384598442759624)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale", "xformOp:rotateX:unitsResolve", "xformOp:scale:unitsResolve"]
+
+    over "Circle_001"
+    {
+        over "Circle_001" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_002"
+    {
+        over "Circle_011" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_005"
+    {
+        over "Circle_002" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_006"
+    {
+        over "Circle_003" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_007"
+    {
+        over "Circle_005" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_008"
+    {
+        over "Circle_004" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_009"
+    {
+        over "Circle_012" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_010"
+    {
+        over "Circle_013" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_011"
+    {
+        over "Circle_014" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_012"
+    {
+        over "Circle_015" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_013"
+    {
+        over "Circle_016" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_014"
+    {
+        over "Circle_017" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_015"
+    {
+        over "Circle_018" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_016"
+    {
+        over "Circle_019" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_017"
+    {
+        over "Circle_020" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_018"
+    {
+        over "Circle_024" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_019"
+    {
+        over "Circle_025" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_020"
+    {
+        over "Circle_026" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_021"
+    {
+        over "Circle_027" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_022"
+    {
+        over "Circle_028" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_023"
+    {
+        over "Circle_029" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_024"
+    {
+        over "Circle_030" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_025"
+    {
+        over "Circle_031" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Circle_026"
+    {
+        over "Circle_032" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cube_004"
+    {
+        over "Cube_007" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cube_017"
+    {
+        over "Cube_016" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder"
+    {
+        over "Cylinder" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_001"
+    {
+        over "Cylinder_001" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_002"
+    {
+        over "Cylinder_002" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_003"
+    {
+        over "Cylinder_003" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_004"
+    {
+        over "Cylinder_004" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_005"
+    {
+        over "Cylinder_005" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_006"
+    {
+        over "Cylinder_011" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_007"
+    {
+        over "Cylinder_012" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_008"
+    {
+        over "Cylinder_010" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_009"
+    {
+        over "Cylinder_014" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_010"
+    {
+        over "Cylinder_013" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_011"
+    {
+        over "Cylinder_015" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_012"
+    {
+        over "Cylinder_016" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_043"
+    {
+        over "Cylinder_077" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_045"
+    {
+        over "Cylinder_041" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_046"
+    {
+        over "Cylinder_007" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_047"
+    {
+        over "Cylinder_008" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Cylinder_048"
+    {
+        over "Cylinder_009" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_001"
+    {
+        over "Plane_001" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_002"
+    {
+        over "Plane_002" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_004"
+    {
+        over "Plane_003" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_006"
+    {
+        over "Plane_006" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_007"
+    {
+        over "Plane_009" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_009"
+    {
+        over "Plane_010" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_010"
+    {
+        over "Plane_011" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_011"
+    {
+        over "Plane_013" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_012"
+    {
+        over "Plane_012" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_013"
+    {
+        over "Plane_014" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_014"
+    {
+        over "Plane_015" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_015"
+    {
+        over "Plane_017" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_016"
+    {
+        over "Plane_018" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_017"
+    {
+        over "Plane_022" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_018"
+    {
+        over "Plane_023" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_019"
+    {
+        over "Plane_007" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_020"
+    {
+        over "Plane_021" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_021"
+    {
+        over "Plane_020" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_022"
+    {
+        over "Plane_024" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_023"
+    {
+        over "Plane_033" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_024"
+    {
+        over "Plane_038" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_025"
+    {
+        over "Plane_028" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_026"
+    {
+        over "Plane_036" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_030"
+    {
+        over "Plane_032" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            token visibility = "inherited"
+        }
+    }
+
+    over "Plane_037"
+    {
+        token visibility = "inherited"
+
+        over "Plane_030" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            token visibility = "inherited"
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    over "Plane_038"
+    {
+        over "Plane_031" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            token visibility = "inherited"
+        }
+    }
+
+    over "Plane_039"
+    {
+        over "Plane_016" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_040"
+    {
+        over "Plane_027" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_044"
+    {
+        over "Plane_046" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_045"
+    {
+        over "Mesh_006" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_050"
+    {
+        over "Mesh_005" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_053"
+    {
+        token visibility = "inherited"
+
+        over "Plane_049" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            token visibility = "inherited"
+        }
+    }
+
+    over "Plane_057"
+    {
+        over "Plane_056" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_080"
+    {
+        over "Plane_069" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_083"
+    {
+        over "Plane_072" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_084"
+    {
+        over "Plane_073" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_085"
+    {
+        over "Plane_057" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_086"
+    {
+        over "Plane_062" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_089"
+    {
+        over "Plane_068" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_104"
+    {
+        over "Plane_087" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_105"
+    {
+        over "Plane_088" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "Plane_131"
+    {
+        over "Plane_107" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_001"
+    {
+        over "model_001" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_002"
+    {
+        over "model_003" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_003"
+    {
+        over "model_004" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_004"
+    {
+        over "model_005" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_005"
+    {
+        over "model_006" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_006"
+    {
+        over "model_007" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_007"
+    {
+        over "model_010" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_008"
+    {
+        over "model_011" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_009"
+    {
+        over "model_012" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_010"
+    {
+        over "model_013" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_012"
+    {
+        over "model_025" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_013"
+    {
+        over "model_015" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_014"
+    {
+        over "model_016" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_015"
+    {
+        over "model_018" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_016"
+    {
+        over "model_019" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_017"
+    {
+        over "model_020" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_018"
+    {
+        over "model_021" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_019"
+    {
+        over "model_023" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_020"
+    {
+        over "model_024" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_021"
+    {
+        over "model_027" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_022"
+    {
+        over "model_028" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_023"
+    {
+        over "model_029" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_024"
+    {
+        over "model_031" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_025"
+    {
+        over "model_032" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_026"
+    {
+        over "model_033" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_027"
+    {
+        over "model_034" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_028"
+    {
+        over "model_035" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_029"
+    {
+        over "model_036" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_030"
+    {
+        over "model_037" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_031"
+    {
+        over "model_038" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_032"
+    {
+        over "model_039" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_041"
+    {
+        over "model_060" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_042"
+    {
+        over "model_089" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_044"
+    {
+        over "Mesh_004" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_045"
+    {
+        over "model_091" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_046"
+    {
+        over "model_050" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_047"
+    {
+        over "model_008" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_048"
+    {
+        over "Mesh" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_049"
+    {
+        over "model_051" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_050"
+    {
+        over "model_030" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_051"
+    {
+        over "model_026" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_052"
+    {
+        over "model_093" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_054"
+    {
+        over "model_009" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_055"
+    {
+        over "model_053" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_056"
+    {
+        over "model_017" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_057"
+    {
+        over "model_002" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_058"
+    {
+        over "model_054" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_063"
+    {
+        over "model_059" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_064"
+    {
+        over "model_049" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    over "model_098"
+    {
+        over "model_113" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_099"
+    {
+        over "model_101" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_101"
+    {
+        over "model_097" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_102"
+    {
+        over "model_099" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_103"
+    {
+        over "model_100" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_105"
+    {
+        over "model_045" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_113"
+    {
+        over "model_081" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_160"
+    {
+        over "model_185" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_161"
+    {
+        over "model_133" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    over "model_166"
+    {
+        over "model_186" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_167"
+    {
+        over "model_106" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_169"
+    {
+        over "model_146" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_171"
+    {
+        over "model_149" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_172"
+    {
+        over "model_187" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_174"
+    {
+        over "model_189" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_175"
+    {
+        over "model_190" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_176"
+    {
+        over "model_191" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_177"
+    {
+        over "model_192" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_182"
+    {
+        over "model_105" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_183"
+    {
+        over "model_198" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_187"
+    {
+        over "model_110" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_189"
+    {
+        over "model_107" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_190"
+    {
+        over "model_108" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_193"
+    {
+        over "model_119" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    over "model_194"
+    {
+        over "model_120" (
+            prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+        )
+        {
+            uniform token physics:approximation = "convexHull"
+            bool physics:collisionEnabled = 1
+        }
+    }
+
+    def Xform "OS1" (
+        prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/Sensors/Ouster/OS1/OS1.usd@
+        variants = {
+            string sensor = "OS1_REV7_128ch20hz512res"
+        }
+    )
+    {
+        double3 xformOp:rotateXYZ = (-91.5615234375, -0, 0)
+        double3 xformOp:scale = (100, 100, 100)
+        double3 xformOp:translate = (5.841022335932999, 131.54219777773048, -89.30572889004712)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+        over "sensor"
+        {
+            custom string[] _replicator:rendervar:GenericModelOutput:channels = ["NONE"]
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0.0362199991941452)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        over "os1_mesh"
+        {
+            double3 xformOp:rotateXYZ = (90, 0, 90)
+            double3 xformOp:scale = (0.1, 0.1, 0.1)
+            double3 xformOp:translate = (0.0623039653041899, 0, 3.552713678800501e-15)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+        }
+    }
+}
+
+over "OmniverseKit_Front" (
+    prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
+    float horizontalAperture = 50
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -5)
+    token projection = "orthographic"
+    float verticalAperture = 50
+    float3 xformOp:rotateXYZ = (90, -1.2722219e-14, 90)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (5, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "OmniverseKit_Right" (
+    prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
+    float horizontalAperture = 50
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -5)
+    token projection = "orthographic"
+    float verticalAperture = 50
+    float3 xformOp:rotateXYZ = (90, 7.06225e-31, -1.2722219e-14)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, -5, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+over "OmniverseKit_Top" (
+    prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    customData = {
+        dictionary omni = {
+            dictionary kit = {
+                bool hide_in_stage_window = 1
+                bool no_delete = 1
+            }
+        }
+    }
+    hide_in_stage_window = true
+    kind = "component"
+    no_delete = true
+)
+{
+    float2 clippingRange = (1, 10000000)
+    float exposure:fStop = 5
+    float exposure:responsivity = 1.1026709
+    float exposure:time = 0.02
+    float horizontalAperture = 46.284786
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -5)
+    token projection = "orthographic"
+    float verticalAperture = 46.284786
+    float3 xformOp:rotateXYZ = (1.2722219e-14, -7.016709e-15, -90)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 0, 5)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+}
+
+def DistantLight "DistantLight" (
+    prepend apiSchemas = ["ShapingAPI"]
+)
+{
+    float inputs:angle = 1
+    float inputs:intensity = 3000
+    float inputs:shaping:cone:angle = 180
+    float inputs:shaping:cone:softness
+    float inputs:shaping:focus
+    color3f inputs:shaping:focusTint
+    asset inputs:shaping:ies:file
+    custom int omni:rtx:usdluxVersion = 2505
+    quatd xformOp:orient = (0.6532814824381882, 0.2705980500730985, 0.27059805007309856, 0.6532814824381883)
+    double3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (-0.3840481557630267, 2.319450065857016, 3.565805696057423)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+}
+
+def "SimpleRoom" (
+    prepend references = @https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/6.0/Isaac/Environments/Simple_Room/simple_room.usd@
+)
+{
+    over "table_low_327" (
+        active = false
+    )
+    {
+    }
+
+    over "Towel_Room01_floor_rim_side001_254"
+    {
+        double3 xformOp:rotateZYX = (0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 1.305869970811531, -0.76956998279877)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+    }
+
+    over "Towel_Room01_wall_side001_286"
+    {
+        double3 xformOp:rotateZYX = (0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 1.305869970811531, -0.76956998279877)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+    }
+}
+
+def "Graph"
+{
+    def OmniGraph "ROS_LidarRTX"
+    {
+        token evaluationMode = "Automatic"
+        token evaluator:type = "execution"
+        token fabricCacheBacking = "StageWithoutHistory"
+        int2 fileFormatVersion = (1, 9)
+        token pipelineStage = "pipelineStageSimulation"
+
+        def OmniGraphNode "OnPlaybackTick"
+        {
+            token node:type = "omni.graph.action.OnPlaybackTick"
+            int node:typeVersion = 2
+            custom double outputs:deltaSeconds
+            custom double outputs:frame
+            custom uint outputs:tick (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            custom double outputs:time
+        }
+
+        def OmniGraphNode "RunOnce"
+        {
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Graph/ROS_LidarRTX/OnPlaybackTick.outputs:tick>
+            token node:type = "isaacsim.core.nodes.OgnIsaacRunOneSimulationFrame"
+            int node:typeVersion = 1
+            custom uint outputs:step (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+        }
+
+        def OmniGraphNode "RenderProduct"
+        {
+            custom rel inputs:cameraPrim = </MILA_substitute/OS1/sensor> (
+                customData = {
+                    dictionary omni = {
+                        dictionary graph = {
+                            string relType = "target"
+                        }
+                    }
+                }
+            )
+            custom bool inputs:enabled
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Graph/ROS_LidarRTX/RunOnce.outputs:step>
+            custom uint inputs:height
+            custom rel inputs:renderProductPrim (
+                customData = {
+                    dictionary omni = {
+                        dictionary graph = {
+                            string relType = "target"
+                        }
+                    }
+                }
+            )
+            custom uint inputs:width
+            token node:type = "isaacsim.core.nodes.IsaacCreateRenderProduct"
+            int node:typeVersion = 3
+            custom uint outputs:execOut (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            custom token outputs:renderProductPath
+        }
+
+        def OmniGraphNode "Context" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uchar inputs:domain_id
+            custom bool inputs:useDomainIDEnvVar
+            token node:type = "isaacsim.ros2.bridge.ROS2Context"
+            int node:typeVersion = 2
+            custom uint64 outputs:context
+            uniform float2 ui:nodegraph:node:pos = (-806.5439, -1.9873168)
+        }
+
+        def OmniGraphNode "PointCloudConfig"
+        {
+            custom bool inputs:outputChannelId
+            custom bool inputs:outputEchoId
+            custom bool inputs:outputEmitterId = 1
+            custom bool inputs:outputHitNormal
+            custom bool inputs:outputIntensity = 1
+            custom bool inputs:outputMaterialId
+            custom bool inputs:outputObjectId
+            custom bool inputs:outputTickId
+            custom bool inputs:outputTickState
+            custom bool inputs:outputTimestamp = 1
+            custom bool inputs:outputVelocity
+            token node:type = "isaacsim.ros2.bridge.ROS2RtxLidarPointCloudConfig"
+            int node:typeVersion = 1
+            custom token[] outputs:selectedMetadata
+        }
+
+        def OmniGraphNode "PointCloudPublish" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:context
+            prepend uint64 inputs:context.connect = </Graph/ROS_LidarRTX/Context.outputs:context>
+            custom bool inputs:enabled
+            custom bool inputs:enableObjectIdMap
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Graph/ROS_LidarRTX/RenderProduct.outputs:execOut>
+            custom string inputs:frameId = "OS1_lidar_sim"
+            custom uint inputs:frameSkipCount
+            custom bool inputs:fullScan
+            custom string inputs:nodeNamespace = ""
+            custom string inputs:objectIdMapTopicName
+            custom string inputs:qosProfile
+            custom uint64 inputs:queueSize
+            custom token inputs:renderProductPath
+            prepend token inputs:renderProductPath.connect = </Graph/ROS_LidarRTX/RenderProduct.outputs:renderProductPath>
+            custom bool inputs:resetSimulationTimeOnStop
+            custom token[] inputs:selectedMetadata
+            prepend token[] inputs:selectedMetadata.connect = </Graph/ROS_LidarRTX/PointCloudConfig.outputs:selectedMetadata>
+            custom bool inputs:showDebugView = 1
+            custom string inputs:topicName = "/point_cloud"
+            custom token inputs:type = "point_cloud" (
+                allowedTokens = ["laser_scan", "point_cloud"]
+            )
+            custom bool inputs:useSystemTime
+            token node:type = "isaacsim.ros2.bridge.ROS2RtxLidarHelper"
+            int node:typeVersion = 3
+            uniform float2 ui:nodegraph:node:pos = (-182.94736, -148.00003)
+        }
+    }
+}
+
