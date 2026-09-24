@@ -120,6 +120,7 @@ typedef struct {
 } RadioPinout;
 
 inline RadioPinout getRadioPins() {
+    #ifdef BREAD_BOARD_EBYTE_PINS
     RadioPinout pins = {
         .sclk = 25,
         .miso = 26,
@@ -131,6 +132,19 @@ inline RadioPinout getRadioPins() {
         .dio1 = 34, //interrupt trigger
         .busy = 35  //indicates when chip is busy processing
     };
+    #else
+        RadioPinout pins = {
+        .sclk = 18,
+        .miso = 19,
+        .mosi = 23,
+        .nss  = 14, //output SPI chip select
+
+        //output pins for chip state
+        .nrst = 13, //hardware reset pin
+        .dio1 = 34, //interrupt trigger
+        .busy = 35  //indicates when chip is busy processing
+    };
+    #endif
     return pins;
 }
 

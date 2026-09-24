@@ -1,7 +1,6 @@
 Vitals' key tasks include:
 
-
-1. monitoring datam and disabling contactors in emergencies (see vitalsData folder)
+1. monitoring data and disabling contactors in emergencies (see vitalsData folder)
 2. sendingHB messages over CANBus, and updating telemetry with HB and Vitals' status info (see vitalsHB folder)
 3. Communicate with telemetry (using the telemtryTX code). Use vitalsSendData.c to send formatted messages, and the auto-generated callbacks directory to receive telemetry messages. The structure of these messages it declared in packetFormat.py.
 4. Sequencing the precharge and powerDistribution contactors, disabling them if in critical state. See contactorControl.c

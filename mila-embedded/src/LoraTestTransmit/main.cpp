@@ -2,61 +2,61 @@
 #include "freertos/FreeRTOS.h"
 #include "esp_timer.h"
 
+#include <cstring>
+#include <inttypes.h>
+
 #include "../LoraCommon/Driver/Driver.hpp"
+#include "../LoraCommon/LoraErrLog.hpp"
+#include "../LoraCommon/safeDriverUtil.hpp"
 
-static const char* TAG= "main";
+static const char* TAG = "main";
 
-//Callbacks for protocol when RX/TX finish. Protocol must implement these
 #define timeout_ms 2000
 #define timeout_us (timeout_ms * 1000)
-
 #define seqNum 9900
 
-uint64_t counter = 1;
+static uint64_t counter = 1;
 
-void protocolTXComplete(){
-
-    ESP_LOGI(TAG, "transmit complete for num %llu", counter - 1);
-
-    driverSendPacket msg{};
-    *((uint16_t*) msg.data) = seqNum;
-    uint64_t* writePtr = (uint64_t*) (msg.data + 2);
-    const int loopSize = 30;//240 bytes of same long: 30*8 = 240
-    for(int i = 0; i<loopSize;i++){   
-        *writePtr = counter;
-        writePtr ++;
-    }
-    msg.dataSize = sizeof(counter) * loopSize + 2;
-    LoraTransmit(&msg,  esp_timer_get_time() + timeout_us);
-
-    counter++;
+// The simple-test build does not link either telemetry protocol's error sink.
+void logErr(const char* tag, int16_t error) {
+    ESP_LOGE(tag, "LoRa test error: %d", error);
 }
 
-void protocolRecv(const driverRecvPacket* packet){
-    ESP_LOGE(TAG, "Warning protocolReceive called");
-    ESP_LOGI(TAG, "Received LoRa Packet - Length: %u", packet->dataSize);
-    printf("Payload (Hex): ");
-    for (size_t i = 0; i < packet->dataSize; i++) {
-        printf("%02X ", packet->data[i]);
-    }
-    printf("\n");
+void protocolTXComplete() {}
+void protocolRecv(const driverRecvPacket* packet) {
+    ESP_LOGW(TAG, "Unexpected receive of %zu bytes while transmitting", packet->dataSize);
 }
-
-//Callback for when driver Crashes. Protocol must implement these
-void protocolCrash(const int16_t error, const char* msg){
+void protocolCrash(const int16_t error, const char* msg) {
     ESP_LOGE(TAG, "protocolCrash called from %s with error %d", msg, error);
-}    //function to be called by driver to crash
+}
 
 extern "C" void app_main(void) {
-    vTaskDelay(pdMS_TO_TICKS(2000)); //wait 2 seconds before starting TX
-    ESP_LOGI(TAG, "Starting Lora TX from main");
-    // loop forever
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    ESP_LOGI(TAG, "Starting LoRa TX test");
+
     RadioConfig cfg = getStandardConfig(BoardType::Ebyte_SX1262, TestMode::lowPower);
     LoraDriverInit(&cfg);
-    // LoraDriverInit(getStandardConfig(BoardType::Ebyte_SX1262, TestMode::lowPower));
-    driverSendPacket msg{};
-    *((uint64_t*) msg.data) = counter;
-    msg.dataSize = sizeof(counter);
-    LoraTransmit(&msg,  esp_timer_get_time() + timeout_us);
-}
 
+    constexpr size_t loopSize = 30;
+    for (;;) {
+        uint8_t payload[sizeof(uint16_t) + sizeof(counter) * loopSize];
+        const uint16_t sequence = seqNum;
+        memcpy(payload, &sequence, sizeof(sequence));
+        for (size_t i = 0; i < loopSize; ++i) {
+            memcpy(payload + sizeof(sequence) + sizeof(counter) * i, &counter, sizeof(counter));
+        }
+
+        const driverSendPacket msg{sizeof(payload), payload};
+        const result txResult = safeLoraTx(&msg, esp_timer_get_time() + timeout_us);
+        if (txResult == Success) {
+            ESP_LOGI(TAG, "TX_DONE for counter %" PRIu64, counter);
+            ++counter;
+        } else {
+            ESP_LOGW(TAG, "Transmit of counter %" PRIu64 " failed: result %d", counter, txResult);
+            if (txResult == Crashed) {
+                break;
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}

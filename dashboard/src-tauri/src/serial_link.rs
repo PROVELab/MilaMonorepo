@@ -297,6 +297,11 @@ fn drop_pending_outbound_commands(
 }
 
 fn wait_for_serial_port_name() -> String {
+    // TEMPORARY: force the dashboard to use the MCU's known USB0 connection.
+    // Remove this return and uncomment the dynamic selection code below to restore auto-discovery.
+    return "/dev/ttyUSB0".to_string();
+
+    /*
     if let Ok(port_name) = env::var("MILA_VSR_SERIAL_PORT") {
         if !port_name.trim().is_empty() {
             return port_name;
@@ -321,6 +326,7 @@ fn wait_for_serial_port_name() -> String {
 
         thread::sleep(VSR_RETRY_DELAY);
     }
+    */
 }
 
 fn choose_serial_port_name(ports: &[SerialPortInfo]) -> Option<String> {

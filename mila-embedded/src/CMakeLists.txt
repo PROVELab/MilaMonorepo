@@ -81,6 +81,23 @@ if(CMAKE_MCU_ESP_BUILD)
     )
 endif()
 
+if(CMAKE_PEDAL_ONLY_BUILD)
+    set(SRC_FILES
+        "pedalOnly/main.c"
+        "sensors/powerSensor/espPower.c"
+        "sensors/pedalSensor/pedalInterpolation.c"
+    )
+    add_compile_definitions(POWER_SENSOR_NO_PECAN_STATUS)
+endif()
+
+if(CMAKE_PRECHARGE_COMMANDER_BUILD)
+    set(SRC_FILES
+        "prechargeCommander/main.c"
+        "pecan/common.c"
+        "pecan/espSpecific.c"
+    )
+endif()
+
 if(CMAKE_TELEM_TX_BENCHMARK)
 
     file(GLOB TX_LORA_SRC
@@ -182,6 +199,33 @@ if(CMAKE_ESP_LISTEN_BUILD)
     )
 endif()
 
+if(CMAKE_VITALS_RESPONDER_BUILD)
+    set(SRC_FILES
+        "vitalsResponder/main.c"
+        "pecan/common.c"
+        "pecan/espSpecific.c"
+        "pecan/vitalsInit.c"
+        "espBase/debug_esp.c"
+    )
+endif()
+
+if(CMAKE_VITALS_HB_ONLY_BUILD)
+    set(SRC_FILES
+        "vitals_HB_Only/main.c"
+        "pecan/common.c"
+        "pecan/espSpecific.c"
+        "espBase/debug_esp.c"
+    )
+endif()
+
+if(CMAKE_LED_Driver_BUILD)
+    set(SRC_FILES
+        "LED_Driver/main.cpp"
+        "LED_Driver/LEDShow.cpp"
+    )
+    list(APPEND COMPONENT_REQUIRES "esp_driver_rmt")
+endif()
+
 if(CMAKE_BMS)
     file(GLOB BMS_SRC
         "BMS_Test/*.c"
@@ -204,3 +248,9 @@ idf_component_register(
     INCLUDE_DIRS "."
     REQUIRES ${COMPONENT_REQUIRES}
 )
+
+if(CMAKE_MCU_ESP_BUILD)
+    # Route all linked esp_restart() calls through mcu/restart_trace.c. The
+    # wrapper saves the caller PC in RTC memory for the next boot report.
+    target_link_options(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=esp_restart")
+endif()

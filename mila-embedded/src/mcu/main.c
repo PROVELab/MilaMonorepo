@@ -8,12 +8,14 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "../espBase/debug_esp.h"
 #include "../pecan/pecan.h" //helper code for CAN stuff
 
 #include "esp_log.h"
 #include "motor_h300/h300.h"
+#include "restart_trace.h"
 #include "tasks/tasks.h"
 #include "tasks/vsr_uart_shared.h"
 #include "vsr/vsr_state.h" // vehicle status register, holds all the information about the vehicle
@@ -80,6 +82,8 @@ void app_main() {
     vsr_init(&vsr_global);
     esp_log_set_vprintf(&vsr_log_vprintf);
 
+    log_restart_trace();
+
     ESP_LOGI(__func__, "Hello, minimal app starting");
 
     if (!vsr_uart_init()) {
@@ -106,9 +110,10 @@ void app_main() {
     ESP_LOGI(__func__, "StartedLogging");
 
     // Send data to the motor task
-    start_send_motor_task();
+    //temporarily commented out since no motor connected
+    // start_send_motor_task();
     start_vsr_stream_task();
     start_mcu_health_task();
-    start_motor_command_rx_task();
+    // start_motor_command_rx_task();
     ESP_LOGI(__func__, "Started motor tasks");
 }

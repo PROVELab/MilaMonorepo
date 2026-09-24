@@ -46,6 +46,7 @@ int32_t collect_pedalPowerReadingmV(bool* cancelFrameSend) {
         ADC_ReadingStatuses[reading1_Index] = READ_CRITICAL;
         ADC_ReadingStatuses[reading2_Index] = READ_CRITICAL;
     }
+
     // char buffer[64];
     // sprintf(buffer, "collecting pedalPowermV: %ld\n", ADC_Readings[pedalPower_Index]);
     // mutexPrint(buffer);
@@ -79,12 +80,10 @@ int32_t collect_pedalReadingTwo(bool* cancelFrameSend) {
             transformPedalReading(ADC_Readings[reading2_Index], ADC_Readings[pedalPower_Index], fallingPedalIndex);
     }
 
-    // speed stuff
     int a = (ADC_Readings[reading1_Index] < ADC_Readings[reading2_Index]) ? ADC_Readings[reading1_Index]
                                                                           : ADC_Readings[reading2_Index];
-    a -= 30; //safe margin, dont want to start zoomin without thorough press
+    a -= 8; //safe margin, dont want to start zoomin without thorough press
     if (a < 0) a = 0;
-    a/=4;
 
     // Send the speed (if necessary)
     volatile vehicle_status_reg_t* vsr = &vsr_global; // easier to type
@@ -141,21 +140,27 @@ void recieveMSG(void* param) { // task handles recieving Messages
 
 void pedal_main(PCANListenParamsCollection* plpc) {
     base_ESP_init();
-    pecanInit config = {.nodeId = myId, .pin1 = defaultPin, .pin2 = defaultPin};
+    // pecanInit config = {.nodeId = myId, .pin1 = defaultPin, .pin2 = defaultPin};
+    pecanInit config = {.nodeId = myId, .pin1 = 17, .pin2 = 16};
     pecan_CanInit(config); // initialize CAN
 
-    // 1) Build your per-channel configs (order matters)
-    selfPowerConfig channels[numADCChannels] = {{.ADCPin = VP_Pin, .R1 = 114000, .R2 = 57000},  //
-                                                {.ADCPin = VN_Pin, .R1 = 300000, .R2 = 150000}, // rising (white wire)
-                                                {.ADCPin = 35, .R1 = 303000, .R2 = 198000},     // falling (red wire)
-                                                {.ADCPin = 34, .R1 = 1, .R2 = 3000000}};
+
+    constexpr int large_R = 100000;
+    constexpr int small_R = 64900;
+
+    // 1) Build per-channel configs (order matters)
+    selfPowerConfig channels[numADCChannels] = {{.ADCPin = VN_Pin, .R1 = large_R, .R2 = large_R},  // Vcc
+                                                {.ADCPin = 35, .R1 = small_R, .R2 = large_R}, // rising (white wire)
+                                                {.ADCPin = 34, .R1 = small_R, .R2 = large_R},     // falling (red wire)
+                                                {.ADCPin = VP_Pin, .R1 = 1, .R2 = large_R}};       //brake
+
 
     // 2) Initialize; get per-channel init statuses
     const int ADCUnit = 1; // continous is only valid for ADC Unit 1 (not 2)
     selfPowerStatus_t init_status[numADCChannels];
     initializeSelfPower(channels, numADCChannels, ADCUnit, init_status);
 
-    // Optionally report/init-guard
+    // // Optionally report/init-guard
     selfPowerStatusCheck(init_status, numADCChannels, myId);
 
     // Declare tasks here as needed

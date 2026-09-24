@@ -346,6 +346,7 @@ void collectSelfPowerAllmV(int32_t* out_vin_mV, selfPowerStatus_t* out_statuses)
 //                         Status array helper
 // ============================================================================
 
+#ifndef POWER_SENSOR_NO_PECAN_STATUS
 void selfPowerStatusCheck(const selfPowerStatus_t* statuses, int num_channels, int id) {
     if (!statuses || num_channels <= 0) return;
 
@@ -355,10 +356,14 @@ void selfPowerStatusCheck(const selfPowerStatus_t* statuses, int num_channels, i
         const selfPowerStatus_t s = statuses[i];
         if (s == NOTHING_TO_READ || s == READ_FAILURE) {
             // ESP_LOGW(TAG, "SelfPower channel %d read failed with status %d", i, s);
-            sendStatusUpdate(s, id);
+            // sendStatusUpdate(s, id);
         }
         if (s == INIT_FAILURE) any_init_failure = true;
     }
 
-    if (any_init_failure) { esp_restart(); }
+    if (any_init_failure) { 
+        ESP_LOGE(TAG, "init failure");
+        // esp_restart();
+     }
 }
+#endif

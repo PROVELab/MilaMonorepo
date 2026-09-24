@@ -52,7 +52,9 @@ void collectSelfPowerAllmV(int32_t* out_vin_mV, selfPowerStatus_t* out_statuses)
 /** Number of channels configured at init time. */
 int getSelfPowerChannelCount();
 
+#ifndef POWER_SENSOR_NO_PECAN_STATUS
 #include "../../pecan/pecan.h" //for send status updates
 void selfPowerStatusCheck(const selfPowerStatus_t* statuses, int num_channels, int id);
+#endif
 
 #endif

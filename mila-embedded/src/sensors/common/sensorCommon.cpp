@@ -20,10 +20,10 @@ void sendFrame(int8_t frameNum) {
     uint8_t tempData[8] = {0};
     for (int i = 0; i < frameNumData;
          i++) { // iterate over each data. Colect data from dataCollectors, and store compressed version into tempdata.
-        bool sendFrame=true; //sendFrame by default
+        bool cancelSendFrame=false; //dont cancel by default
         //Any datapoint can request to cancel sending the entire frame by setting sendFrame to 0
-        int32_t data = mydataCollectors[collectorFuncIndex + i](&sendFrame); // collects the data point
-        if(sendFrame == false){
+        int32_t data = mydataCollectors[collectorFuncIndex + i](&cancelSendFrame); // collects the data point
+        if(cancelSendFrame == true){
             return; //skip sending this frame
         }
         simpleDataPoint* info = &myframes[frameNum].dataInfo[i];

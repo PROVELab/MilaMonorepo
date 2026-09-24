@@ -60,12 +60,13 @@ void checkBusStatus(void* pvParameters) {
             }
         } else if (alertStatus != ESP_ERR_TIMEOUT) {
             ESP_LOGE(__func__, "confused on what state we are in. Should never happen. rebooting\n");
+            vTaskDelay(pdMS_TO_TICKS(3000));
             esp_restart();
         }
     }
 }
-#define defaultTxPin GPIO_NUM_33
-#define defaultRxPin GPIO_NUM_32
+#define defaultTxPin GPIO_NUM_17
+#define defaultRxPin GPIO_NUM_16
 
 // Initialize Can for esps, also give logic for starting and restarting bus based on alerts
 void pecan_CanInit(pecanInit config) {
@@ -100,6 +101,7 @@ void pecan_CanInit(pecanInit config) {
             NULL // NULL since dont need old alerts
             ) != ESP_OK) {
         ESP_LOGE(TAG, "couldn't configure alerts. Attempting Restart");
+        vTaskDelay(pdMS_TO_TICKS(3000));
         esp_restart();
     }
     // Create static State task
@@ -112,7 +114,7 @@ void pecan_CanInit(pecanInit config) {
                       &busStatus_Task           // task control block
     );
 
-    sendStatusUpdate(initFlag, nodeId);
+    // sendStatusUpdate(initFlag, nodeId);
     return;
 }
 
@@ -132,6 +134,7 @@ int16_t waitPackets(PCANListenParamsCollection* plpc) {
         //it seems if you get with when 2 mc connect over CAN, they can both end up acking,
         //but one of the drivers doesnt recv any messages somehow.. i dont understand.
         ESP_LOGE(TAG, "waited 8 seconds and got no CAN packets. rebooting");
+        vTaskDelay(pdMS_TO_TICKS(3000));
         esp_restart();
     }
     if (err == ESP_OK) { // blocking check for messages (RTOS will schedule something else while blocked)
@@ -208,6 +211,7 @@ void sendPacket(CANPacket* p) {
         ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms. can_id=%" PRIi32 " dlc=%u err=%d",
                  p->id, (unsigned)message.data_length_code, (int)err);
         //driver should hopefully restart.. no reboot for now (likely not ideal in final code)
+        vTaskDelay(pdMS_TO_TICKS(3000));
         esp_restart();
         // TODO: Perhaps add a means to uninstall and reinstall the TWAI DRIVER here.
     }
