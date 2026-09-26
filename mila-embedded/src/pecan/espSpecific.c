@@ -60,7 +60,7 @@ void checkBusStatus(void* pvParameters) {
             }
         } else if (alertStatus != ESP_ERR_TIMEOUT) {
             ESP_LOGE(__func__, "confused on what state we are in. Should never happen. rebooting\n");
-            esp_restart();
+            // esp_restart(); // TEMPORARILY DISABLED FOR IMU TESTING
         }
     }
 }
@@ -100,7 +100,7 @@ void pecan_CanInit(pecanInit config) {
             NULL // NULL since dont need old alerts
             ) != ESP_OK) {
         ESP_LOGE(TAG, "couldn't configure alerts. Attempting Restart");
-        esp_restart();
+        // esp_restart(); // TEMPORARILY DISABLED FOR IMU TESTING
     }
     // Create static State task
     xTaskCreateStatic(checkBusStatus,           // task function
@@ -132,7 +132,7 @@ int16_t waitPackets(PCANListenParamsCollection* plpc) {
         //it seems if you get with when 2 mc connect over CAN, they can both end up acking,
         //but one of the drivers doesnt recv any messages somehow.. i dont understand.
         ESP_LOGE(TAG, "waited 8 seconds and got no CAN packets. rebooting");
-        esp_restart();
+        // esp_restart(); // TEMPORARILY DISABLED FOR IMU TESTING
     }
     if (err == ESP_OK) { // blocking check for messages (RTOS will schedule something else while blocked)
         if ((recv_pack.extendedID = twaiMSG.extd) == true) {
@@ -208,9 +208,10 @@ void sendPacket(CANPacket* p) {
         ESP_LOGE(TAG, "Unable to transmit msg for at least 500ms. can_id=%" PRIi32 " dlc=%u err=%d",
                  p->id, (unsigned)message.data_length_code, (int)err);
         //driver should hopefully restart.. no reboot for now (likely not ideal in final code)
-        esp_restart();
+        // esp_restart(); // TEMPORARILY DISABLED FOR IMU TESTING
         // TODO: Perhaps add a means to uninstall and reinstall the TWAI DRIVER here.
     }
     // in current implementation, will always return ESP_OK.
     return;
 }
+

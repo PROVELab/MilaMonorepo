@@ -177,7 +177,7 @@ void app_main(void){
 	base_ESP_init();
 	pecanInit config={.nodeId= myId, .pin1= defaultPin, .pin2= defaultPin};
 	imu_init();
-    initTempHumid();
+    // initTempHumid();
 	pecan_CanInit(config);   //initialize CAN
 
 	//Declare tasks here as needed
@@ -191,3 +191,4 @@ void app_main(void){
 		&receiveMSG_Buffer,   /* Variable to hold the task's data structure. */
 		tskNO_AFFINITY);  //assign to either core
 }
+
