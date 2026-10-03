@@ -1,0 +1,14 @@
+{
+  "name": "mila-autonomy-stack",
+  "version-string": "1.0.0",
+  "dependencies": [
+    "eigen3",
+    "jsoncpp",
+    "spdlog",
+    "curl",
+    "libtins",
+    "ceres",
+    "flatbuffers",
+    "libpng"
+  ]
+}
