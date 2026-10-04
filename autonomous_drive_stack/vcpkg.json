@@ -9,6 +9,8 @@
     "libtins",
     "ceres",
     "flatbuffers",
-    "libpng"
+    "libpng",
+    "libtins",
+    "spdlog"
   ]
 }
