@@ -1,0 +1,30 @@
+set shell := ["bash", "-uc"]
+
+default: build
+
+init:
+    git submodule update --init --recursive thirdparty/ouster-sdk
+    @if [ ! -f CMakeUserPresets.json ] && [ -f CMakeUserPresets.json.example ]; then \
+        cp CMakeUserPresets.json.example CMakeUserPresets.json; \
+        echo "Created CMakeUserPresets.json from template"; \
+    fi
+
+configure preset="default":
+    cmake --preset={{preset}}
+
+build-ouster:
+    @if [ ! -d "build" ]; then cmake --preset=default; fi
+    cmake --build build --target ouster_client -j $(nproc)
+
+build:
+    @if [ ! -d "build" ]; then cmake --preset=default; fi
+    cmake --build build -j $(nproc)
+
+run *args:
+    ./build/main {{args}}
+
+clean:
+    rm -rf build
+
+distclean:
+    rm -rf build vcpkg_installed compile_commands.json
