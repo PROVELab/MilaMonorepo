@@ -191,10 +191,10 @@ Verify that `CMakeUserPresets.json` points to your `vcpkg` location:
 Configure CMake and compile using the default preset:
 
 ```bash
-# Configure (vcpkg will automatically resolve dependencies on first run)
+# Configure (installs dependencies via vcpkg automatically on first run; takes 5–10 min)
 cmake --preset=default
 
-# Compile
+# Compile project binaries
 cmake --build build
 ```
 
