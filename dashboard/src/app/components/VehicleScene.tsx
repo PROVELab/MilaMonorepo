@@ -1,11 +1,12 @@
 "use client";
 
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Environment, OrbitControls, useGLTF } from "@react-three/drei";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { OrbitControls as OrbitControlsImpl, PLYLoader } from "three-stdlib";
 import type { DriveMode } from "../types/telemetry";
+import { PointCloud } from "./dashboard/PointCloud";
 
 const MODEL_PATH = "/octane.glb";
 const TARGET_MODEL_BOUNDS = new THREE.Vector3(5.4, 2.1, 3.0);
@@ -19,37 +20,52 @@ interface VehicleSceneProps {
   driveMode: DriveMode;
 }
 
-function CameraController({ controlsRef, driveMode }: { controlsRef: React.MutableRefObject<OrbitControlsImpl | null>; driveMode: DriveMode }) {
+function CameraController({
+  controlsRef,
+  driveMode,
+}: {
+  controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
+  driveMode: DriveMode;
+}) {
   const { camera, gl } = useThree();
   const interacting = useRef(false);
   const lastInteractionTime = useRef(Date.now());
-  const shouldAutoRecenter =
-    driveMode === "Drive" || driveMode === "Cruise Control" || driveMode === "Reverse";
+  const shouldAutoRecenter = driveMode === "Drive" || driveMode === "Cruise Control" || driveMode === "Reverse";
   const targetPos = driveMode === "Reverse" ? CAMERA_POS_REVERSE : CAMERA_POS_DRIVE;
 
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;
 
-    const onStart = () => { interacting.current = true; };
-    const onEnd = () => { interacting.current = false; lastInteractionTime.current = Date.now(); };
-    
-    controls.addEventListener('start', onStart);
-    controls.addEventListener('end', onEnd);
+    const onStart = () => {
+      interacting.current = true;
+    };
+    const onEnd = () => {
+      interacting.current = false;
+      lastInteractionTime.current = Date.now();
+    };
+
+    controls.addEventListener("start", onStart);
+    controls.addEventListener("end", onEnd);
 
     // Fail-safe: immediately halt camera lerp the moment a pointer hits the canvas
-    const onPointerDown = () => { interacting.current = true; };
-    const onPointerUp = () => { interacting.current = false; lastInteractionTime.current = Date.now(); };
+    const onPointerDown = () => {
+      interacting.current = true;
+    };
+    const onPointerUp = () => {
+      interacting.current = false;
+      lastInteractionTime.current = Date.now();
+    };
 
     const canvas = gl.domElement;
-    canvas.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointerup", onPointerUp);
 
     return () => {
-      controls.removeEventListener('start', onStart);
-      controls.removeEventListener('end', onEnd);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointerup', onPointerUp);
+      controls.removeEventListener("start", onStart);
+      controls.removeEventListener("end", onEnd);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointerup", onPointerUp);
     };
   }, [controlsRef, gl]);
 
@@ -128,7 +144,11 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
       const scaledBounds = new THREE.Box3().setFromObject(scene);
       const center = scaledBounds.getCenter(new THREE.Vector3());
       const minY = scaledBounds.min.y;
-      scene.position.set(scene.position.x - center.x, scene.position.y + (GROUND_Y - minY), scene.position.z - center.z);
+      scene.position.set(
+        scene.position.x - center.x,
+        scene.position.y + (GROUND_Y - minY),
+        scene.position.z - center.z,
+      );
       basePositionRef.current.copy(scene.position);
     }
   }, [scene]);
@@ -143,9 +163,9 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
     const wheelSpinRadians = (wheelSurfaceMetersPerSecond / wheelRadius) * delta * spinDirection;
 
     const steeringAngle = THREE.MathUtils.degToRad(Math.sin(state.clock.elapsedTime * 0.5) * 4);
-    steeringPivotsRef.current.forEach(pivot => (pivot.rotation.y = steeringAngle));
-    frontWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
-    rearWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
+    steeringPivotsRef.current.forEach((pivot) => (pivot.rotation.y = steeringAngle));
+    frontWheelsRef.current.forEach((wheel) => (wheel.rotation.x += wheelSpinRadians));
+    rearWheelsRef.current.forEach((wheel) => (wheel.rotation.x += wheelSpinRadians));
 
     scene.position.copy(basePositionRef.current);
     scene.rotation.y = THREE.MathUtils.degToRad((smoothRpm.current / 3000) * 6);
@@ -159,10 +179,10 @@ export function VehicleScene({ rpm, driveMode }: VehicleSceneProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   return (
-    <div className="vehicle-scene" style={{ touchAction: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}>
+    <div className="vehicle-scene" style={{ touchAction: "none", userSelect: "none", WebkitTouchCallout: "none" }}>
       <Canvas
         onContextMenu={(e) => e.preventDefault()}
-        style={{ touchAction: 'none', userSelect: 'none', WebkitTouchCallout: 'none' }}
+        style={{ touchAction: "none", userSelect: "none", WebkitTouchCallout: "none" }}
         shadows
         camera={{ position: [-12.2, 3.8, 0], fov: 45 }}
         gl={{ toneMapping: THREE.ACESFilmicToneMapping, outputColorSpace: THREE.SRGBColorSpace }}
@@ -182,7 +202,7 @@ export function VehicleScene({ rpm, driveMode }: VehicleSceneProps) {
 
         <VehicleModel rpm={rpm} driveMode={driveMode} />
         <CameraController controlsRef={controlsRef} driveMode={driveMode} />
-
+        <PointCloud scale={20} />
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.36, 0]} receiveShadow>
           <ringGeometry args={[0.25, 9.5, 64]} />
           <meshStandardMaterial color="#1a1a1a" metalness={0.3} roughness={0.4} />
@@ -204,3 +224,4 @@ export function VehicleScene({ rpm, driveMode }: VehicleSceneProps) {
 }
 
 useGLTF.preload(MODEL_PATH);
+useLoader.preload(PLYLoader, "model/sample_points.ply");

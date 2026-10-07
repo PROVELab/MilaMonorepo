@@ -93,7 +93,7 @@ export function VehicleDashboard() {
       }
     };
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '+')) {
+      if (e.ctrlKey && (e.key === "=" || e.key === "-" || e.key === "+")) {
         e.preventDefault();
       }
     };
@@ -103,14 +103,14 @@ export function VehicleDashboard() {
       }
     };
 
-    document.addEventListener('wheel', handleWheel, { passive: false });
-    document.addEventListener('keydown', handleKeyDown, { passive: false });
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener("wheel", handleWheel, { passive: false });
+    document.addEventListener("keydown", handleKeyDown, { passive: false });
+    document.addEventListener("touchmove", handleTouchMove, { passive: false });
 
     return () => {
-      document.removeEventListener('wheel', handleWheel);
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener("wheel", handleWheel);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("touchmove", handleTouchMove);
     };
   }, []);
 

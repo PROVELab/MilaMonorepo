@@ -22,7 +22,17 @@ interface Props {
 
 function EmptyChartsPanel() {
   return (
-    <div className="panel panel--charts" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", width: "100%", background: "var(--panel)" }}>
+    <div
+      className="panel panel--charts"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        width: "100%",
+        background: "var(--panel)",
+      }}
+    >
       <div style={{ textAlign: "center", color: "var(--muted)" }}>
         <h3>Charts</h3>
         <p>Empty charts (using VSR charting logic later)</p>
@@ -55,11 +65,7 @@ export function DriveView({
   return (
     <div className="drive-view">
       <div className="drive-view__center" style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}>
-        {activeCenter === "scene" ? (
-          <VehicleScene rpm={motorRpm} driveMode={driveMode} />
-        ) : (
-          <EmptyChartsPanel />
-        )}
+        {activeCenter === "scene" ? <VehicleScene rpm={motorRpm} driveMode={driveMode} /> : <EmptyChartsPanel />}
       </div>
 
       <button className="nav-arrow nav-arrow--left" onClick={handlePrev} aria-label="Previous view">
