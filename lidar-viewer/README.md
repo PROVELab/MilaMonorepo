@@ -36,4 +36,5 @@ Both are ARM64 Linux, so the Tauri app and a Python viewer should mostly carry o
 
 ## Code
 
-fake_lidar.py (in this folder)
+- fake_lidar.py: generates a fake 128-channel scan of a room and shows it in the viewer.
+- view_sample.py: loads a real Ouster sample capture (sample_points.ply) and shows it in the same viewer, colored by distance. Get the sample file from David's branch (point-map-dashboard, at dashboard/public/model/sample_points.ply) and put it in the same folder as the script.
