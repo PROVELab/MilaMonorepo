@@ -9,12 +9,8 @@ init:
         echo "Created CMakeUserPresets.json from template"; \
     fi
 
-configure preset="default":
+configure preset="default": init
     cmake --preset={{preset}}
-
-build-ouster:
-    @if [ ! -d "build" ]; then cmake --preset=default; fi
-    cmake --build build --target ouster_client -j $(nproc)
 
 build:
     @if [ ! -d "build" ]; then cmake --preset=default; fi
