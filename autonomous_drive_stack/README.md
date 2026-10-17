@@ -149,7 +149,7 @@ Apply the change by running this in PowerShell: `wsl --shutdown`.
 Clone the repository recursively to pull in all required submodules (including `third_party/ouster-sdk`):
 
 ```bash
-git clone --recursive <your-repo-url>
+git clone --recursive git@github.com:PROVELab/MilaMonorepo.git
 cd autonomous_drive_stack
 ```
 
@@ -173,13 +173,22 @@ Verify that `CMakeUserPresets.json` points to your `vcpkg` location:
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "configurePresets": [
     {
       "name": "default",
       "inherits": "vcpkg",
       "environment": {
         "VCPKG_ROOT": "$penv{HOME}/vcpkg"
+      }
+    },
+    {
+      "name": "build-examples",
+      "inherits": "default",
+      "cacheVariables": {
+        "BUILD_EXAMPLES": "ON",
+        "BUILD_VIZ": "ON",
+        "BUILD_PERCEPTION": "ON"
       }
     }
   ]
@@ -188,10 +197,25 @@ Verify that `CMakeUserPresets.json` points to your `vcpkg` location:
 
 ### 3. Build the Project
 
-Configure CMake and compile using the default preset:
+You can compile using standard CMake presets or leverage the project's just automation tasks:
+
+#### Option A: Using just Automation (Recommended)
 
 ```bash
-# Configure (installs dependencies via vcpkg automatically on first run; takes 5–10 min)
+# Build the main autonomy stack
+just build
+
+# Build examples to test that the Ouster SDK is properly built
+just build_examples
+
+# Run the OSF reader test example with sample data
+just run_example
+```
+
+#### Option B: Using CMake Directly
+
+```bash
+# Configure CMake and compile using the default preset:
 cmake --preset=default
 
 # Compile project binaries

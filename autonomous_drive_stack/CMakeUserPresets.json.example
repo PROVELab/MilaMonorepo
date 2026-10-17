@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "configurePresets": [
     {
       "name": "default",
@@ -7,6 +7,16 @@
       "environment": {
         "VCPKG_ROOT": "$penv{HOME}/vcpkg"
       }
+    },
+    {
+      "name": "build-examples",
+      "inherits": "default",
+      "cacheVariables": {
+        "BUILD_EXAMPLES": "ON" ,
+        "BUILD_VIZ": "ON",
+        "BUILD_PERCEPTION": "ON"
+      }
     }
   ]
+  
 }
