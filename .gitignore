@@ -9,7 +9,7 @@
 .devbox/
 .cache/
 compile_commands.json
-
+.idea/
 # Python
 venv/
 .venv/

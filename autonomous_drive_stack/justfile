@@ -1,0 +1,35 @@
+set shell := ["bash", "-uc"]
+
+default: build
+src_dir := source_directory()
+
+init:
+    git submodule update --init --recursive thirdparty/ouster-sdk
+    @if [ ! -f CMakeUserPresets.json ] && [ -f CMakeUserPresets.json.example ]; then \
+        cp CMakeUserPresets.json.example CMakeUserPresets.json; \
+        echo "Created CMakeUserPresets.json from template"; \
+    fi
+
+configure preset="default": init
+    cmake --preset={{preset}}
+
+build:
+    @if [ ! -d "build" ]; then cmake --preset=default; fi
+    cmake --build build -j $(nproc)
+
+# this is the same as -build just lets u test that sdk i bein properly built
+build_examples: 
+    @if [ ! -d "build" ]; then cmake --preset=build-examples; fi
+    cmake --build build -j $(nproc)
+
+run_example: build_examples
+    "{{ src_dir }}/build/thirdparty/ouster-sdk/examples/osf_reader_example"  "{{ src_dir }}/examples/Drive-in-Heavy-Rain_Lombard-VanNess_0frm_10frm_slice.osf"
+
+run *args:
+    ./build/main {{args}}
+
+clean:
+    rm -rf build
+
+distclean:
+    rm -rf build vcpkg_installed compile_commands.json
