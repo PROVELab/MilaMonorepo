@@ -42,8 +42,8 @@ This project is a cross-platform desktop application built with [Tauri](https://
 
 1. **Clone the repository:**
     ```sh
-    git clone <your-repo-url>
-    cd MilaFrontend
+    git clone https://github.com/PROVELab/MilaMonorepo
+    cd MilaMonorepo/dashboard
     ```
 
 2. **Install JavaScript dependencies:**
