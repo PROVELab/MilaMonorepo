@@ -7,8 +7,8 @@
                 double radius = 5
             }
             dictionary Perspective = {
-                double3 position = (4.014303527964486, 4.336783658073194, 2.526707408535144)
-                double3 target = (0.000024293962033183902, 0.32250442407074154, -0.022041518092783097)
+                double3 position = (9.387589080291685, 21.638647897428612, 9.290171086158812)
+                double3 target = (-10.836498614148843, 9.231215528762979, 2.60628392720173)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -38,7 +38,7 @@
             int version = 1
         }
         dictionary omni_layer = {
-            string authoring_layer = "./FirstMilaStage.usd"
+            string authoring_layer = "./FirstMilaStage_light.usda"
             dictionary locked = {
             }
             dictionary muteness = {
@@ -47,7 +47,7 @@
         dictionary renderSettings = {
         }
     }
-    endTimeCode = 1000000
+    endTimeCode = 1000000.0000000001
     metersPerUnit = 1
     startTimeCode = 0
     timeCodesPerSecond = 60
@@ -67,7 +67,7 @@ def "Render" (
         )
         {
             def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
-                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1", "OmniRtxSettingsParticleFieldAPI_1"]
                 hide_in_stage_window = true
                 no_delete = true
             )
@@ -107,7 +107,7 @@ def "Render" (
             }
 
             def RenderProduct "Replicator" (
-                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1", "OmniRtxSettingsParticleFieldAPI_1"]
                 hide_in_stage_window = true
                 no_delete = true
             )
@@ -116,7 +116,7 @@ def "Render" (
                 bool omni:rtx:material:db:syncLoads = 1
                 bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                rel orderedVars = </Render/Vars/GenericModelOutput>
+                rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
             }
@@ -145,7 +145,9 @@ def "Render" (
             uniform token sourceType = "raw"
         }
 
-        def RenderVar "GenericModelOutput"
+        def RenderVar "GenericModelOutput" (
+            prepend apiSchemas = ["RenderVarChannelsAPI"]
+        )
         {
             custom string[] channels = ["NONE"]
             uniform string sourceName = "GenericModelOutput"
@@ -174,10 +176,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.22294115576177)
-    float3 xformOp:rotateXYZ = (65.82198, -9.541664e-15, 135)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -24.650201796518903)
+    float3 xformOp:rotateXYZ = (74.26733, -0, 121.52902)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (4.014303527964486, 4.336783658073194, 2.526707408535144)
+    double3 xformOp:translate = (9.387589080291685, 21.638647897428612, 9.290171086158812)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -249,7 +251,6 @@ def PhysicsScene "PhysicsScene" (
 {
     uniform token physxScene:broadphaseType = "MBP"
     bool physxScene:enableGPUDynamics = 0
-    uint physxScene:timeStepsPerSecond = 60
 }
 
 def "buick_rivera_ANKA3DCITY_" (
@@ -278,7 +279,7 @@ def "MILA_substitute" (
     float3 xformOp:rotateXYZ = (721.5615, 0, 0)
     float3 xformOp:scale = (1, 1, 1)
     double3 xformOp:scale:unitsResolve = (0.01, 0.01, 0.01)
-    double3 xformOp:translate = (0, 7.261564187982236e-17, -0.35384598442759624)
+    double3 xformOp:translate = (-14.146930819345085, 14.752695729786552, -0.6424970564425804)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale", "xformOp:rotateX:unitsResolve", "xformOp:scale:unitsResolve"]
 
     over "Circle_001"
@@ -2090,6 +2091,30 @@ def "MILA_substitute" (
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
         }
     }
+
+    def Xform "imu_link"
+    {
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def IsaacImuSensor "Imu_Sensor" (
+            instanceable = false
+        )
+        {
+            int angularVelocityFilterWidth = 1
+            bool enabled = 1
+            int linearAccelerationFilterWidth = 1
+            int orientationFilterWidth = 1
+            float sensorPeriod = 0.002403846
+            token visibility = "inherited"
+            quatd xformOp:orient = (1, 1.4901161193847656e-8, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
 }
 
 over "OmniverseKit_Front" (
@@ -2370,6 +2395,175 @@ def "Graph"
             int node:typeVersion = 3
             uniform float2 ui:nodegraph:node:pos = (-182.94736, -148.00003)
         }
+    }
+}
+
+def OmniGraph "ROS_IMU"
+{
+    token evaluationMode = "Automatic"
+    token evaluator:type = "execution"
+    token fabricCacheBacking = "Shared"
+    int2 fileFormatVersion = (1, 9)
+    token pipelineStage = "pipelineStageOnDemand"
+
+    def OmniGraphNode "on_physics_step" (
+        prepend apiSchemas = ["NodeGraphNodeAPI"]
+    )
+    {
+        token node:type = "isaacsim.core.nodes.OnPhysicsStep"
+        int node:typeVersion = 1
+        custom double outputs:deltaSimulationTime
+        custom double outputs:deltaSystemTime
+        custom uint outputs:step (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        uniform token ui:nodegraph:node:expansionState = "open"
+        uniform float2 ui:nodegraph:node:pos = (17.389927, 162.40092)
+    }
+
+    def OmniGraphNode "isaac_simulation_gate" (
+        prepend apiSchemas = ["NodeGraphNodeAPI"]
+    )
+    {
+        custom uint inputs:execIn (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        prepend uint inputs:execIn.connect = </ROS_IMU/on_physics_step.outputs:step>
+        custom uint inputs:step
+        token node:type = "isaacsim.core.nodes.IsaacSimulationGate"
+        int node:typeVersion = 1
+        custom uint outputs:execOut (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        uniform token ui:nodegraph:node:expansionState = "open"
+        uniform float2 ui:nodegraph:node:pos = (306.77576, 196.72304)
+    }
+
+    def OmniGraphNode "isaac_read_imu_node" (
+        prepend apiSchemas = ["NodeGraphNodeAPI"]
+    )
+    {
+        custom uint inputs:execIn (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        prepend uint inputs:execIn.connect = </ROS_IMU/isaac_simulation_gate.outputs:execOut>
+        custom rel inputs:imuPrim = </MILA_substitute/imu_link/Imu_Sensor> (
+            customData = {
+                dictionary omni = {
+                    dictionary graph = {
+                        string relType = "target"
+                    }
+                }
+            }
+        )
+        custom bool inputs:readGravity
+        custom bool inputs:useLatestData = 0
+        token node:type = "isaacsim.sensors.physics.IsaacReadIMU"
+        int node:typeVersion = 1
+        custom vector3d outputs:angVel
+        custom uint outputs:execOut (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        custom vector3d outputs:linAcc
+        custom quatd outputs:orientation
+        custom float outputs:sensorTime
+        uniform token ui:nodegraph:node:expansionState = "open"
+        uniform float2 ui:nodegraph:node:pos = (681.1313, 170.49467)
+    }
+
+    def OmniGraphNode "isaac_read_simulation_time" (
+        prepend apiSchemas = ["NodeGraphNodeAPI"]
+    )
+    {
+        custom uint64 inputs:referenceTimeDenominator
+        custom int64 inputs:referenceTimeNumerator
+        custom bool inputs:resetOnStop
+        token node:type = "isaacsim.core.nodes.IsaacReadSimulationTime"
+        int node:typeVersion = 1
+        custom double outputs:simulationTime
+        uniform token ui:nodegraph:node:expansionState = "open"
+        uniform float2 ui:nodegraph:node:pos = (486.7044, 2.3512034)
+    }
+
+    def OmniGraphNode "ros2_context" (
+        prepend apiSchemas = ["NodeGraphNodeAPI"]
+    )
+    {
+        custom uchar inputs:domain_id
+        custom bool inputs:useDomainIDEnvVar
+        token node:type = "isaacsim.ros2.bridge.ROS2Context"
+        int node:typeVersion = 2
+        custom uint64 outputs:context
+        uniform token ui:nodegraph:node:expansionState = "open"
+        uniform float2 ui:nodegraph:node:pos = (743.8606, -9.61755)
+    }
+
+    def OmniGraphNode "ros2_publish_imu" (
+        prepend apiSchemas = ["NodeGraphNodeAPI"]
+    )
+    {
+        custom vector3d inputs:angularVelocity
+        prepend vector3d inputs:angularVelocity.connect = </ROS_IMU/isaac_read_imu_node.outputs:angVel>
+        custom uint64 inputs:context
+        prepend uint64 inputs:context.connect = </ROS_IMU/ros2_context.outputs:context>
+        custom uint inputs:execIn (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        prepend uint inputs:execIn.connect = </ROS_IMU/isaac_read_imu_node.outputs:execOut>
+        custom string inputs:frameId = "imu_link"
+        custom vector3d inputs:linearAcceleration
+        prepend vector3d inputs:linearAcceleration.connect = </ROS_IMU/isaac_read_imu_node.outputs:linAcc>
+        custom string inputs:nodeNamespace
+        custom quatd inputs:orientation
+        prepend quatd inputs:orientation.connect = </ROS_IMU/isaac_read_imu_node.outputs:orientation>
+        custom bool inputs:publishAngularVelocity
+        custom bool inputs:publishLinearAcceleration
+        custom bool inputs:publishOrientation
+        custom string inputs:qosProfile
+        custom uint64 inputs:queueSize
+        custom double inputs:timeStamp
+        prepend double inputs:timeStamp.connect = </ROS_IMU/isaac_read_simulation_time.outputs:simulationTime>
+        custom string inputs:topicName
+        token node:type = "isaacsim.ros2.bridge.ROS2PublishImu"
+        int node:typeVersion = 1
+        uniform token ui:nodegraph:node:expansionState = "open"
+        uniform float2 ui:nodegraph:node:pos = (961.92505, 54.226154)
+    }
+
+    def OmniGraphNode "ros2_publish_clock" (
+        prepend apiSchemas = ["NodeGraphNodeAPI"]
+    )
+    {
+        custom uint64 inputs:context
+        prepend uint64 inputs:context.connect = </ROS_IMU/ros2_context.outputs:context>
+        custom uint inputs:execIn (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        prepend uint inputs:execIn.connect = </ROS_IMU/on_physics_step.outputs:step>
+        custom string inputs:nodeNamespace
+        custom string inputs:qosProfile
+        custom uint64 inputs:queueSize
+        custom double inputs:timeStamp
+        prepend double inputs:timeStamp.connect = </ROS_IMU/isaac_read_simulation_time.outputs:simulationTime>
+        custom string inputs:topicName
+        token node:type = "isaacsim.ros2.bridge.ROS2PublishClock"
+        int node:typeVersion = 1
+        uniform token ui:nodegraph:node:expansionState = "open"
+        uniform float2 ui:nodegraph:node:pos = (247.48097, -24.609716)
     }
 }
 
