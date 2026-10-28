@@ -7,8 +7,8 @@
                 double radius = 5
             }
             dictionary Perspective = {
-                double3 position = (9.387589080291685, 21.638647897428612, 9.290171086158812)
-                double3 target = (-10.836498614148843, 9.231215528762979, 2.60628392720173)
+                double3 position = (4.014303527964486, 4.336783658073194, 2.526707408535144)
+                double3 target = (0.000024293962033183902, 0.32250442407074154, -0.022041518092783097)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -38,7 +38,7 @@
             int version = 1
         }
         dictionary omni_layer = {
-            string authoring_layer = "./FirstMilaStage_light.usda"
+            string authoring_layer = "./FirstMilaStage.usd"
             dictionary locked = {
             }
             dictionary muteness = {
@@ -47,7 +47,7 @@
         dictionary renderSettings = {
         }
     }
-    endTimeCode = 1000000.0000000001
+    endTimeCode = 1000000
     metersPerUnit = 1
     startTimeCode = 0
     timeCodesPerSecond = 60
@@ -67,7 +67,7 @@ def "Render" (
         )
         {
             def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
-                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1", "OmniRtxSettingsParticleFieldAPI_1"]
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
                 hide_in_stage_window = true
                 no_delete = true
             )
@@ -107,7 +107,7 @@ def "Render" (
             }
 
             def RenderProduct "Replicator" (
-                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1", "OmniRtxSettingsParticleFieldAPI_1"]
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
                 hide_in_stage_window = true
                 no_delete = true
             )
@@ -116,7 +116,7 @@ def "Render" (
                 bool omni:rtx:material:db:syncLoads = 1
                 bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                rel orderedVars = </Render/Vars/LdrColor>
+                rel orderedVars = </Render/Vars/GenericModelOutput>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
             }
@@ -145,9 +145,7 @@ def "Render" (
             uniform token sourceType = "raw"
         }
 
-        def RenderVar "GenericModelOutput" (
-            prepend apiSchemas = ["RenderVarChannelsAPI"]
-        )
+        def RenderVar "GenericModelOutput"
         {
             custom string[] channels = ["NONE"]
             uniform string sourceName = "GenericModelOutput"
@@ -176,10 +174,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -24.650201796518903)
-    float3 xformOp:rotateXYZ = (74.26733, -0, 121.52902)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.22294115576177)
+    float3 xformOp:rotateXYZ = (65.82198, -9.541664e-15, 135)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (9.387589080291685, 21.638647897428612, 9.290171086158812)
+    double3 xformOp:translate = (4.014303527964486, 4.336783658073194, 2.526707408535144)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -251,6 +249,7 @@ def PhysicsScene "PhysicsScene" (
 {
     uniform token physxScene:broadphaseType = "MBP"
     bool physxScene:enableGPUDynamics = 0
+    uint physxScene:timeStepsPerSecond = 60
 }
 
 def "buick_rivera_ANKA3DCITY_" (
@@ -279,7 +278,7 @@ def "MILA_substitute" (
     float3 xformOp:rotateXYZ = (721.5615, 0, 0)
     float3 xformOp:scale = (1, 1, 1)
     double3 xformOp:scale:unitsResolve = (0.01, 0.01, 0.01)
-    double3 xformOp:translate = (-14.146930819345085, 14.752695729786552, -0.6424970564425804)
+    double3 xformOp:translate = (0, 7.261564187982236e-17, -0.35384598442759624)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale", "xformOp:rotateX:unitsResolve", "xformOp:scale:unitsResolve"]
 
     over "Circle_001"
@@ -2092,29 +2091,30 @@ def "MILA_substitute" (
         }
     }
 
-    def Xform "imu_link"
-    {
-        quatd xformOp:orient = (1, 0, 0, 0)
-        double3 xformOp:scale = (1, 1, 1)
-        double3 xformOp:translate = (0, 0, 0)
-        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
-        def IsaacImuSensor "Imu_Sensor" (
-            instanceable = false
-        )
+    def Xform "imu_link"
         {
-            int angularVelocityFilterWidth = 1
-            bool enabled = 1
-            int linearAccelerationFilterWidth = 1
-            int orientationFilterWidth = 1
-            float sensorPeriod = 0.002403846
-            token visibility = "inherited"
-            quatd xformOp:orient = (1, 1.4901161193847656e-8, 0, 0)
+            quatd xformOp:orient = (1, 0, 0, 0)
             double3 xformOp:scale = (1, 1, 1)
             double3 xformOp:translate = (0, 0, 0)
             uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    
+            def IsaacImuSensor "Imu_Sensor" (
+                instanceable = false
+            )
+            {
+                int angularVelocityFilterWidth = 1
+                bool enabled = 1
+                int linearAccelerationFilterWidth = 1
+                int orientationFilterWidth = 1
+                float sensorPeriod = 0.002403846
+                token visibility = "inherited"
+                quatd xformOp:orient = (1, 1.4901161193847656e-8, 0, 0)
+                double3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+            }
         }
-    }
 }
 
 over "OmniverseKit_Front" (
@@ -2566,4 +2566,3 @@ def OmniGraph "ROS_IMU"
         uniform float2 ui:nodegraph:node:pos = (247.48097, -24.609716)
     }
 }
-
