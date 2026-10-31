@@ -7,8 +7,8 @@
                 double radius = 5.248652648925781
             }
             dictionary Perspective = {
-                double3 position = (1.1495422219526985, 0.3064358589383857, 1.3160116261671795)
-                double3 target = (1.0641078288499164, 0.00011274664818744506, 1.292665267034931)
+                double3 position = (15.052513164687463, 20.73769129417506, 7.027469511292889)
+                double3 target = (7.012559411058863, -1.567199995701845, -0.3493035321904916)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -24,7 +24,16 @@
             string authoring_layer = "./parking_lot.usda"
         }
         dictionary renderSettings = {
-            bool "rtx:ecoMode:enabled" = 0
+            double "rtx:directLighting:sampledLighting:maxRayUnexposedIntensity" = 6399.9990234375
+            double "rtx:indirectDiffuse:maxRayUnexposedIntensity" = 6399.9990234375
+            double "rtx:pathtracing:fireflyFilter:maxPerEmissiveUnexposedIntensity" = 3199.99951171875
+            double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSample" = 3199.99951171875
+            double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse" = 3199.99951171875
+            double "rtx:raytracing:inscattering:maxRTSampleUnexposedIntensity" = 204799.96875
+            double "rtx:rtpt:fireflyFilter:maxPerEmissiveUnexposedIntensity" = 3199.99951171875
+            double "rtx:rtpt:fireflyFilter:maxUnexposedIntensityPerSample" = 3199.99951171875
+            double "rtx:rtpt:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse" = 3199.99951171875
+            double "rtx:translucency:maxRayUnexposedIntensity" = 19199.998046875
         }
     }
     defaultPrim = "Mila"
@@ -1796,7 +1805,7 @@ def Xform "ParkingLot"
             }
 
             def Mesh "Body" (
-                prepend apiSchemas = ["MaterialBindingAPI", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+                prepend apiSchemas = ["MaterialBindingAPI", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonCollisionAPI"]
             )
             {
                 float3[] extent = [(-0.14, -0.14, 0.03), (0.14, 0.14, 0.71)]
@@ -1807,6 +1816,7 @@ def Xform "ParkingLot"
                     interpolation = "faceVarying"
                 )
                 uniform token physics:approximation = "convexHull"
+                bool physics:collisionEnabled = 1
                 point3f[] points = [(0.14, 0, 0.03), (0.13522962, 0.036234666, 0.03), (0.12124356, 0.07, 0.03), (0.09899495, 0.09899495, 0.03), (0.07, 0.12124356, 0.03), (0.036234666, 0.13522962, 0.03), (8.572528e-18, 0.14, 0.03), (-0.036234666, 0.13522962, 0.03), (-0.07, 0.12124356, 0.03), (-0.09899495, 0.09899495, 0.03), (-0.12124356, 0.07, 0.03), (-0.13522962, 0.036234666, 0.03), (-0.14, 1.7145055e-17, 0.03), (-0.13522962, -0.036234666, 0.03), (-0.12124356, -0.07, 0.03), (-0.09899495, -0.09899495, 0.03), (-0.07, -0.12124356, 0.03), (-0.036234666, -0.13522962, 0.03), (-2.5717583e-17, -0.14, 0.03), (0.036234666, -0.13522962, 0.03), (0.07, -0.12124356, 0.03), (0.09899495, -0.09899495, 0.03), (0.12124356, -0.07, 0.03), (0.13522962, -0.036234666, 0.03), (0.03, 0, 0.71), (0.028977774, 0.0077645713, 0.71), (0.025980761, 0.015, 0.71), (0.021213204, 0.021213204, 0.71), (0.015, 0.025980761, 0.71), (0.0077645713, 0.028977774, 0.71), (1.8369702e-18, 0.03, 0.71), (-0.0077645713, 0.028977774, 0.71), (-0.015, 0.025980761, 0.71), (-0.021213204, 0.021213204, 0.71), (-0.025980761, 0.015, 0.71), (-0.028977774, 0.0077645713, 0.71), (-0.03, 3.6739405e-18, 0.71), (-0.028977774, -0.0077645713, 0.71), (-0.025980761, -0.015, 0.71), (-0.021213204, -0.021213204, 0.71), (-0.015, -0.025980761, 0.71), (-0.0077645713, -0.028977774, 0.71), (-5.5109105e-18, -0.03, 0.71), (0.0077645713, -0.028977774, 0.71), (0.015, -0.025980761, 0.71), (0.021213204, -0.021213204, 0.71), (0.025980761, -0.015, 0.71), (0.028977774, -0.0077645713, 0.71)]
                 uniform token subdivisionScheme = "none"
             }
@@ -2761,7 +2771,7 @@ def Xform "ParkingLot"
             }
 
             def Mesh "Body" (
-                prepend apiSchemas = ["MaterialBindingAPI", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI"]
+                prepend apiSchemas = ["MaterialBindingAPI", "PhysicsCollisionAPI", "PhysicsMeshCollisionAPI", "NewtonCollisionAPI"]
             )
             {
                 float3[] extent = [(-0.14, -0.14, 0.03), (0.14, 0.14, 0.71)]
@@ -2772,8 +2782,13 @@ def Xform "ParkingLot"
                     interpolation = "faceVarying"
                 )
                 uniform token physics:approximation = "convexHull"
+                bool physics:collisionEnabled = 1
                 point3f[] points = [(0.14, 0, 0.03), (0.13522962, 0.036234666, 0.03), (0.12124356, 0.07, 0.03), (0.09899495, 0.09899495, 0.03), (0.07, 0.12124356, 0.03), (0.036234666, 0.13522962, 0.03), (8.572528e-18, 0.14, 0.03), (-0.036234666, 0.13522962, 0.03), (-0.07, 0.12124356, 0.03), (-0.09899495, 0.09899495, 0.03), (-0.12124356, 0.07, 0.03), (-0.13522962, 0.036234666, 0.03), (-0.14, 1.7145055e-17, 0.03), (-0.13522962, -0.036234666, 0.03), (-0.12124356, -0.07, 0.03), (-0.09899495, -0.09899495, 0.03), (-0.07, -0.12124356, 0.03), (-0.036234666, -0.13522962, 0.03), (-2.5717583e-17, -0.14, 0.03), (0.036234666, -0.13522962, 0.03), (0.07, -0.12124356, 0.03), (0.09899495, -0.09899495, 0.03), (0.12124356, -0.07, 0.03), (0.13522962, -0.036234666, 0.03), (0.03, 0, 0.71), (0.028977774, 0.0077645713, 0.71), (0.025980761, 0.015, 0.71), (0.021213204, 0.021213204, 0.71), (0.015, 0.025980761, 0.71), (0.0077645713, 0.028977774, 0.71), (1.8369702e-18, 0.03, 0.71), (-0.0077645713, 0.028977774, 0.71), (-0.015, 0.025980761, 0.71), (-0.021213204, 0.021213204, 0.71), (-0.025980761, 0.015, 0.71), (-0.028977774, 0.0077645713, 0.71), (-0.03, 3.6739405e-18, 0.71), (-0.028977774, -0.0077645713, 0.71), (-0.025980761, -0.015, 0.71), (-0.021213204, -0.021213204, 0.71), (-0.015, -0.025980761, 0.71), (-0.0077645713, -0.028977774, 0.71), (-5.5109105e-18, -0.03, 0.71), (0.0077645713, -0.028977774, 0.71), (0.015, -0.025980761, 0.71), (0.021213204, -0.021213204, 0.71), (0.025980761, -0.015, 0.71), (0.028977774, -0.0077645713, 0.71)]
                 uniform token subdivisionScheme = "none"
+                quatf xformOp:orient = (1, 0, 0, 0)
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
             }
 
             def Mesh "BandLower" (
@@ -3262,15 +3277,25 @@ def "Render" (
                 bool omni:rtx:post:registeredCompositing:invertToneMap = 1
                 bool omni:rtx:pt:adaptiveSampling:filterError = 0
                 uint omni:rtx:pt:adaptiveSampling:fixedSppIterations = 2
+                float omni:rtx:pt:fireflyFilter:maxPerEmissiveUnexposedIntensity = 3199.9995
+                float omni:rtx:pt:fireflyFilter:maxUnexposedIntensityPerSample = 3199.9995
+                float omni:rtx:pt:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse = 3199.9995
                 uint omni:rtx:pt:maxSamplesPerLaunch = 2073600
                 uint omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
                 bool omni:rtx:reflections:denoiser:enabled = 0
                 token omni:rtx:rendermode = "RealTimePathTracing"
                 color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
                 bool omni:rtx:rt:demoire = 0
-                bool omni:rtx:rt:ecoMode:enabled = 0
+                float omni:rtx:rt:directLighting:maxRayUnexposedIntensity = 6399.999
+                bool omni:rtx:rt:ecoMode:enabled
+                float omni:rtx:rt:indirectdiffuse:maxRayUnexposedIntensity = 6399.999
+                float omni:rtx:rt:inscattering:maxRTSampleUnexposedIntensity = 204799.97
                 bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                float omni:rtx:rt:refractions:maxRayUnexposedIntensity = 19199.998
                 int omni:rtx:rt:sss:samples = 1
+                float omni:rtx:rtpt:fireflyFilter:maxPerEmissiveUnexposedIntensity = 3199.9995
+                float omni:rtx:rtpt:fireflyFilter:maxUnexposedIntensityPerSample = 3199.9995
+                float omni:rtx:rtpt:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse = 3199.9995
                 uint omni:rtx:rtpt:maxVolumeBounces = 15
                 float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
@@ -3288,9 +3313,9 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/OS1/sensor>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled = 0
+                bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                rel orderedVars = </Render/Vars/GenericModelOutput>
+                rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
             }
@@ -3353,10 +3378,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -0.3188697808396492)
-    float3 xformOp:rotateXYZ = (85.80128, -1.2404163e-13, 164.41606)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -24.830743290299953)
+    float3 xformOp:rotateXYZ = (72.71756, -1.4630552e-13, 160.17795)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (1.1495422219526985, 0.3064358589383857, 1.3160116261671795)
+    double3 xformOp:translate = (15.052513164687463, 20.73769129417506, 7.027469511292889)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -3790,6 +3815,198 @@ over "Mila"
                 double3 xformOp:translate = (0, 0, 0)
                 uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
             }
+        }
+
+        def Xform "imu_link"
+        {
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+            def IsaacImuSensor "Imu_Sensor" (
+                instanceable = false
+            )
+            {
+                int angularVelocityFilterWidth = 1
+                bool enabled = 1
+                int linearAccelerationFilterWidth = 1
+                int orientationFilterWidth = 1
+                token visibility = "invisible"
+                quatd xformOp:orient = (1, 0, 0, 0)
+                double3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+            }
+        }
+    }
+
+    def OmniGraph "ROS_IMU"
+    {
+        token evaluationMode = "Automatic"
+        token evaluator:type = "execution"
+        token fabricCacheBacking = "Shared"
+        int2 fileFormatVersion = (1, 9)
+        token pipelineStage = "pipelineStageOnDemand"
+
+        def OmniGraphNode "on_physics_step" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            token node:type = "isaacsim.core.nodes.OnPhysicsStep"
+            int node:typeVersion = 1
+            custom double outputs:deltaSimulationTime
+            custom double outputs:deltaSystemTime
+            custom uint outputs:step (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (80.8, 109.60005)
+        }
+
+        def OmniGraphNode "isaac_simulation_gate" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/on_physics_step.outputs:step>
+            custom uint inputs:step
+            token node:type = "isaacsim.core.nodes.IsaacSimulationGate"
+            int node:typeVersion = 1
+            custom uint outputs:execOut (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (334.05307, 141.14587)
+        }
+
+        def OmniGraphNode "isaac_read_imu_node" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/isaac_simulation_gate.outputs:execOut>
+            custom rel inputs:imuPrim = </Mila/Mila_Root/imu_link/Imu_Sensor> (
+                customData = {
+                    dictionary omni = {
+                        dictionary graph = {
+                            string relType = "target"
+                        }
+                    }
+                }
+            )
+            custom bool inputs:readGravity
+            custom bool inputs:useLatestData
+            token node:type = "isaacsim.sensors.physics.IsaacReadIMU"
+            int node:typeVersion = 1
+            custom vector3d outputs:angVel
+            custom uint outputs:execOut (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            custom vector3d outputs:linAcc
+            custom quatd outputs:orientation
+            custom float outputs:sensorTime
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (614.4, 101.60005)
+        }
+
+        def OmniGraphNode "isaac_read_simulation_time" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:referenceTimeDenominator
+            custom int64 inputs:referenceTimeNumerator
+            custom bool inputs:resetOnStop
+            token node:type = "isaacsim.core.nodes.IsaacReadSimulationTime"
+            int node:typeVersion = 1
+            custom double outputs:simulationTime
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (582.39996, -49.59999)
+        }
+
+        def OmniGraphNode "ros2_context" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uchar inputs:domain_id
+            custom bool inputs:useDomainIDEnvVar
+            token node:type = "isaacsim.ros2.bridge.ROS2Context"
+            int node:typeVersion = 2
+            custom uint64 outputs:context
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (347.19998, 3.9999986)
+        }
+
+        def OmniGraphNode "ros2_publish_imu" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom vector3d inputs:angularVelocity
+            prepend vector3d inputs:angularVelocity.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:angVel>
+            custom uint64 inputs:context
+            prepend uint64 inputs:context.connect = </Mila/ROS_IMU/ros2_context.outputs:context>
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:execOut>
+            custom string inputs:frameId = "imu_link"
+            custom vector3d inputs:linearAcceleration
+            prepend vector3d inputs:linearAcceleration.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:linAcc>
+            custom string inputs:nodeNamespace
+            custom quatd inputs:orientation
+            prepend quatd inputs:orientation.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:orientation>
+            custom bool inputs:publishAngularVelocity
+            custom bool inputs:publishLinearAcceleration
+            custom bool inputs:publishOrientation
+            custom string inputs:qosProfile
+            custom uint64 inputs:queueSize
+            custom double inputs:timeStamp
+            prepend double inputs:timeStamp.connect = </Mila/ROS_IMU/isaac_read_simulation_time.outputs:simulationTime>
+            custom string inputs:topicName
+            token node:type = "isaacsim.ros2.bridge.ROS2PublishImu"
+            int node:typeVersion = 1
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (931.9998, -18.400002)
+        }
+
+        def OmniGraphNode "ros2_publish_clock" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:context
+            prepend uint64 inputs:context.connect = </Mila/ROS_IMU/ros2_context.outputs:context>
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/on_physics_step.outputs:step>
+            custom string inputs:nodeNamespace
+            custom string inputs:qosProfile
+            custom uint64 inputs:queueSize
+            custom double inputs:timeStamp
+            prepend double inputs:timeStamp.connect = </Mila/ROS_IMU/isaac_read_simulation_time.outputs:simulationTime>
+            custom string inputs:topicName
+            token node:type = "isaacsim.ros2.bridge.ROS2PublishClock"
+            int node:typeVersion = 1
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (364.7894, 269.8518)
         }
     }
 }
