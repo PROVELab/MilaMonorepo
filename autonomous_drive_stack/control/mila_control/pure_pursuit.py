@@ -47,16 +47,25 @@ from .path import Path
 
 @dataclass
 class PurePursuitConfig:
-    wheel_base: float = 1.6
-    # ld = k*v clamped to [ld_min, ld_max]. Picked from the sweep in
-    # tools/verify.py, not guessed: on an 80 m slalom at 6 m/s these give ~0.4 m
-    # RMS, where k=0.6 gave 1.3 m by cutting every crest. Retune for the track.
-    k_lookahead: float = 0.35        # s
-    ld_min: float = 1.5              # m
-    ld_max: float = 10.0             # m
-    max_steer: float = math.radians(30.0)
-    max_steer_rate: float = math.radians(120.0)
-    goal_tolerance: float = 1.0      # m
+    wheel_base: float = 2.78         # Mila, from mila_vehicle.usd
+    cg_to_rear_axle: float = 1.251   # m — see PurePursuit.rear_axle()
+
+    # ld = k*v clamped to [ld_min, ld_max]. RE-TUNED for the real 2.78 m
+    # wheelbase; the earlier 0.35 / 1.5 m was fitted to a 1.6 m placeholder car
+    # and is unstable here. A longer car needs a longer lookahead: see the
+    # stability map in tools/plots.py, which is measured, not assumed.
+    # Measured, not chosen: the stability boundary on a straight line started
+    # 3 m off sits at ld = 1.5 m up to 4 m/s, 2.0 m at 6-8, 3.0 m at 10-12.
+    # ld_min = 3.0 therefore clears it at every speed tested on its own, and
+    # k = 0.45 keeps >= 1.0 m of margin above the boundary all the way to
+    # 12 m/s while still giving 0.28 m RMS on the slalom.
+    k_lookahead: float = 0.45        # s
+    ld_min: float = 3.0              # m
+    ld_max: float = 15.0             # m
+
+    max_steer: float = 0.5           # rad = 28.65 deg, from the USD
+    max_steer_rate: float = math.radians(120.0)   # not in the USD — assumption
+    goal_tolerance: float = 1.5      # m, scaled with the larger vehicle
 
 
 @dataclass
@@ -92,13 +101,15 @@ class PurePursuit:
                   from_cg: bool = False) -> Tuple[float, float]:
         """Convert a CG pose to the rear-axle pose the geometry expects.
 
-        Needed when the state estimate is at the centre of mass — Isaac Sim's
-        articulation root usually is. Assumes the CG sits at the wheelbase
-        midpoint; pass the real offset if you know it.
+        Needed when the state estimate is at the centre of mass, which Isaac's
+        rigid-body root is. Mila's CoM is NOT at the wheelbase midpoint — the
+        USD puts it at x = -0.139 with the rear axle at x = -1.39, so the
+        offset is 1.251 m, not 1.39 m. Getting this wrong puts a fixed 14 cm
+        bias into every pose the controller sees.
         """
         if not from_cg:
             return x, y
-        d = self.cfg.wheel_base / 2.0
+        d = self.cfg.cg_to_rear_axle
         return x - d * math.cos(yaw), y - d * math.sin(yaw)
 
     def step(self, x: float, y: float, yaw: float, v: float, dt: float

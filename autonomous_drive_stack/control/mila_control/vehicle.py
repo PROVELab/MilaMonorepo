@@ -25,19 +25,50 @@ import numpy as np
 
 @dataclass
 class VehicleParams:
-    """The minimum set that describes a steered car.
+    """Mila's real geometry, read out of the simulation asset.
 
-    The assignment asked for the minimum number of parameters for a basic
-    simulation, and this is it. Mass, inertia and tyre parameters only matter
-    once you care about forces, which a kinematic model does not. Replace these
-    defaults with Mila's real geometry when it is measured.
+    SOURCE: PROVELab/autonomous-drive-stack,
+            simulation/parking_lot/mila_vehicle.usd, prim /Mila/Mila_Root
+            (sha256 6831b62e…b44e4e2, 7,044,754 bytes)
+
+    That asset is a PhysX Vehicle, not a jointed articulation — which is why
+    searching the monorepo for ArticulationRoot and revolute joints found
+    nothing. The numbers below are copied from its attributes, not measured and
+    not assumed:
+
+        physxVehicleAckermannSteering:wheelBase      = 2.78
+        physxVehicleAckermannSteering:trackWidth     = 1.73
+        physxVehicleAckermannSteering:maxSteerAngle  = 0.5     (rad)
+        physxVehicleWheel:radius                     = 0.35025
+        physics:mass                                 = 907.2
+        physics:centerOfMass                         = (-0.139, 0, 0.4)
+
+    >>> OPEN QUESTION FOR THE TEAM: is mila_vehicle.usd the canonical vehicle? <<<
+    It lives in autonomous-drive-stack, NOT in MilaMonorepo, and the monorepo's
+    own stage (FirstMilaStage_light.usda) still loads the Buick placeholder
+    instead. The two repos also disagree on Isaac version — 6.1 there, 6.0 in
+    the monorepo. If a newer or different vehicle definition is authoritative,
+    these six numbers are the only thing that has to change.
     """
-    wheel_base: float = 1.6              # m, front axle to rear axle
-    track_width: float = 1.2             # m, left wheel to right wheel
-    wheel_radius: float = 0.23           # m
-    max_steer: float = math.radians(30)  # rad
-    max_speed: float = 15.0              # m/s
-    max_accel: float = 3.0               # m/s^2
+    wheel_base: float = 2.78             # m, front axle to rear axle
+    track_width: float = 1.73            # m, left wheel to right wheel
+    wheel_radius: float = 0.35025        # m
+    max_steer: float = 0.5               # rad = 28.65 deg
+
+    # Distance from centre of mass to the REAR AXLE. Not wheel_base/2: the CoM
+    # sits at x = -0.139 while the rear axle is at x = -1.39, so 1.251 m. Pure
+    # Pursuit needs this to convert a CG pose into the rear-axle pose its
+    # geometry is derived about.
+    cg_to_rear_axle: float = 1.251       # m
+
+    mass: float = 907.2                  # kg, sprung mass (excludes 4 x 15 kg wheels)
+
+    # Not in the USD. max_accel is derived: the drive is rear-wheel with
+    # physxVehicleDriveBasic:peakTorque = 1000 N.m, so F = T/r = 1000/0.35025
+    # = 2855 N and a = F/m = 2855/907.2 = 3.15 m/s^2. Rounded down to 3.0.
+    # max_speed is still a genuine placeholder — nothing in the asset sets it.
+    max_speed: float = 15.0              # m/s   <-- PLACEHOLDER, needs a real figure
+    max_accel: float = 3.0               # m/s^2, derived from peak torque
 
 
 @dataclass

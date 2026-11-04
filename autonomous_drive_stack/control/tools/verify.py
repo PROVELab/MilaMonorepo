@@ -53,13 +53,13 @@ check("no overshoot oscillation", log.steer_reversals < 12,
 print("\n=== 2. CONSTANT-RADIUS CIRCLE vs ANALYTIC delta = atan(L/R) ===")
 print(f"  {'R (m)':>7} {'analytic':>10} {'measured':>10} {'err':>8} {'xte rms':>9}")
 for R in (10.0, 15.0, 25.0, 40.0):
-    veh = KinematicBicycle(VehicleParams(wheel_base=1.6))
+    veh = KinematicBicycle(VehicleParams())
     pth = P.circle(radius=R, turns=1.0)
-    cfg = PurePursuitConfig(wheel_base=1.6, k_lookahead=0.5, ld_min=2.0, ld_max=8.0)
+    cfg = PurePursuitConfig()
     log = run(pth, controller=PurePursuit(pth, cfg), vehicle=veh,
               v_target=6.0, t_max=90.0)
     tail = log.arr("steer")[int(len(log.t) * 0.3):]
-    measured, expected = float(np.mean(tail)), analytic_steer_for_radius(1.6, R)
+    measured, expected = float(np.mean(tail)), analytic_steer_for_radius(veh.p.wheel_base, R)
     err = abs(measured - expected)
     print(f"  {R:>7.1f} {math.degrees(expected):>9.3f}d {math.degrees(measured):>9.3f}d "
           f"{math.degrees(err):>7.3f}d {log.xte_rms:>8.3f}m")
@@ -69,9 +69,9 @@ for R in (10.0, 15.0, 25.0, 40.0):
 
 print("\n=== 3. LOOKAHEAD SWEEP on a slalom (behaviour, not pass/fail) ===")
 print(f"  {'ld_min':>7} {'xte rms':>9} {'xte max':>9} {'signed mean':>12} {'reversals':>10}")
-pth = P.slalom(length=80.0, amplitude=4.0, wavelength=20.0)
-for ld in (1.0, 2.0, 4.0, 8.0, 14.0):
-    cfg = PurePursuitConfig(wheel_base=1.6, k_lookahead=0.0, ld_min=ld, ld_max=ld)
+pth = P.slalom(length=160.0, amplitude=4.0, wavelength=40.0)
+for ld in (2.0, 3.0, 5.0, 9.0, 15.0):
+    cfg = PurePursuitConfig(k_lookahead=0.0, ld_min=ld, ld_max=ld)
     log = run(pth, controller=PurePursuit(pth, cfg), v_target=6.0, t_max=40.0)
     print(f"  {ld:>7.1f} {log.xte_rms:>8.3f}m {log.xte_max:>8.3f}m "
           f"{log.xte_mean_signed:>+11.3f}m {log.steer_reversals:>10d}")
@@ -81,11 +81,12 @@ print("  -> small ld: low error, more hunting. large ld: smoother, cuts corners.
 print("\n=== 4. FIGURE-OF-EIGHT (self-intersecting path) ===")
 # Feasibility FIRST. At radius 12 the lobes need R=2.51 m and the car can only
 # manage 2.77 m, so no controller can track it — the reference is the problem.
-for r in (12.0, 20.0):
-    ok, msg = P.figure_eight(radius=r).check_feasible(1.6, math.radians(30))
+_p = VehicleParams()
+for r in (20.0, 30.0):
+    ok, msg = P.figure_eight(radius=r).check_feasible(_p.wheel_base, _p.max_steer)
     print(f"  radius {r:g}: {msg}")
-pth = P.figure_eight(radius=20.0)
-ok, _ = pth.check_feasible(1.6, math.radians(30))
+pth = P.figure_eight(radius=30.0)
+ok, _ = pth.check_feasible(_p.wheel_base, _p.max_steer)
 check("reference is physically trackable", ok, "min radius vs vehicle limit")
 log = run(pth, v_target=5.0, t_max=120.0)
 check("does not jump branches at the crossing", log.xte_max < 1.5,
@@ -94,7 +95,7 @@ check("finished the path", len(log.t) > 100, f"{len(log.t)} steps, {log.t[-1]:.1
 
 
 print("\n=== 5. ACKERMANN SPLIT (inner wheel must turn more than outer) ===")
-veh = KinematicBicycle(VehicleParams(wheel_base=1.6, track_width=1.2))
+veh = KinematicBicycle(VehicleParams())
 for d in (5.0, 15.0, 25.0):
     li, lo = veh.ackermann_wheel_angles(math.radians(d))
     check(f"inner > outer at {d:g} deg", li > lo,

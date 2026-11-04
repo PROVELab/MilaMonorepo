@@ -25,7 +25,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from mila_control import path as P                                   # noqa: E402
 from mila_control.pure_pursuit import (PurePursuit, PurePursuitConfig,  # noqa: E402
                                        analytic_steer_for_radius)
-from mila_control.sim import run, run_open_loop                      # noqa: E402
+from mila_control.sim import run, run_open_loop
+from mila_control.vehicle import VehicleParams
+
+VP = VehicleParams()                      # noqa: E402
 
 # Two hues that stay distinguishable in grayscale print and for the common forms
 # of colour-vision deficiency; the sweep uses one hue at varying lightness so the
@@ -77,7 +80,7 @@ def fig_tracking(out: str) -> None:
     """Closed loop on three paths: reference vs driven, and the error beneath."""
     cases = [("straight, started 3 m off", P.straight(60.0), 3.0, 8.0),
              ("circle, R = 15 m", P.circle(radius=15.0, turns=1.0), 0.0, 6.0),
-             ("slalom, 4 m amplitude", P.slalom(80.0, 4.0, 20.0), 0.0, 6.0)]
+             ("slalom, 4 m amp / 40 m wavelength", P.slalom(160.0, 4.0, 40.0), 0.0, 6.0)]
     fig, axes = plt.subplots(2, 3, figsize=(14, 7), constrained_layout=True,
                              height_ratios=[2, 1])
     for col, (name, pth, off, v) in enumerate(cases):
@@ -104,12 +107,12 @@ def fig_analytic(out: str) -> None:
     measured = []
     for R in radii:
         pth = P.circle(radius=float(R), turns=1.0)
-        cfg = PurePursuitConfig(wheel_base=1.6, k_lookahead=0.5,
-                                ld_min=2.0, ld_max=8.0)
+        cfg = PurePursuitConfig()
         log = run(pth, controller=PurePursuit(pth, cfg), v_target=6.0, t_max=120.0)
         measured.append(float(np.mean(log.arr("steer")[int(len(log.t) * 0.3):])))
     measured = np.asarray(measured)
-    analytic = np.array([analytic_steer_for_radius(1.6, float(R)) for R in radii])
+    analytic = np.array([analytic_steer_for_radius(VP.wheel_base, float(R))
+                         for R in radii])
 
     fig, (a0, a1) = plt.subplots(1, 2, figsize=(11, 4), constrained_layout=True)
     a0.plot(radii, np.degrees(analytic), color=C_REF, lw=2.5, alpha=0.6,
@@ -141,13 +144,12 @@ def _steer_rate_rms(log) -> float:
 def fig_lookahead(out: str) -> None:
     """The cost side of the trade-off: longer lookahead cuts corners but asks far
     less of the steering actuator."""
-    pth = P.slalom(80.0, 4.0, 20.0)
-    lds = [1.0, 2.0, 4.0, 8.0, 14.0]
+    pth = P.slalom(160.0, 4.0, 40.0)
+    lds = [2.0, 3.0, 5.0, 9.0, 15.0]
     fig, (a0, a1) = plt.subplots(1, 2, figsize=(13, 4.5), constrained_layout=True)
     rms, rate = [], []
     for i, ld in enumerate(lds):
-        cfg = PurePursuitConfig(wheel_base=1.6, k_lookahead=0.0,
-                                ld_min=ld, ld_max=ld)
+        cfg = PurePursuitConfig(k_lookahead=0.0, ld_min=ld, ld_max=ld)
         log = run(pth, controller=PurePursuit(pth, cfg), v_target=6.0, t_max=60.0)
         a0.plot(log.arr("x"), log.arr("y"), lw=1.3,
                 color=RAMP(0.25 + 0.65 * i / (len(lds) - 1)),
@@ -182,14 +184,14 @@ def fig_stability(out: str) -> None:
     The unstable corner is bottom-right — short lookahead at speed. That is the
     whole justification for ld = k*v.
     """
-    lds = np.array([0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0])
-    vs = np.array([2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0])
+    lds = np.array([1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0])
+    vs = np.array([2.0, 4.0, 6.0, 8.0, 10.0, 12.0])
     grid = np.zeros((len(lds), len(vs)))
     pth = P.straight(160.0)
     for i, ld in enumerate(lds):
         for j, v in enumerate(vs):
-            cfg = PurePursuitConfig(wheel_base=1.6, k_lookahead=0.0,
-                                    ld_min=float(ld), ld_max=float(ld))
+            cfg = PurePursuitConfig(k_lookahead=0.0, ld_min=float(ld),
+                                    ld_max=float(ld))
             log = run(pth, controller=PurePursuit(pth, cfg), v_target=float(v),
                       t_max=80.0, start_offset=3.0)
             e = log.arr("cross_track")
@@ -202,8 +204,8 @@ def fig_stability(out: str) -> None:
 
     # The shipped gain law, drawn on top of the stability map it was chosen from.
     vline = np.linspace(vs.min(), vs.max(), 50)
-    ax.plot(vline, np.clip(0.35 * vline, 1.5, 10.0), color="black", lw=2.2,
-            label=r"shipped law:  $l_d=0.35\,v$, clamped to [1.5, 10] m")
+    ax.plot(vline, np.clip(0.45 * vline, 3.0, 15.0), color="black", lw=2.2,
+            label=r"shipped law:  $l_d=0.45\,v$, clamped to [3, 15] m")
     ax.legend(frameon=False, fontsize=9, loc="upper left")
     ax.set_ylim(lds.min(), lds.max())
     _tidy(ax, "speed v (m/s)", "lookahead ld (m)",
@@ -216,14 +218,14 @@ def fig_feasibility(out: str) -> None:
     """Not every reference is trackable. R_min = L/tan(max_steer) = 2.77 m for
     Mila's assumed geometry; a figure-eight at radius 12 demands 2.51 m. The
     resulting 161 m divergence is the PATH's fault, not the controller's."""
-    radii = np.linspace(8, 30, 60)
+    radii = np.linspace(15, 50, 70)
     need = [P.figure_eight(radius=float(r)).min_turn_radius() for r in radii]
-    limit = 1.6 / math.tan(math.radians(30))
+    limit = VP.wheel_base / math.tan(VP.max_steer)
 
     fig, ax = plt.subplots(figsize=(7, 4.5), constrained_layout=True)
     ax.plot(radii, need, color=C_REF, lw=2.0, label="radius the path demands")
     ax.axhline(limit, color=C_CAR, lw=2.0, ls="--",
-               label=f"vehicle limit  L/tan(30 deg) = {limit:.2f} m")
+               label=f"Mila limit  L/tan(28.6 deg) = {limit:.2f} m")
     ax.fill_between(radii, 0, limit, where=np.asarray(need) < limit,
                     color=C_CAR, alpha=0.12)
     bad = radii[np.asarray(need) < limit]
@@ -271,8 +273,8 @@ def fig_slide(out: str) -> None:
         # silently distorting it.
         cases = [("Constant radius, R = 15 m", P.circle(radius=15.0, turns=1.0),
                   6.0, True),
-                 ("Slalom, 4 m amplitude  (y axis expanded)",
-                  P.slalom(80.0, 4.0, 20.0), 6.0, False)]
+                 ("Slalom, 4 m amp / 40 m wavelength  (y axis expanded)",
+                  P.slalom(160.0, 4.0, 40.0), 6.0, False)]
         fig, axes = plt.subplots(2, 2, figsize=(10, 7.5), constrained_layout=True,
                                  height_ratios=[2.1, 1])
         for col, (name, pth, v, equal) in enumerate(cases):
