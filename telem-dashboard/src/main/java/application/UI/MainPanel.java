@@ -319,4 +319,46 @@ public MainPanel(TelemetryLookup lookup, int chartCountVertical, int chartCountH
             e.printStackTrace();
         }
     }
+    
+    /**
+ * Displays recorded values using their saved times on a specific chart,
+ * replacing the chart's currently displayed data.
+ */
+    public void showRecordedSeries(
+        int chartIndex,
+        TelemetryLookup.DataKey key,
+        double[] seconds,
+        int[] values
+) {
+    if (seconds.length != values.length || values.length == 0) {
+        throw new IllegalArgumentException(
+                "Each recorded value needs a corresponding time.");
+    }
+
+    XYSeries series = seriesByRef.get(key);
+
+    if (series == null) {
+        throw new IllegalArgumentException("Unknown sensor: " + key);
+    }
+
+    // Replace the graph's data with the selected recording.
+    series.clear();
+    series.setMaximumItemCount(
+            Math.max(MAX_ELEMENTS_TO_SHOW, values.length));
+
+    for (int i = 0; i < values.length; i++) {
+        series.add(seconds[i], values[i]);
+    }
+
+    // Display this sensor in the selected chart.
+    JFreeChart chart = charts.get(chartIndex);
+    chart.setTitle(lookup.titleFor(key));
+
+    XYPlot plot = chart.getXYPlot();
+    plot.setDataset(new XYSeriesCollection(series));
+    plot.getDomainAxis().setLabel("Recorded time (s)");
+    plot.getRangeAxis().setLabel(lookup.titleFor(key));
+
+    applyThresholdMarkers(chart, key);
+}
 }

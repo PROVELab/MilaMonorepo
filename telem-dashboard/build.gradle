@@ -12,6 +12,9 @@ dependencies {
     implementation 'com.formdev:flatlaf:3.3'
     implementation 'org.jfree:jfreechart:1.5.4'
 
+    // SQLite dependency
+    implementation 'org.xerial:sqlite-jdbc:3.53.4.0'
+
     // CSV parser
     implementation 'org.apache.commons:commons-csv:1.14.1'
 
@@ -26,4 +29,21 @@ application {
 java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
+}
+// Task to test the telemetry logger
+tasks.register('testTelemetryLogger', JavaExec) {
+    dependsOn 'classes'
+
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'presentation.TelemetryParser'
+
+    // Keep fake recordings in a separate test folder.
+    def testDirectory =
+            project.layout.buildDirectory.dir('logger-test').get().asFile
+
+    workingDir = testDirectory
+
+    doFirst {
+        testDirectory.mkdirs()
+    }
 }

@@ -36,7 +36,7 @@
           cmake
           git
           gradle
-          jdk17
+          jdk21
           just
           nodejs_22
           openssl
