@@ -46,7 +46,7 @@ class Cameras(Node):
 
 def process():
     global latest
-    model = YOLO('/home/tomj/yolov8n.pt')
+    model = YOLO('yolov8n.pt')
     while True:
         tiles = []
         for name in names:
@@ -100,4 +100,4 @@ node = Cameras()
 threading.Thread(target=rclpy.spin, args=(node,), daemon=True).start()
 threading.Thread(target=process, daemon=True).start()
 print('Viewer running on port 8765', flush=True)
-ThreadingHTTPServer(('127.0.0.1',8765), Web).serve_forever()
+ThreadingHTTPServer(('0.0.0.0',8765), Web).serve_forever()
