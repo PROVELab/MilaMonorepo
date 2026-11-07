@@ -1,0 +1,21 @@
+PS5 DualSense input mapping measured with jstest
+
+Axis 0: left stick horizontal
+  Left: approximately -32767
+  Center: approximately 0
+  Right: approximately +32767
+
+Axis 3: left trigger, used as brake
+  Released: approximately -32767
+  Midpoint: approximately 0
+  Fully pressed: approximately +32767
+
+Axis 4: right trigger, used as throttle
+  Released: approximately -32767
+  Midpoint: approximately 0
+  Fully pressed: approximately +32767
+
+Button 6: left-trigger digital state (observed, not used for analog brake output)
+Button 7: right-trigger digital state (observed, not used for analog throttle output)
+Button 12: PlayStation logo button, used for enable/disable
+Button 13: touchpad click, used for the latched emergency request
