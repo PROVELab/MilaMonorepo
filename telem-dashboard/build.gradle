@@ -30,20 +30,4 @@ java {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
-// Task to test the telemetry logger
-tasks.register('testTelemetryLogger', JavaExec) {
-    dependsOn 'classes'
 
-    classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'presentation.TelemetryParser'
-
-    // Keep fake recordings in a separate test folder.
-    def testDirectory =
-            project.layout.buildDirectory.dir('logger-test').get().asFile
-
-    workingDir = testDirectory
-
-    doFirst {
-        testDirectory.mkdirs()
-    }
-}
