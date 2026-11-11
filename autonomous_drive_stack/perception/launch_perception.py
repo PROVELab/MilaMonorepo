@@ -6,7 +6,6 @@ Starts the full perception stack and prints the web-viewer URL.
 
 Runs three ROS2 nodes as subprocesses:
   - detector_node.py       (YOLOv8 per-camera object detection)
-  - lane_clr_node.py       (CLRerNet lane detection on the front camera)
   - three_camera_viewer.py (web viewer on :8765 with YOLO boxes overlaid)
 
 Run this AFTER opening Prove_sim.usd in Isaac Sim and pressing Play ▶.
@@ -27,7 +26,6 @@ from pathlib import Path
 
 HERE = Path(__file__).parent.resolve()
 DETECTOR = HERE / "detector_node.py"
-LANE = HERE / "lane_clr_node.py"
 VIEWER = HERE / "three_camera_viewer.py"
 VIEWER_PORT = 8765
 
@@ -70,8 +68,6 @@ def main() -> None:
 
     launch("detector_node", DETECTOR)
     time.sleep(1.5)  # let detector register subscriptions first
-    launch("lane_clr_node", LANE)
-    time.sleep(0.5)
     launch("three_camera_viewer", VIEWER)
 
     url = f"http://{get_lan_ip()}:{VIEWER_PORT}"
