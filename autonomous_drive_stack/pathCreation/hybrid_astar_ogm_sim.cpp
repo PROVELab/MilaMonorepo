@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <limits>
 #include <queue>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -112,35 +113,39 @@ OccupancyGrid buildOGM(const std::vector<Point>& left_edge,
                        const std::vector<Point>& obstacle_centers,
                        double vehicle_half_width,
                        double safety_margin,
-                       double obstacle_radius) {
-    if (left_edge.size() < 2 || right_edge.size() < 2) throw std::runtime_error("Need ordered left and right lane edges");
+                       double obstacle_radius,
+                       bool use_track_boundaries = true) {
     constexpr double MIN_X = -2.0, MAX_X = 35.0, MIN_Y = -12.0, MAX_Y = 12.0, RES = .25;
     OccupancyGrid grid(MIN_X, MAX_X, MIN_Y, MAX_Y, RES);
-    std::vector<Point> corridor = left_edge;
-    corridor.insert(corridor.end(), right_edge.rbegin(), right_edge.rend());
     const double boundary_clearance = vehicle_half_width + safety_margin;
+    if (use_track_boundaries) {
+        if (left_edge.size() < 2 || right_edge.size() < 2) throw std::runtime_error("Need ordered left and right lane edges");
+        std::vector<Point> corridor = left_edge;
+        corridor.insert(corridor.end(), right_edge.rbegin(), right_edge.rend());
 
-    // Quick fail-safe: if perception reports a corridor narrower than the car
-    // plus clearance, do not invent a route through it.
-    const size_t samples = std::min(left_edge.size(), right_edge.size());
-    for (size_t i = 0; i < samples; ++i) {
-        const size_t li = i * (left_edge.size() - 1) / std::max<size_t>(1, samples - 1);
-        const size_t ri = i * (right_edge.size() - 1) / std::max<size_t>(1, samples - 1);
-        if (distance(left_edge[li], right_edge[ri]) <= 2.0 * boundary_clearance + .15) {
-            throw std::runtime_error("lane is narrower than car width plus safety margins");
-        }
-    }
-
-    for (int row = 0; row < grid.height(); ++row) {
-        for (int col = 0; col < grid.width(); ++col) {
-            const Cell cell{col, row};
-            const Point p = grid.center(cell);
-            if (!insidePolygon(p, corridor) ||
-                distanceToPolyline(p, left_edge) < boundary_clearance ||
-                distanceToPolyline(p, right_edge) < boundary_clearance) {
-                grid.block(cell);
+        // Quick fail-safe: if perception reports a corridor narrower than the car
+        // plus clearance, do not invent a route through it.
+        const size_t samples = std::min(left_edge.size(), right_edge.size());
+        for (size_t i = 0; i < samples; ++i) {
+            const size_t li = i * (left_edge.size() - 1) / std::max<size_t>(1, samples - 1);
+            const size_t ri = i * (right_edge.size() - 1) / std::max<size_t>(1, samples - 1);
+            if (distance(left_edge[li], right_edge[ri]) <= 2.0 * boundary_clearance + .15) {
+                throw std::runtime_error("lane is narrower than car width plus safety margins");
             }
         }
+
+        for (int row = 0; row < grid.height(); ++row) {
+            for (int col = 0; col < grid.width(); ++col) {
+                const Cell cell{col, row};
+                const Point p = grid.center(cell);
+                if (!insidePolygon(p, corridor) ||
+                    distanceToPolyline(p, left_edge) < boundary_clearance ||
+                    distanceToPolyline(p, right_edge) < boundary_clearance) {
+                    grid.block(cell);
+                }
+            }
+        }
+
     }
 
     // Point obstacles from perception become discs enlarged by the car radius.
@@ -398,7 +403,8 @@ HybridResult HybridAStar::reconstruct(
 // ordered left edge, ordered right edge, and static-obstacle positions.
 struct Track { std::vector<Point> left, right, obstacles; };
 
-Track makeTrack() {
+// Obstacle positions are fixed world coordinates in meters.
+Track makeTrack(const std::vector<Point>& obstacles) {
     Track track;
     constexpr double lane_half_width = 4.8;  // 9.6 m wide: feasible after clearance erosion.
     for (double x = -5.0; x <= 160.0; x += .35) {
@@ -409,10 +415,26 @@ Track makeTrack() {
         track.left.push_back({x + lane_half_width * normal.x, y + lane_half_width * normal.y});
         track.right.push_back({x - lane_half_width * normal.x, y - lane_half_width * normal.y});
     }
-    // Two perception-style point obstacles. They will be inflated in buildOGM.
-    track.obstacles = {{24.0, 2.7 * std::sin(24.0 / 29.0)},
-                       {65.0, 2.7 * std::sin(65.0 / 29.0) - .65}};
+    track.obstacles = obstacles;  // Inflated for collision checking in buildOGM.
     return track;
+}
+
+// Append custom world-coordinate obstacles to an existing track.
+void addObstacles(Track& track, const std::vector<Point>& obstacles) {
+    track.obstacles.insert(track.obstacles.end(), obstacles.begin(), obstacles.end());
+}
+
+// Accept either "x, y" or "x y", rejecting extra or non-finite values.
+bool parseObstacleCoordinates(std::string text, Point& point) {
+    const auto comma = text.find(',');
+    if (comma != std::string::npos) text[comma] = ' ';
+    std::istringstream input(text);
+    Point parsed{};
+    if (!(input >> parsed.x >> parsed.y)) return false;
+    input >> std::ws;
+    if (!input.eof() || !std::isfinite(parsed.x) || !std::isfinite(parsed.y)) return false;
+    point = parsed;
+    return true;
 }
 
 std::vector<Point> visibleInCarFrame(const std::vector<Point>& world, Pose car) {
@@ -456,7 +478,7 @@ Vector2 toScreen(Point point, Pose car) {
 }
 
 // The inverse of toScreen(). This is simulator-only code: it converts a mouse
-// click into a world-coordinate goal for the planner.
+// click into a world-coordinate goal or obstacle for the planner.
 Point screenToWorld(Vector2 screen, Pose car) {
     constexpr double SCALE = 16.0;
     return {car.x + (screen.x - 235.0) / SCALE,
@@ -476,40 +498,99 @@ int main() {
 
     HybridConfig config;
     HybridAStar planner(config);
-    const Track track = makeTrack();
+    // Edit this vector to set the initial world-coordinate obstacles.
+    const std::vector<Point> initial_obstacles = {
+        {24.0, 2.7 * std::sin(24.0 / 29.0)},
+        {65.0, 2.7 * std::sin(65.0 / 29.0) - .65}
+    };
+    Track track = makeTrack(initial_obstacles);
     // Start aligned with the tangent of the test course.
     Pose car{0.0, 0.0, std::atan(2.7 / 29.0)};
     HybridResult plan;
     PathFollower follower;
     bool paused = false;
+    bool use_track_boundaries = false;
     std::vector<Point> world_path;
     std::string planner_status = "waiting to plan";
     double replan_timer = 1.0;
     bool has_clicked_goal = false;
     Point clicked_goal_world{};
     Point displayed_goal_world{};
+    bool entering_obstacle = false;
+    std::string obstacle_input;
+    std::string input_error;
+    int obstacle_scroll = 0;
+    constexpr int PANEL_X = 870;
+    constexpr int VISIBLE_OBSTACLES = 22;
 
     InitWindow(WINDOW_W, WINDOW_H, "Hybrid A* OGM Vehicle Simulator");
+    SetExitKey(KEY_NULL);  // Escape cancels coordinate entry before it can exit.
     SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
         const double dt = std::min(.04f, GetFrameTime());
+        const bool input_was_active = entering_obstacle;
+        if (!entering_obstacle && IsKeyPressed(KEY_ESCAPE)) break;
+        if (!entering_obstacle && IsKeyPressed(KEY_O)) {
+            entering_obstacle = true;
+            obstacle_input.clear();
+            input_error.clear();
+            while (GetCharPressed() != 0) {}  // Discard the opening shortcut.
+        } else if (entering_obstacle) {
+            for (int ch = GetCharPressed(); ch != 0; ch = GetCharPressed()) {
+                if (ch >= 32 && ch <= 126 && obstacle_input.size() < 32) {
+                    obstacle_input += static_cast<char>(ch);
+                    input_error.clear();
+                }
+            }
+            if (IsKeyPressed(KEY_BACKSPACE) && !obstacle_input.empty()) obstacle_input.pop_back();
+            if (IsKeyPressed(KEY_ESCAPE)) entering_obstacle = false;
+            if (IsKeyPressed(KEY_ENTER)) {
+                Point obstacle{};
+                if (parseObstacleCoordinates(obstacle_input, obstacle)) {
+                    addObstacles(track, {obstacle});
+                    replan_timer = .08;
+                    obstacle_scroll = std::max(0, static_cast<int>(track.obstacles.size()) - VISIBLE_OBSTACLES);
+                    entering_obstacle = false;
+                } else {
+                    input_error = "Enter two finite numbers: x, y";
+                }
+            }
+        }
+        // Keep normal shortcuts and scene clicks out of the coordinate editor.
+        if (!input_was_active && !entering_obstacle) {
         if (IsKeyPressed(KEY_R)) {
             car = {0.0, 0.0, std::atan(2.7 / 29.0)};
             replan_timer = 1.0;
         }
         if (IsKeyPressed(KEY_SPACE)) paused = !paused;
-        // SIMULATOR ONLY: left-click a destination. Right-click returns to the
+        if (IsKeyPressed(KEY_B)) {
+            use_track_boundaries = !use_track_boundaries;
+            replan_timer = .08;
+        }
+        // SIMULATOR ONLY: left-click a destination. A returns to the
         // default goal, 30 m ahead along the lane centerline.
-        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        const bool mouse_in_scene = GetMousePosition().y >= 100.0f && GetMousePosition().x < PANEL_X;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && mouse_in_scene) {
             clicked_goal_world = screenToWorld(GetMousePosition(), car);
             has_clicked_goal = true;
             replan_timer = .08;  // Replan immediately for the new destination.
         }
-        if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+        if (IsKeyPressed(KEY_A)) {
             has_clicked_goal = false;
             replan_timer = .08;
         }
+        // Right-click the scene to place a fixed obstacle and replan now.
+        if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) && mouse_in_scene) {
+            addObstacles(track, {screenToWorld(GetMousePosition(), car)});
+            replan_timer = .08;
+        }
+        }
+        if (GetMousePosition().x >= PANEL_X) {
+            obstacle_scroll -= static_cast<int>(GetMouseWheelMove() * 3);
+        }
+        obstacle_scroll = std::clamp(obstacle_scroll, 0,
+            std::max(0, static_cast<int>(track.obstacles.size()) - VISIBLE_OBSTACLES));
 
         // Perception -> vehicle frame -> OGM -> heading-aware A* (12.5 Hz).
         replan_timer += dt;
@@ -520,7 +601,7 @@ int main() {
                 visibleEdgePairsInCarFrame(track.left, track.right, car, left, right);
                 const auto obstacles = visibleInCarFrame(track.obstacles, car);
                 const auto centerline = makeCenterline(left, right);
-                const OccupancyGrid grid = buildOGM(left, right, obstacles, CAR_HALF_WIDTH, SAFETY_MARGIN, OBSTACLE_RADIUS);
+                const OccupancyGrid grid = buildOGM(left, right, obstacles, CAR_HALF_WIDTH, SAFETY_MARGIN, OBSTACLE_RADIUS, use_track_boundaries);
                 // Shorten the horizon at the end of the course so the car can
                 // finish instead of stopping when fewer than 30 metres remain.
                 const double current_arc = closestArcLength(centerline, {0.0, 0.0});
@@ -561,14 +642,21 @@ int main() {
         // Stop on a failed plan or at its endpoint. Each successful replan
         // replaces the remaining route with arcs starting at the current pose.
         constexpr double FOLLOW_SPEED_MPS = 4.0;
-        if (!paused && plan.found) follower.advance(car, FOLLOW_SPEED_MPS * dt);
+        if (!paused && !entering_obstacle && !input_was_active && plan.found) follower.advance(car, FOLLOW_SPEED_MPS * dt);
 
         BeginDrawing();
         ClearBackground(RAYWHITE);
-        drawPolyline(track.left, car, DARKGREEN, 3.0f);
-        drawPolyline(track.right, car, DARKGREEN, 3.0f);
+        if (use_track_boundaries) {
+            drawPolyline(track.left, car, DARKGREEN, 3.0f);
+            drawPolyline(track.right, car, DARKGREEN, 3.0f);
+        }
         drawPolyline(world_path, car, BLUE, 3.5f);
-        for (const Point& obstacle : track.obstacles) DrawCircleV(toScreen(obstacle, car), 7.0f, RED);
+        for (size_t i = 0; i < track.obstacles.size(); ++i) {
+            const Vector2 screen = toScreen(track.obstacles[i], car);
+            DrawCircleV(screen, 7.0f, RED);
+            DrawText(TextFormat("#%d", static_cast<int>(i + 1)), static_cast<int>(screen.x) + 10,
+                     static_cast<int>(screen.y) - 8, 16, MAROON);
+        }
         const Vector2 goal_screen = toScreen(displayed_goal_world, car);
         DrawCircleLinesV(goal_screen, 11.0f, PURPLE);
         DrawLineV({goal_screen.x - 15.0f, goal_screen.y}, {goal_screen.x + 15.0f, goal_screen.y}, PURPLE);
@@ -578,10 +666,32 @@ int main() {
         const Vector2 left_corner = toScreen({car.x + .60 * std::cos(car.yaw + 2.45), car.y + .60 * std::sin(car.yaw + 2.45)}, car);
         const Vector2 right_corner = toScreen({car.x + .60 * std::cos(car.yaw - 2.45), car.y + .60 * std::sin(car.yaw - 2.45)}, car);
         DrawTriangle(nose, left_corner, right_corner, BLACK);
-        DrawRectangle(0, 0, WINDOW_W, 74, Fade(RAYWHITE, .94f));
+        DrawRectangle(0, 0, WINDOW_W, 100, Fade(RAYWHITE, .94f));
         DrawText("Green: feasible lane edges  Red: obstacles  Blue: Hybrid A* path  Purple: goal  Black: vehicle", 18, 12, 20, DARKGRAY);
+        DrawText(TextFormat("B: boundaries %s", use_track_boundaries ? "ON" : "OFF"), 990, 14, 16, DARKGRAY);
         DrawText(planner_status.c_str(), 18, 42, 20, plan.found ? DARKGREEN : MAROON);
-        DrawText(TextFormat("%s   radius %.2f m   expanded %d   Space: pause   left-click: goal   right-click: auto   R: reset", paused ? "PAUSED" : "AUTO", planner.minTurnRadius(), plan.expanded), 430, 42, 15, DARKGRAY);
+        DrawText(TextFormat("%s   radius %.2f m   expanded %d   Space: pause   left-click: goal   A: auto   R: reset", paused ? "PAUSED" : "AUTO", planner.minTurnRadius(), plan.expanded), 430, 42, 15, DARKGRAY);
+        DrawText("Right-click: add obstacle   O: enter obstacle coordinates   Space: pause", 18, 74, 16, DARKGRAY);
+        DrawRectangle(PANEL_X, 100, WINDOW_W - PANEL_X, WINDOW_H - 100, Fade(RAYWHITE, .97f));
+        DrawText("World coordinates (meters)", PANEL_X + 12, 112, 20, DARKGRAY);
+        DrawText(TextFormat("Car:  x %.2f   y %.2f", car.x, car.y), PANEL_X + 12, 144, 18, BLACK);
+        DrawText(TextFormat("Heading: %.1f deg", car.yaw * 180.0 / kPi), PANEL_X + 12, 170, 18, BLACK);
+        DrawText(TextFormat("Goal: x %.2f   y %.2f", displayed_goal_world.x, displayed_goal_world.y), PANEL_X + 12, 196, 18, PURPLE);
+        DrawText(TextFormat("Obstacles: %d (scroll here)", static_cast<int>(track.obstacles.size())), PANEL_X + 12, 230, 18, MAROON);
+        for (int row = 0; row < VISIBLE_OBSTACLES && obstacle_scroll + row < static_cast<int>(track.obstacles.size()); ++row) {
+            const int index = obstacle_scroll + row;
+            const Point& obstacle = track.obstacles[index];
+            DrawText(TextFormat("#%d: x %.2f  y %.2f", index + 1, obstacle.x, obstacle.y),
+                     PANEL_X + 12, 258 + row * 24, 17, MAROON);
+        }
+        if (entering_obstacle) {
+            DrawRectangle(100, 280, 650, 166, RAYWHITE);
+            DrawRectangleLines(100, 280, 650, 166, DARKGRAY);
+            DrawText("Add obstacle: world x, y in meters", 118, 296, 22, DARKGRAY);
+            DrawText((obstacle_input + "_").c_str(), 118, 334, 24, BLACK);
+            DrawText("Enter: add   Esc: cancel   Movement paused", 118, 376, 18, DARKGRAY);
+            DrawText(input_error.c_str(), 118, 410, 18, MAROON);
+        }
         EndDrawing();
     }
     CloseWindow();

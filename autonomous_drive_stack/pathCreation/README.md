@@ -53,12 +53,16 @@ The build command for the main simulator has been compiled and linked successful
 | Input | Action |
 | --- | --- |
 | Left mouse button | Set an exact destination at the clicked world position and trigger replanning. |
-| Right mouse button | Return to the automatic goal ahead on the lane. |
+| A | Return to the automatic goal ahead on the lane. |
+| Right mouse button | Add a fixed obstacle at the clicked position below the status bar and replan immediately. Works while paused. |
+| O | Open obstacle coordinate entry. Type world coordinates as `x, y` or `x y`, then press Enter to add or Escape to cancel. Movement pauses while editing. |
+| Mouse wheel over coordinate panel | Scroll the obstacle position list. |
 | Space | Pause or resume vehicle movement. Planning continues while paused. |
+| B | Enable or disable lane/track boundaries for both display and collision checking. Disabled by default; obstacles remain active. |
 | R | Return the vehicle to its starting pose and trigger replanning. The current goal mode and pause state are retained. |
 | Escape or window close button | Exit. |
 
-Choose a clicked destination inside the drivable corridor and the local planning region. Clicked goals are not automatically moved into free space. A blocked or unreachable goal produces a planner status message and stops the vehicle.
+Choose a clicked destination inside the local planning region and, when boundaries are enabled, inside the drivable corridor. Clicked goals are not automatically moved into free space. A blocked or unreachable goal produces a planner status message and stops the vehicle.
 
 ## Display
 
@@ -72,11 +76,13 @@ Choose a clicked destination inside the drivable corridor and the local planning
 
 The view follows the vehicle's position without rotating with its heading. The status bar shows planning success or failure, the configured minimum turning radius, the number of expanded search states, and the pause state. The occupancy grid and inflated obstacle regions are used internally but are not drawn.
 
+The right panel shows the car and goal world coordinates in meters, the car heading in degrees, and numbered obstacle coordinates. Obstacle numbers match their labels in the scene. Scene clicks to place obstacles or goals are accepted below the status bar and to the left of this panel.
+
 ## How planning works
 
 1. Generate a fixed curved test course with two static obstacles in `makeTrack()`.
 2. Transform visible lane edges and obstacles into vehicle coordinates: positive x is forward and positive y is left.
-3. Build a local occupancy grid. Cells outside the lane or too close to its boundaries are blocked. Obstacles are enlarged by the vehicle half-width and safety margin.
+3. Build a local occupancy grid. When boundaries are enabled, cells outside the lane or too close to its boundaries are blocked. Automatic goals still follow the lane centerline when boundaries are disabled. Obstacles are enlarged by the vehicle half-width and safety margin.
 4. Select a goal up to 30 m ahead along the computed centerline, or use the clicked destination. Automatic goals shorten near the course end and retreat along the centerline if needed to reach free space.
 5. Search states consisting of a grid cell and a heading bin. Expand forward bicycle-model arcs using left, straight, and right steering choices, checking samples along each arc against the grid.
 6. Convert a successful path to world coordinates and play back its arcs at 4 m/s. Replace the path on each replan; stop if planning fails or the path endpoint is reached.
@@ -116,11 +122,13 @@ The planner uses forward motion only and checks goal position without requiring 
 
 To experiment with other courses, edit `makeTrack()`. The perception-style inputs are ordered left and right lane-edge points and static obstacle positions.
 
+`makeTrack(const std::vector<Point>& obstacles)` accepts the initial obstacle positions; edit `initial_obstacles` in `main()` to customize them. Each `Point` is an `{x, y}` world position in meters. Pass an empty vector for no initial obstacles. Use `addObstacles(track, {{10.0, 1.0}, {15.0, -1.0}})` to append more obstacles to an existing track. During simulation, right-click to place obstacles; they stay fixed in the world as the vehicle moves and last until the simulator closes. Pressing R retains all obstacles.
+
 ## Troubleshooting
 
 - **`g++` is not recognized:** run the PATH command above and verify that `C:\msys64\ucrt64\bin\g++.exe` exists.
 - **`raylib.h` is missing or the linker cannot find raylib:** ensure raylib is installed for the same UCRT64 environment as the compiler. Avoid mixing UCRT64 and MINGW64 libraries.
 - **A DLL is missing at launch:** run from the terminal with the UCRT64 PATH configured. Keep that path available even when launching an already compiled executable.
 - **Multiple definitions of `main`:** compile only one of the two source files per executable.
-- **The vehicle stops:** read the planner status. Right-click to restore automatic goals, or press R to return to the start. R retains a clicked goal; right-click as well if you want automatic mode.
+- **The vehicle stops:** read the planner status. Press A to restore automatic goals, or press R to return to the start. R retains a clicked goal; press A as well if you want automatic mode.
 - **Rebuilding reports permission denied for the executable:** close the simulator window and rebuild.
