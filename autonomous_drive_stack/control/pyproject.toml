@@ -1,12 +1,17 @@
 [project]
 name = "mila-control"
 version = "0.1.0"
-description = "Lateral control (Pure Pursuit, later MPC) for Mila, plus Isaac Sim adapters"
+description = "Lateral control (Pure Pursuit and MPC) for Mila, plus Isaac Sim adapters"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "numpy>=1.24",
     "matplotlib>=3.7",
+    # MPC solves a small sparse QP every tick. OSQP is first-order, ships
+    # prebuilt wheels for ARM (so the same code can go on the Orin), and solves
+    # this problem in ~10 ms on a laptop against a 50 ms budget at 20 Hz.
+    "osqp>=0.6",
+    "scipy>=1.10",
 ]
 
 # Isaac Sim is NOT a dependency here on purpose. It is not pip-installable, it

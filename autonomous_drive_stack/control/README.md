@@ -24,7 +24,7 @@
 9. [Code walkthrough](#9-code-walkthrough)
 10. [What changed when the real parameters arrived](#10-what-changed-when-the-real-parameters-arrived)
 11. [Isaac Sim integration](#11-isaac-sim-integration)
-12. [Toward MPC](#12-toward-mpc)
+12. [MPC](#12-mpc)
 13. [How to run it](#13-how-to-run-it)
 
 ---
@@ -41,9 +41,19 @@ closed-form answers, and tuned against Mila's real dimensions.
 | Straight line, started 3 m off | settles to **0.0007 m**, 3 reversals |
 | Slalom (4 m amplitude, 40 m wavelength) at 6 m/s | **0.282 m** RMS, 0.473 m max |
 | Figure-eight R = 30 m through its own crossing | **0.740 m** max, no branch jump |
-| Full check suite | ~3 s on a laptop, no GPU |
+| Full check suite | ~15 s on a laptop, no GPU |
 
-Not yet executed inside Isaac Sim — section 11.
+And MPC, which is the reason for the project's next stage:
+
+| | Pure Pursuit | MPC |
+|---|---|---|
+| circle R = 15, steady bias | +0.285 m | **+0.013 m** (22× better) |
+| slalom 4/40, RMS | 0.282 m | **0.023 m** |
+| figure-eight R = 30, RMS | 0.305 m | **0.021 m** |
+| solve time | — | 10–17 ms mean, 50 ms budget at 20 Hz |
+
+Not yet executed inside Isaac Sim — section 11 explains why the first attempt
+crashed and what changed.
 
 ---
 
@@ -392,45 +402,140 @@ in advance*, not by looking at a plot and deciding it seemed reasonable.
 and wheel attachments, not a jointed articulation. That's why searching the monorepo
 for `ArticulationRoot` and revolute joints found nothing: wrong mechanism entirely.
 
-**The adapter in `isaac/` is written for the wrong interface and needs rewriting.** It
-currently builds an `AckermannController` and writes joint targets. PhysX Vehicle takes
-a single normalized steering input:
+### The first run on a real machine crashed. Two bugs, both mine.
+
+Someone ran this on Isaac Sim 6.1 and reported that it loaded the old Buick and then
+crashed. Both causes are now fixed.
+
+**1. It pointed at the wrong stage.** The old `MILA_STAGE` constant pointed at
+`autonomous_drive_stack/simulation/FirstMilaStage_light.usda`, because when I wrote it
+that was the only stage in the monorepo. That stage loads the Buick as a visual payload
+with no physics. The drivable Mila is in a **different repository** —
+`PROVELab/autonomous-drive-stack`, at `simulation/parking_lot/parking_lot.usda`, which
+sublayers `mila_vehicle.usd`. With only the monorepo checked out, the Buick stage is
+the only thing there is, so that's what it loaded.
+
+`stage.py` now searches the known layouts and, if it can't find the right stage, prints
+the clone command rather than silently loading the wrong car.
+
+**2. It drove the wrong interface.** The old code built an `AckermannController` and
+wrote joint position and velocity targets. A PhysX Vehicle has no joints to write to —
+wrapping it in `Articulation` and asking for `dof_names` is what produced the crash.
+The replacement writes three normalized floats:
 
 ```python
-# steer is normalized [-1, 1] and scaled by maxSteerAngle in the engine
-prim.GetAttribute("physxVehicleController:steer").Set(delta / 0.5)
-prim.GetAttribute("physxVehicleController:accelerator").Set(throttle)
-prim.GetAttribute("physxVehicleController:brake0").Set(brake)
+prim.GetAttribute("physxVehicleController:steer").Set(delta / 0.5)   # [-1, 1]
+prim.GetAttribute("physxVehicleController:accelerator").Set(throttle)  # [0, 1]
+prim.GetAttribute("physxVehicleController:brake0").Set(brake)          # [0, 1]
 ```
 
-The asset already declares `physxVehicleAckermannSteering`, so the inner/outer split
-happens in the engine — the `AckermannController` code path can be deleted. **This
-makes the integration simpler than planned, not harder.**
+The asset declares `physxVehicleAckermannSteering`, so the inner/outer split happens
+inside the engine. The whole Ackermann code path is deleted — **the integration is
+simpler than planned, not harder.**
 
-Still outstanding:
+### Running it
 
-- **No machine that can run Isaac Sim.** macOS is unsupported in every version.
-- **Which stage?** `parking_lot.usda` (Isaac 6.1, has the vehicle, cones and collision)
-  or the monorepo's `FirstMilaStage_light.usda` (Isaac 6.0, Buick placeholder)? See the
-  open question in §2.
-- `.usd` assets are Git LFS pointers; `stage.py` detects this and says so, because
-  Isaac's own error doesn't mention LFS.
+```bash
+# 1. Get the stage (it is NOT in this repo)
+git clone https://github.com/PROVELab/autonomous-drive-stack.git
+cd autonomous-drive-stack && git lfs install && git lfs pull
+
+# 2. Inspect before driving — reads the stage, writes nothing
+./python.sh .../isaac/run_openloop.py --list-vehicle \
+    --stage /path/to/autonomous-drive-stack/simulation/parking_lot/parking_lot.usda
+
+# 3. Open loop. If this does not move the car, no controller will.
+./python.sh .../isaac/run_openloop.py --stage ...
+
+# 4. Closed loop
+./python.sh .../isaac/run_purepursuit.py --path circle --stage ...
+./python.sh .../isaac/run_purepursuit.py --path circle --controller mpc --stage ...
+```
+
+**I have not been able to run any of this** — no Isaac-capable machine. Every Isaac API
+call in `isaac/` is marked `[VERIFIED]` where it comes from the USD we have in hand, or
+`[ASSUMED]` where it's an Isaac API I believe is right but have not executed. Start with
+`--list-vehicle`, which only reads the stage.
+
+Two things I could not verify and that are worth checking first:
+
+- **Steering sign.** I don't know whether positive `steer` turns left or right in this
+  asset. If the car tracks a mirror image of the path, pass `--steer-sign -1` rather
+  than negating the controller, which would be the wrong place to fix it.
+- **Pose source.** `get_pose()` reads the USD xform, which PhysX writes back each step.
+  If it returns a stale or zero pose, that's the call to change.
 
 ---
 
-## 12. Toward MPC
+## 12. MPC
 
-The pieces carry over directly:
+Pure Pursuit answers "where do I steer to reach a point ahead?". MPC answers "what
+sequence of steering commands over the next 1.5 seconds minimises tracking error, given
+the path ahead and what the actuator cannot do?" — then applies the first one and
+re-solves.
 
-- `KinematicBicycle` becomes the **prediction model**.
-- `path.py` already supplies a reference horizon.
-- `VehicleParams` already encodes the **constraints** — and they're now real numbers.
-- `verify.py`'s analytic cases become MPC's regression tests. Same known answers.
+Two things follow, and together they are the whole argument for the complexity:
 
-The comparison to run on the same slalom is **tracking error against corner-cutting**.
-Pure Pursuit's signed-mean bias is structural; MPC should remove it, because it
-optimises over a horizon instead of chasing a single point. Measure it rather than
-assume it.
+1. **It sees the corner coming.** Path curvature over the entire horizon enters as a
+   known disturbance. Pure Pursuit looks at one point, so it is always reacting.
+2. **Limits are part of the problem.** Pure Pursuit computes an angle then clamps it,
+   so the clamped command is no longer what the geometry asked for. MPC optimises
+   subject to the angle and slew limits, planning something the actuator can execute.
+
+![MPC vs Pure Pursuit cross-track error](docs/figures/07_mpc_vs_pure_pursuit.png)
+
+The left panel is the one that matters. On a constant-radius turn Pure Pursuit's error
+settles to a steady **+0.285 m** and stays there — structural, from aiming at a chord
+rather than the arc, and untunable. MPC sits at **+0.013 m**, a 22× reduction, because
+it leads the corner instead of reacting to it.
+
+| | Pure Pursuit | MPC |
+|---|---|---|
+| circle R = 15, steady signed bias | +0.285 m | **+0.013 m** |
+| slalom 4/40, RMS | 0.282 m | **0.023 m** |
+| figure-eight R = 30, RMS | 0.305 m | **0.021 m** |
+
+### The formulation
+
+Error state against the path — `e_y` cross-track, `e_ψ` heading error, `κ` curvature:
+
+```
+e_y'   = v·sin(e_ψ)      ≈ v·e_ψ
+e_ψ'   = (v/L)·tan(δ) − v·κ   ≈ (v/L)·δ − v·κ
+```
+
+Discretised at `dt`, with `x = [e_y, e_ψ]` and `u = δ`:
+
+```
+x[k+1] = A x[k] + B u[k] + d[k]
+
+A = [[1, dt·v],     B = [[0],          d[k] = [0, −dt·v·κ[k]]
+     [0,   1 ]]          [dt·v/L]]
+```
+
+Quadratic cost, linear dynamics, linear constraints — a QP, solved with OSQP. Horizon
+30 steps at 0.05 s = 1.5 s of preview.
+
+**Real-time feasibility:** 10–17 ms mean, 23 ms p95, against a 50 ms budget at 20 Hz.
+All solves succeed. Budget 2–3× that on the Orin's ARM cores and re-measure there —
+OSQP ships ARM wheels, so the same code runs.
+
+### Why the kinematic model, with dynamic parameters available
+
+`VehicleParams` now carries mass, yaw inertia and cornering stiffness, so a dynamic
+bicycle model is possible. MPC deliberately uses the **kinematic** model anyway.
+
+The asset's cornering stiffnesses are **synthetic**. Front and rear are exactly
+proportional to static sprung mass — 35943.4/204.12 = 43930.8/249.48 = 176.090 N/rad
+per kg, a ratio of 1.000000 — which is Isaac's vehicle wizard scaling stiffness by load
+when nobody supplies real tyre data. The consequence is that the understeer gradient
+comes out at zero to one part in 10⁵, making Mila *exactly* neutral-steer. Real cars are
+deliberately built to understeer, because that is stable at any speed while a neutral
+car sits exactly on the stability boundary.
+
+A dynamic model would inherit that assumption and bake it into the controller. The
+kinematic model doesn't use cornering stiffness at all, so it can't. Revisit when
+someone has measured tyre data.
 
 ---
 
@@ -442,11 +547,13 @@ uv run tools/verify.py              # ~3 s, must print "all checks passed"
 uv run tools/plots.py --out docs/figures
 ```
 
-Isaac entry points (once a machine exists, and after the §11 rewrite):
+Isaac entry points — see §11 for the stage, which is in a different repo:
 
 ```bash
-./python.sh  isaac/run_openloop.py --list-joints   # start here on any new asset
-./python.sh  isaac/run_purepursuit.py --path slalom --csv run.csv
+./python.sh  isaac/run_openloop.py --list-vehicle --stage .../parking_lot.usda
+./python.sh  isaac/run_openloop.py --stage .../parking_lot.usda
+./python.sh  isaac/run_purepursuit.py --path circle --stage .../parking_lot.usda
+./python.sh  isaac/run_purepursuit.py --path circle --controller mpc --stage ...
 ```
 
 `--csv` writes the same columns `RunLog` records, so an Isaac run can be compared

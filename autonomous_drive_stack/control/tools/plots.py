@@ -247,14 +247,12 @@ def main() -> None:
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     for fn in (fig_openloop, fig_tracking, fig_analytic, fig_lookahead,
-               fig_feasibility, fig_stability):
+               fig_feasibility, fig_stability, fig_mpc_vs_pp):
         fn(a.out)
         print(f"  {fn.__name__}")
-    print(f"\nwrote 6 figures to {os.path.abspath(a.out)}")
+    print(f"\nwrote 7 figures to {os.path.abspath(a.out)}")
 
 
-if __name__ == "__main__":
-    main()
 
 
 def fig_slide(out: str) -> None:
@@ -296,3 +294,41 @@ def fig_slide(out: str) -> None:
                   f"rms {log.xte_rms:.3f} m   max {log.xte_max:.3f} m")
         fig.savefig(os.path.join(out, "slide_tracking.png"), dpi=170)
         plt.close(fig)
+
+
+def fig_mpc_vs_pp(out: str) -> None:
+    """The argument for MPC, measured on the same paths and the same plant.
+
+    The left panel is the one that matters: Pure Pursuit's cross-track error on
+    a constant-radius turn settles to a steady NON-ZERO value and stays there.
+    That bias is structural — it comes from aiming at a chord rather than the
+    arc — and no amount of tuning removes it. MPC drives it to near zero because
+    it has the path's curvature over the whole horizon and can lead the corner
+    instead of reacting to it.
+    """
+    from mila_control.mpc import MPC, MPCConfig
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.4), constrained_layout=True)
+    cases = [("Constant radius, R = 15 m", P.circle(radius=15.0, turns=1.0)),
+             ("Slalom, 4 m / 40 m", P.slalom(160.0, 4.0, 40.0)),
+             ("Figure-eight, R = 30 m", P.figure_eight(radius=30.0))]
+
+    for ax, (name, pth) in zip(axes, cases):
+        pp = run(pth, controller=PurePursuit(pth, PurePursuitConfig()),
+                 v_target=6.0, t_max=200.0)
+        mp = run(pth, controller=MPC(pth, MPCConfig()),
+                 v_target=6.0, t_max=200.0)
+        ax.plot(pp.t, pp.arr("cross_track"), color=C_CAR, lw=1.6,
+                label=f"Pure Pursuit  (rms {pp.xte_rms:.3f} m)")
+        ax.plot(mp.t, mp.arr("cross_track"), color=C_REF, lw=1.6,
+                label=f"MPC  (rms {mp.xte_rms:.3f} m)")
+        ax.axhline(0, color="0.75", lw=0.9, zorder=0)
+        ax.legend(frameon=False, fontsize=8, loc="best")
+        _tidy(ax, "t (s)", "cross-track error (m)", name)
+
+    fig.savefig(os.path.join(out, "07_mpc_vs_pure_pursuit.png"), dpi=150)
+    plt.close(fig)
+
+
+if __name__ == "__main__":
+    main()

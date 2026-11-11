@@ -70,6 +70,36 @@ class VehicleParams:
     max_speed: float = 15.0              # m/s   <-- PLACEHOLDER, needs a real figure
     max_accel: float = 3.0               # m/s^2, derived from peak torque
 
+    # --- Dynamic-model parameters -------------------------------------------
+    # Not used by the kinematic bicycle or by either controller today. They are
+    # recorded here because they are in the asset and would otherwise have to be
+    # re-derived, and because a dynamic-model MPC would need exactly these.
+    #
+    # cg_to_front_axle + cg_to_rear_axle = 1.529 + 1.251 = 2.780, which matches
+    # the declared wheelbase exactly — an independent check that the wheel
+    # positions were read correctly.
+    cg_to_front_axle: float = 1.529      # m
+    yaw_inertia: float = 1554.336        # kg.m^2, physics:diagonalInertia z
+
+    # Cornering stiffness per AXLE (2 wheels x physxVehicleTire:lateralStiffness).
+    #
+    # >>> WARNING: THESE ARE SYNTHETIC, NOT MEASURED. <<<
+    # Front and rear lateral stiffness are *exactly* proportional to static
+    # sprung mass — 35943.4/204.12 = 43930.8/249.48 = 176.090 N/rad per kg — a
+    # ratio of 1.000000. That is the signature of Isaac's vehicle wizard scaling
+    # stiffness by load when nobody supplies real tyre data.
+    #
+    # The consequence: the understeer gradient K = (m/L)(lr/Cf - lf/Cr) comes out
+    # at zero to one part in 1e5, so the car is EXACTLY neutral-steer. Real cars
+    # are deliberately built to understeer, because that is stable at any speed
+    # while a neutral car sits exactly on the stability boundary. Anything tuned
+    # against these numbers will not transfer to the real vehicle.
+    #
+    # This is why the MPC in mpc.py uses the KINEMATIC model: it does not use
+    # cornering stiffness at all, so it cannot inherit this assumption.
+    cornering_stiffness_front: float = 71886.8   # N/rad  <-- synthetic
+    cornering_stiffness_rear: float = 87861.6    # N/rad  <-- synthetic
+
 
 @dataclass
 class VehicleState:
