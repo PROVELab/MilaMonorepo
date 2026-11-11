@@ -1,29 +1,36 @@
 <?xml version="1.0"?>
-<!-- Simulation settings, not validated hardware specifications. Restart nodes after editing. -->
+
+<!--
+  Primary sensor noise settings.
+
+  Larger values produce noisier simulated measurements.
+  Set a value to 0 to disable that component of white noise.
+
+  Restart the sensor nodes after changing these values.
+
+  Other simulation settings, including sensor biases and drift,
+  use the defaults in sensor_config.py.
+-->
+
 <sensor_simulation>
+
   <imu>
-    <nominal_rate_hz>60.0</nominal_rate_hz>
-    <seed>17</seed>
-    <max_gap_seconds>1.0</max_gap_seconds>
-    <reset_bias_on_time_reset>true</reset_bias_on_time_reset>
-    <accel_noise_density_mps2_per_sqrt_hz>0.000588399</accel_noise_density_mps2_per_sqrt_hz>
-    <gyro_noise_density_radps_per_sqrt_hz>0.00013962634015954636</gyro_noise_density_radps_per_sqrt_hz>
-    <accel_initial_bias_std_mps2>0.03</accel_initial_bias_std_mps2>
-    <gyro_initial_bias_std_radps>0.005</gyro_initial_bias_std_radps>
-    <accel_bias_random_walk_mps2_per_sqrt_s>0.0002</accel_bias_random_walk_mps2_per_sqrt_s>
-    <gyro_bias_random_walk_radps_per_sqrt_s>0.00002</gyro_bias_random_walk_radps_per_sqrt_s>
+    <!-- Accelerometer noise density: (m/s²) / √Hz -->
+    <accel_noise_density_mps2_per_sqrt_hz>
+      0.000588399
+    </accel_noise_density_mps2_per_sqrt_hz>
+
+    <!-- Gyroscope noise density: (rad/s) / √Hz -->
+    <gyro_noise_density_radps_per_sqrt_hz>
+      0.00013962634015954636
+    </gyro_noise_density_radps_per_sqrt_hz>
   </imu>
+
   <magnetometer>
-    <!-- Field components are in Isaac world, not necessarily ENU. -->
-    <world_field_x_t>0.000020</world_field_x_t>
-    <world_field_y_t>0.000008</world_field_y_t>
-    <world_field_z_t>-0.000042</world_field_z_t>
-    <white_noise_std_t>0.00000004</white_noise_std_t>
-    <hard_iron_bias_std_t>0.000002</hard_iron_bias_std_t>
-    <soft_iron_scale_std>0.03</soft_iron_scale_std>
-    <soft_iron_cross_axis_std>0.01</soft_iron_cross_axis_std>
-    <random_seed>17</random_seed>
-    <!-- 0 publishes at every incoming IMU sample. -->
-    <mag_rate_hz>0.0</mag_rate_hz>
+    <!-- Magnetic-field white-noise standard deviation, in tesla -->
+    <white_noise_std_t>
+      0.00000004
+    </white_noise_std_t>
   </magnetometer>
+
 </sensor_simulation>
