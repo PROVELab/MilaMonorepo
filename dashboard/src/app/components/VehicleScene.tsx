@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { DriveMode } from "../types/telemetry";
 
-const MODEL_PATH = "/Aeroshell.glb";
+const MODEL_PATH = "/Car.glb";
 const TARGET_MODEL_BOUNDS = new THREE.Vector3(5.4, 2.1, 3.0);
 const GROUND_Y = -0.36;
 
