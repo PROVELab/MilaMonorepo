@@ -423,6 +423,14 @@ button {
   text-transform: uppercase;
 }
 
+.drive-selector__mode small {
+  color: rgba(244, 242, 234, 0.38);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .drive-selector__mode:active {
   transform: translateY(1px) scale(0.99);
 }
@@ -438,6 +446,10 @@ button {
 
 .drive-selector__mode--active em {
   color: rgba(17, 22, 30, 0.64);
+}
+
+.drive-selector__mode--active small {
+  color: rgba(17, 22, 30, 0.5);
 }
 
 .cruise-control {

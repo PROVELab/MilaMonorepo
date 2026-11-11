@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useRef } from "react";
+import { DRIVE_MODE_GAMEPAD_INPUTS } from "../../constants/gamepad";
+import { useGamepadButtons } from "../../hooks/useGamepadButtons";
 import type { DriveMode } from "../../types/telemetry";
 
 interface Props {
@@ -41,6 +43,12 @@ export function DriveModeSelector({ value, onChange }: Props) {
     const normalizedIndex = Math.max(0, Math.min(modes.length - 1, nextIndex));
     onChange(modes[normalizedIndex].value);
   };
+
+  useGamepadButtons(
+    DRIVE_MODE_GAMEPAD_INPUTS,
+    ({ mode }) => onChange?.(mode),
+    Boolean(onChange),
+  );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
@@ -125,17 +133,22 @@ export function DriveModeSelector({ value, onChange }: Props) {
             key={rowIndex}
             className={`drive-selector__row ${row.length > 1 ? "drive-selector__row--dual" : ""}`}
           >
-            {row.map(mode => (
-              <button
-                key={mode.value}
-                type="button"
-                className={`drive-selector__mode ${mode.value === value ? "drive-selector__mode--active" : ""}`}
-                onClick={() => handleModeClick(modes.indexOf(mode))}
-              >
-                <span>{mode.label}</span>
-                <em>{mode.name}</em>
-              </button>
-            ))}
+            {row.map(mode => {
+              const gamepadInput = DRIVE_MODE_GAMEPAD_INPUTS.find(input => input.mode === mode.value);
+
+              return (
+                <button
+                  key={mode.value}
+                  type="button"
+                  className={`drive-selector__mode ${mode.value === value ? "drive-selector__mode--active" : ""}`}
+                  onClick={() => handleModeClick(modes.indexOf(mode))}
+                >
+                  <span>{mode.label}</span>
+                  <em>{mode.name}</em>
+                  {gamepadInput && <small>{gamepadInput.label}</small>}
+                </button>
+              );
+            })}
           </div>
         ))}
       </div>
