@@ -7,18 +7,18 @@ import { useEffect, useRef, useState } from "react";
 //The length of this list sets the cap for n.
 //You can add or remove any mjpeg urls
 //You can find more mjpeg urls at https://www.opentopia.com/hiddencam.php
-interface CameraSource {
+export interface CameraSource {
   name: string;
   url: string;
 }
-const CAMERA_URLS: readonly CameraSource[] = [
+export const CAMERA_URLS: readonly CameraSource[] = [
   { name: "Honjin Intersection", url: "http://honjin1.miemasu.net/nphMotionJpeg?Resolution=640x480&Quality=Standard" },
   { name: "Static Cam", url: "http://97.76.165.226/mjpg/video.mjpg" },
   { name: "ERAU Flight Line", url: "http://flightcam1.pr.erau.edu/mjpg/video.mjpg" },
   { name: "Sanford Counter", url: "https://mjpeg.sanford.io/count.mjpeg" },
 ];
 
-const ASPECT = 16 / 9;      // width / height of every cell
+const ASPECT = 4 / 3;      // width / height of every cell
 const GAP = 8;              // px between cells
 const BOTTOM_OFFSET = 110;  // px reserved for the bottom nav bar; tweak to fit
 const RETRY_DELAY_MS = 2000;

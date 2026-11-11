@@ -6,6 +6,7 @@ import { VehicleScene } from "../VehicleScene";
 import { Tachometer } from "../hud/Tachometer";
 import { DriveModeSelector } from "../hud/DriveModeSelector";
 import { CruiseControlPanel } from "../hud/CruiseControlPanel";
+import { CameraOverlay } from "../hud/CameraOverlay"; // adjust path to match your tree
 
 interface Props {
   driveMode: DriveMode;
@@ -53,7 +54,7 @@ export function DriveView({
   const handleNext = () => setActiveCenterIndex((i) => (i < CENTER_VIEWS.length - 1 ? i + 1 : 0));
 
   return (
-    <div className="drive-view">
+    <div className="drive-view" style={{ position: "relative" }}>
       <div className="drive-view__center" style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}>
         {activeCenter === "scene" ? (
           <VehicleScene rpm={motorRpm} driveMode={driveMode} />
@@ -61,6 +62,8 @@ export function DriveView({
           <EmptyChartsPanel />
         )}
       </div>
+
+      <CameraOverlay />
 
       <button className="nav-arrow nav-arrow--left" onClick={handlePrev} aria-label="Previous view">
         &#10094;
