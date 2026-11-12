@@ -11,7 +11,7 @@ This is the only scene you should use. All other `.usd` files in this directory 
 ## Prerequisites
 
 - NVIDIA Isaac Sim 6.0+ on Windows
-- Git LFS enabled before cloning this repo (the `.usd` files are LFS)
+- Git LFS installed before cloning this repo (the `.usd` files are LFS)
 
 ## Running
 
@@ -43,7 +43,7 @@ Scene starts publishing these ROS2 topics automatically:
 ## Files in this directory
 
 - `isaac_sim/Prove_sim.usd` — **the scene**
-- `isaac_sim/Sensor Placement Model (2).usd` — car CAD model (payload of Prove_sim)
+- `isaac_sim\Sensor_Placement_Model.usd"` — car CAD model (payload of Prove_sim)
 - `isaac_sim/car_controls.py` — IJKL keyboard driving
 
 ## Legacy files to remove

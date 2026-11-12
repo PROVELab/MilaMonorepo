@@ -4,12 +4,12 @@ launch_perception.py
 --------------------
 Starts the full perception stack and prints the web-viewer URL.
 
-Runs three ROS2 nodes as subprocesses:
+Runs two ROS2 nodes as subprocesses:
   - detector_node.py       (YOLOv8 per-camera object detection)
   - three_camera_viewer.py (web viewer on :8765 with YOLO boxes overlaid)
 
 Run this AFTER opening Prove_sim.usd in Isaac Sim and pressing Play ▶.
-Ctrl+C to stop all three.
+Ctrl+C to stop all two.
 
 Usage:
     source /opt/ros/humble/setup.bash
@@ -32,17 +32,27 @@ VIEWER_PORT = 8765
 
 def get_lan_ip() -> str:
     """Best-effort LAN IP so we can print a browser-reachable URL."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
-        s.close()
         return ip
     except OSError:
         return "127.0.0.1"
+    finally:
+        s.close()
 
 
 def main() -> None:
+     # Check all required files before launching anything
+    for name, path in [
+        ("detector_node", DETECTOR),
+        ("three_camera_viewer", VIEWER),
+    ]:
+        if not path.is_file():
+            print(f"[error] {name}: {path} not found", file=sys.stderr)
+            sys.exit(1)
+            
     env = os.environ.copy()
     if "ROS_DISTRO" not in env:
         print(
@@ -53,9 +63,6 @@ def main() -> None:
     procs: list[tuple[str, subprocess.Popen]] = []
 
     def launch(name: str, path: Path) -> None:
-        if not path.exists():
-            print(f"[skip] {name}: {path.name} not found", file=sys.stderr)
-            return
         print(f"[start] {name}")
         p = subprocess.Popen(
             [sys.executable, str(path)],

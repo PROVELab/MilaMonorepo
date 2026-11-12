@@ -29,7 +29,7 @@ Open the printed URL in a browser (e.g. `http://192.168.100.2:8765`). You'll see
 
 ## Files
 
-- `launch_perception.py` — **run this**; orchestrates the three nodes below
+- `launch_perception.py` — **run this**; orchestrates the two nodes below
 - `detector_node.py` — ROS2 node, YOLO → Detection2DArray per camera
 - `three_camera_viewer.py` — web viewer, 3-cam grid + YOLO boxes, port 8765
 - `yolov8n.pt` — YOLO weights (auto-downloaded on first run)
