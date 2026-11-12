@@ -25,6 +25,7 @@ Open the printed URL in a browser (e.g. `http://192.168.100.2:8765`). You'll see
 - ROS2 Humble sourced
 - Python 3.10+
 - `pip install ultralytics opencv-python numpy`
+- `sudo apt install ros-humble-vision-msgs`
 - CUDA-capable GPU recommended (works on CPU, slow)
 
 ## Files
