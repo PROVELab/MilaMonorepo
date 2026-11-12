@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional
-
+from typing import Dict
+import torch
 import numpy as np
 import rclpy
 from rclpy.node import Node
@@ -60,7 +60,7 @@ class DetectorNode(Node):
         self.declare_parameter('conf_threshold', 0.35)
         self.declare_parameter('iou_threshold', 0.5)
         self.declare_parameter('input_size', 640)
-        self.declare_parameter('device', 'cuda:0')
+        self.declare_parameter('device', 'cuda:0' if torch.cuda.is_available() else 'cpu')
         self.declare_parameter('frame_skip', 1)  # 1 = process every frame
         self.declare_parameter('use_tensorrt', False)
 

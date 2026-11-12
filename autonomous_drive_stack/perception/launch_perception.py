@@ -59,8 +59,24 @@ def main() -> None:
             "[warn] ROS_DISTRO not set — did you `source /opt/ros/humble/setup.bash`?",
             file=sys.stderr,
         )
-
+        
     procs: list[tuple[str, subprocess.Popen]] = []
+    
+    def shutdown(signum=None, frame=None) -> None:
+            for name, p in procs:
+                if p.poll() is None:
+                    print(f"[stop] {name}")
+                    p.terminate()
+            for _, p in procs:
+                try:
+                    p.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    p.kill()
+            sys.exit(0)
+    
+    signal.signal(signal.SIGINT, shutdown)
+    signal.signal(signal.SIGTERM, shutdown)
+
 
     def launch(name: str, path: Path) -> None:
         print(f"[start] {name}")
@@ -73,9 +89,12 @@ def main() -> None:
         )
         procs.append((name, p))
 
-    launch("detector_node", DETECTOR)
-    time.sleep(1.5)  # let detector register subscriptions first
-    launch("three_camera_viewer", VIEWER)
+    try:
+        launch("detector_node", DETECTOR)
+        time.sleep(1.5)
+        launch("three_camera_viewer", VIEWER)
+    except (OSError, KeyboardInterrupt):
+        shutdown()
 
     url = f"http://{get_lan_ip()}:{VIEWER_PORT}"
     print()
@@ -86,20 +105,6 @@ def main() -> None:
     print("=" * 60)
     print()
 
-    def shutdown(signum=None, frame=None) -> None:
-        for name, p in procs:
-            if p.poll() is None:
-                print(f"[stop] {name}")
-                p.terminate()
-        for _, p in procs:
-            try:
-                p.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                p.kill()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, shutdown)
-    signal.signal(signal.SIGTERM, shutdown)
 
     # If any child dies, shut everything down
     while True:
