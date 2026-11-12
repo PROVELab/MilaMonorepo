@@ -7,8 +7,8 @@
                 double radius = 5.248652648925781
             }
             dictionary Perspective = {
-                double3 position = (15.052513164687463, 20.73769129417506, 7.027469511292889)
-                double3 target = (7.012559411058863, -1.567199995701845, -0.3493035321904916)
+                double3 position = (16.527570389671517, 24.829877898453468, 8.380855700852354)
+                double3 target = (7.012559411058852, -1.5671999957018699, -0.3493035321905058)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -3384,10 +3384,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -24.830743290299953)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -29.386337565397756)
     float3 xformOp:rotateXYZ = (72.71756, -1.4630552e-13, 160.17795)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (15.052513164687463, 20.73769129417506, 7.027469511292889)
+    double3 xformOp:translate = (16.527570389671517, 24.829877898453468, 8.380855700852354)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -4015,6 +4015,164 @@ over "Mila"
             uniform float2 ui:nodegraph:node:pos = (364.7894, 269.8518)
         }
     }
+
+    def OmniGraph "GroundTruthPoseGraph"
+    {
+        token evaluationMode = "Automatic"
+        token evaluator:type = "execution"
+        token fabricCacheBacking = "Shared"
+        int2 fileFormatVersion = (1, 9)
+        token pipelineStage = "pipelineStageSimulation"
+
+        def OmniGraphNode "on_playback_tick" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            token node:type = "omni.graph.action.OnPlaybackTick"
+            int node:typeVersion = 2
+            custom double outputs:deltaSeconds
+            custom double outputs:frame
+            custom uint outputs:tick (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            custom double outputs:time
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (148, 105.60005)
+        }
+
+        def OmniGraphNode "isaac_read_world_pose" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom rel inputs:prim = </Mila/Mila_Root> (
+                customData = {
+                    dictionary omni = {
+                        dictionary graph = {
+                            string relType = "target"
+                        }
+                    }
+                }
+            )
+            token node:type = "isaacsim.core.nodes.IsaacReadWorldPose"
+            int node:typeVersion = 2
+            custom quatd outputs:orientation
+            custom vector3d outputs:scale
+            custom vector3d outputs:translation
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (-67.98964, 306.66254)
+        }
+
+        def OmniGraphNode "isaac_read_simulation_time" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:referenceTimeDenominator
+            custom int64 inputs:referenceTimeNumerator
+            custom bool inputs:resetOnStop
+            token node:type = "isaacsim.core.nodes.IsaacReadSimulationTime"
+            int node:typeVersion = 1
+            custom double outputs:simulationTime
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (169.45518, 253.5196)
+        }
+
+        def OmniGraphNode "isaac_time_splitter" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom token inputs:time
+            prepend token inputs:time.connect = </Mila/GroundTruthPoseGraph/isaac_read_simulation_time.outputs:simulationTime>
+            token node:type = "isaacsim.core.nodes.IsaacTimeSplitter"
+            int node:typeVersion = 1
+            custom uint outputs:microseconds
+            custom uint outputs:milliseconds
+            custom uint outputs:nanoseconds
+            custom int outputs:seconds
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (691.982, 262.69568)
+        }
+
+        def OmniGraphNode "break_3_vector" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom token inputs:tuple
+            prepend token inputs:tuple.connect = </Mila/GroundTruthPoseGraph/isaac_read_world_pose.outputs:translation>
+            token node:type = "omni.graph.nodes.BreakVector3"
+            int node:typeVersion = 1
+            custom token outputs:x
+            custom token outputs:y
+            custom token outputs:z
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (264.11035, 401.85275)
+        }
+
+        def OmniGraphNode "break_4_vector" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom token inputs:tuple
+            prepend token inputs:tuple.connect = </Mila/GroundTruthPoseGraph/isaac_read_world_pose.outputs:orientation>
+            token node:type = "omni.graph.nodes.BreakVector4"
+            int node:typeVersion = 1
+            custom token outputs:w
+            custom token outputs:x
+            custom token outputs:y
+            custom token outputs:z
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (352.57318, 586.88416)
+        }
+
+        def OmniGraphNode "ros2_publisher" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:context
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/GroundTruthPoseGraph/on_playback_tick.outputs:tick>
+            custom token inputs:header:frame_id = "world"
+            custom uint inputs:header:stamp:nanosec
+            prepend uint inputs:header:stamp:nanosec.connect = </Mila/GroundTruthPoseGraph/isaac_time_splitter.outputs:nanoseconds>
+            custom int inputs:header:stamp:sec
+            prepend int inputs:header:stamp:sec.connect = </Mila/GroundTruthPoseGraph/isaac_time_splitter.outputs:seconds>
+            custom string inputs:messageName = "PoseStamped"
+            custom string inputs:messagePackage = "geometry_msgs"
+            custom string inputs:messageSubfolder
+            custom string inputs:nodeNamespace
+            custom double inputs:pose:orientation:w
+            prepend double inputs:pose:orientation:w.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:w>
+            custom double inputs:pose:orientation:x
+            prepend double inputs:pose:orientation:x.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:x>
+            custom double inputs:pose:orientation:y
+            prepend double inputs:pose:orientation:y.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:y>
+            custom double inputs:pose:orientation:z
+            prepend double inputs:pose:orientation:z.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:z>
+            custom double inputs:pose:position:x
+            prepend double inputs:pose:position:x.connect = </Mila/GroundTruthPoseGraph/break_3_vector.outputs:x>
+            custom double inputs:pose:position:y
+            prepend double inputs:pose:position:y.connect = </Mila/GroundTruthPoseGraph/break_3_vector.outputs:y>
+            custom double inputs:pose:position:z
+            prepend double inputs:pose:position:z.connect = </Mila/GroundTruthPoseGraph/break_3_vector.outputs:z>
+            custom string inputs:qosProfile
+            custom uint64 inputs:queueSize
+            custom string inputs:topicName = "/ground_truth/pose"
+            token node:type = "isaacsim.ros2.bridge.ROS2Publisher"
+            int node:typeVersion = 1
+            custom uint outputs:execOut (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (978.5445, 119.0536)
+        }
+    }
 }
 
 over "OmniverseKit_Front" (
@@ -4482,3 +4640,4 @@ def cleanup(db):
         custom bool state:omni_initialized
     }
 }
+

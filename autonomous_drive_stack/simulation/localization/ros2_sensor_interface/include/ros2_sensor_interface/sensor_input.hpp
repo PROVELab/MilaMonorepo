@@ -7,6 +7,7 @@
 #include <mutex>
 #include <optional>
 #include <vector>
+#include "geometry_msgs/msg/pose_stamped.hpp"
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/imu.hpp"
@@ -20,6 +21,7 @@ class SensorInput : public rclcpp::Node
 public:
   using Imu = sensor_msgs::msg::Imu;
   using MagneticField = sensor_msgs::msg::MagneticField;
+  using PoseStamped = geometry_msgs::msg::PoseStamped;
 
   struct Status
   {
@@ -51,12 +53,14 @@ public:
 
   // Returns the latest magnetometer sample, or std::nullopt if none exists.
   std::optional<MagneticField> latest_mag() const;
+  std::optional<PoseStamped> getPosition() const;
 
   // Gives a snapshot of data freshness and counters.
   Status status() const;
 
 private:
   using SteadyClock = std::chrono::steady_clock;
+  
 
   static std::int64_t timestamp_ns(
     std::int32_t seconds,
@@ -72,12 +76,14 @@ private:
 
   std::deque<Imu> imu_queue_;
   std::optional<MagneticField> latest_mag_;
+  std::optional<PoseStamped> latest_position_;
 
   std::optional<std::int64_t> last_imu_stamp_ns_;
   std::optional<std::int64_t> last_mag_stamp_ns_;
 
   std::optional<SteadyClock::time_point> last_imu_receive_time_;
   std::optional<SteadyClock::time_point> last_mag_receive_time_;
+  std::optional<SteadyClock::time_point> last_position_receive_time_;
 
   std::uint64_t imu_received_ = 0;
   std::uint64_t mag_received_ = 0;
@@ -90,6 +96,7 @@ private:
 
   rclcpp::Subscription<Imu>::SharedPtr imu_subscription_;
   rclcpp::Subscription<MagneticField>::SharedPtr mag_subscription_;
+  rclcpp::Subscription<PoseStamped>::SharedPtr position_subscription_;
 };
 
 }  // namespace ros2_sensor_interface

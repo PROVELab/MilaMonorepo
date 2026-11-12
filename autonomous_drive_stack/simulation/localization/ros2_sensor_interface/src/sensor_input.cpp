@@ -37,10 +37,20 @@ SensorInput::SensorInput(
     [this](MagneticField::ConstSharedPtr msg) {
       mag_callback(msg);
     });
+  position_subscription_ = create_subscription<PoseStamped>(
+  "/ground_truth/pose",
+  qos,
+  [this](PoseStamped::ConstSharedPtr msg) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    latest_position_ = *msg;
+    last_position_receive_time_ = SteadyClock::now();
+  });
 
   RCLCPP_INFO(
-    get_logger(),
-    "Sensor interface listening on /imu_noisy and /mag");
+  get_logger(),
+  "Sensor interface listening on /imu_noisy, /mag, and /ground_truth/pose"
+  );
 }
 
 std::int64_t SensorInput::timestamp_ns(
@@ -168,6 +178,23 @@ SensorInput::Status SensorInput::status() const
     mag_duplicate_timestamps_,
     mag_time_resets_
   };
+}
+
+std::optional<SensorInput::PoseStamped> SensorInput::getPosition() const
+{
+  std::lock_guard<std::mutex> lock(mutex_);
+
+  if (!latest_position_ || !last_position_receive_time_) {
+    return std::nullopt;
+  }
+
+  const auto age = SteadyClock::now() - *last_position_receive_time_;
+
+  if (age > stale_timeout_) {
+    return std::nullopt;
+  }
+
+  return latest_position_;
 }
 
 }  // namespace ros2_sensor_interface

@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -34,6 +35,7 @@ target_compile_features(sensor_input PUBLIC cxx_std_17)
 ament_target_dependencies(sensor_input
   rclcpp
   sensor_msgs
+  geometry_msgs
 )
 
 add_executable(sensor_monitor src/sensor_monitor.cpp)
@@ -61,6 +63,6 @@ install(
 
 ament_export_include_directories(include)
 ament_export_libraries(sensor_input)
-ament_export_dependencies(rclcpp sensor_msgs)
+ament_export_dependencies(rclcpp sensor_msgs geometry_msgs)
 
 ament_package()
