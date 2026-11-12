@@ -17,6 +17,7 @@ const CAMERA_POS_REVERSE = new THREE.Vector3(12.2, 3.8, 0);
 interface VehicleSceneProps {
   rpm: number | null;
   driveMode: DriveMode;
+  steering: number | null;
 }
 
 function CameraController({ controlsRef, driveMode }: { controlsRef: React.MutableRefObject<OrbitControlsImpl | null>; driveMode: DriveMode }) {
@@ -73,7 +74,7 @@ function CameraController({ controlsRef, driveMode }: { controlsRef: React.Mutab
   return null;
 }
 
-function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
+function VehicleModel({ rpm, driveMode, steering }: VehicleSceneProps) {
   const gltf = useGLTF(MODEL_PATH);
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene]);
   const rearWheelsRef = useRef<THREE.Object3D[]>([]);
@@ -142,7 +143,7 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
     const spinDirection = smoothRpm.current >= 0 ? -1 : 1;
     const wheelSpinRadians = (wheelSurfaceMetersPerSecond / wheelRadius) * delta * spinDirection;
 
-    const steeringAngle = THREE.MathUtils.degToRad(Math.sin(state.clock.elapsedTime * 0.5) * 4);
+    const steeringAngle = THREE.MathUtils.degToRad(steering ?? Math.sin(state.clock.elapsedTime * 0.5) * 4);
     steeringPivotsRef.current.forEach(pivot => (pivot.rotation.y = steeringAngle));
     frontWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
     rearWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
@@ -155,7 +156,7 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
   return <primitive object={scene} dispose={null} />;
 }
 
-export function VehicleScene({ rpm, driveMode }: VehicleSceneProps) {
+export function VehicleScene({ rpm, driveMode, steering }: VehicleSceneProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   return (
@@ -180,7 +181,7 @@ export function VehicleScene({ rpm, driveMode }: VehicleSceneProps) {
         <spotLight position={[-8, 6, 2]} angle={0.55} penumbra={0.5} intensity={1.4} color="#9dc7ff" />
         <Environment preset="sunset" />
 
-        <VehicleModel rpm={rpm} driveMode={driveMode} />
+        <VehicleModel rpm={rpm} driveMode={driveMode} steering={steering} />
         <CameraController controlsRef={controlsRef} driveMode={driveMode} />
 
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.36, 0]} receiveShadow>

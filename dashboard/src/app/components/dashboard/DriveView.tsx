@@ -18,6 +18,7 @@ interface Props {
   onCruiseDecrease50: () => void;
   onCruiseIncrease10: () => void;
   onCruiseIncrease50: () => void;
+  steering: number | null;
 }
 
 function EmptyChartsPanel() {
@@ -45,6 +46,7 @@ export function DriveView({
   onCruiseDecrease50,
   onCruiseIncrease10,
   onCruiseIncrease50,
+  steering,
 }: Props) {
   const [activeCenterIndex, setActiveCenterIndex] = useState(0);
   const activeCenter = CENTER_VIEWS[activeCenterIndex];
@@ -56,7 +58,7 @@ export function DriveView({
     <div className="drive-view">
       <div className="drive-view__center" style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}>
         {activeCenter === "scene" ? (
-          <VehicleScene rpm={motorRpm} driveMode={driveMode} />
+          <VehicleScene rpm={motorRpm} driveMode={driveMode} steering={steering} />
         ) : (
           <EmptyChartsPanel />
         )}
