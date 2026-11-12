@@ -32,14 +32,15 @@ VIEWER_PORT = 8765
 
 def get_lan_ip() -> str:
     """Best-effort LAN IP so we can print a browser-reachable URL."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
-        s.close()
         return ip
     except OSError:
         return "127.0.0.1"
+    finally:
+        s.close()
 
 
 def main() -> None:
