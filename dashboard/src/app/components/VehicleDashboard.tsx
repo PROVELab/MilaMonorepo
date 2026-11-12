@@ -27,9 +27,6 @@ export function VehicleDashboard() {
     increaseCruiseBy10,
     increaseCruiseBy50,
     engageEmergencyStop,
-    isLocalDemo,
-    setLocalDemoEnabled,
-    demoSteering,
   } = useVehicleTelemetry(180);
   const [activeView, setActiveView] = useState<DashboardViewId>("drive");
   const [showLoading, setShowLoading] = useState(true);
@@ -54,17 +51,17 @@ export function VehicleDashboard() {
   }, [showLoading, isLoadingFadingOut]);
 
   useEffect(() => {
-    if (!isLocalDemo && !isSerialReady && !showLoading && !isSkipped) {
+    if (!isSerialReady && !showLoading && !isSkipped) {
       setShowLoading(true);
       setIsLoadingFadingOut(false);
     }
-  }, [isLocalDemo, isSerialReady, isSkipped, showLoading]);
+  }, [isSerialReady, isSkipped, showLoading]);
 
   useEffect(() => {
-    if ((isSerialReady || isLocalDemo) && isSkipped) {
+    if (isSerialReady && isSkipped) {
       setIsSkipped(false);
     }
-  }, [isLocalDemo, isSerialReady, isSkipped]);
+  }, [isSerialReady, isSkipped]);
 
   useEffect(
     () => () => {
@@ -136,7 +133,6 @@ export function VehicleDashboard() {
         onCruiseDecrease50={decreaseCruiseBy50}
         onCruiseIncrease10={increaseCruiseBy10}
         onCruiseIncrease50={increaseCruiseBy50}
-        steering={demoSteering}
       />
     );
   }, [
@@ -148,7 +144,6 @@ export function VehicleDashboard() {
     driveMode,
     increaseCruiseBy10,
     increaseCruiseBy50,
-    demoSteering,
     snapshot.liveTextLogs,
     snapshot.motorRpm,
     snapshot.pedalPct,
@@ -172,18 +167,6 @@ export function VehicleDashboard() {
           {activeElement}
         </div>
       </main>
-      <button
-        type="button"
-        aria-pressed={isLocalDemo}
-        onClick={() => {
-          setLocalDemoEnabled(!isLocalDemo);
-          setIsSkipped(isLocalDemo);
-          setShowLoading(false);
-        }}
-        style={{ position: "absolute", top: 20, right: 24, zIndex: 1001 }}
-      >
-        DashboardLocalDemo: {isLocalDemo ? "ON" : "OFF"}
-      </button>
       <div className="global-bottom-bar">
         <ViewNav activeView={activeView} onChange={setActiveView} />
         <div className="global-bottom-bar__estop">

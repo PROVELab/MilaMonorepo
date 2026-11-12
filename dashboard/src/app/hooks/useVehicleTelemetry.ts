@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { DriveMode, VehicleSnapshot } from "../types/telemetry";
 import { CRUISE_COARSE_STEP_RPM, CRUISE_FINE_STEP_RPM } from "../constants/vehicle";
@@ -45,10 +45,6 @@ function toCruiseTargetRpm(rpm: number | null | undefined) {
 export function useVehicleTelemetry(pollIntervalMs = 100) {
   const [snapshot, setSnapshot] = useState<VehicleSnapshot>(DEFAULT_SNAPSHOT);
   const [runtime, setRuntime] = useState<"unknown" | "tauri" | "browser">("unknown");
-  const [isLocalDemo, setIsLocalDemo] = useState(false);
-  const [demoSteering, setDemoSteering] = useState<number | null>(null);
-  const demoKeysRef = useRef(new Set<string>());
-  const demoRpmRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -61,8 +57,6 @@ export function useVehicleTelemetry(pollIntervalMs = 100) {
   }, []);
 
   useEffect(() => {
-    if (isLocalDemo) return;
-
     if (runtime !== "tauri") {
       setSnapshot(prev => ({
         ...prev,
@@ -92,77 +86,18 @@ export function useVehicleTelemetry(pollIntervalMs = 100) {
       stopped = true;
       if (timer) window.clearTimeout(timer);
     };
-  }, [runtime, isLocalDemo, fetchSnapshot, pollIntervalMs]);
-
-  useEffect(() => {
-    if (!isLocalDemo) return;
-
-    const onKeyChange = (event: KeyboardEvent, pressed: boolean) => {
-      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(event.key)) return;
-      event.preventDefault();
-      if (pressed) demoKeysRef.current.add(event.key);
-      else demoKeysRef.current.delete(event.key);
-    };
-    const onKeyDown = (event: KeyboardEvent) => onKeyChange(event, true);
-    const onKeyUp = (event: KeyboardEvent) => onKeyChange(event, false);
-    const onBlur = () => demoKeysRef.current.clear();
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
-
-    const timer = window.setInterval(() => {
-      const keys = demoKeysRef.current;
-      const throttle = keys.has("ArrowUp") ? 1 : keys.has("ArrowDown") ? -1 : 0;
-      const brake = keys.has(" ");
-      demoRpmRef.current += throttle * 90;
-      demoRpmRef.current *= brake ? 0.7 : 0.985;
-      demoRpmRef.current = Math.max(-3000, Math.min(3000, demoRpmRef.current));
-      if (Math.abs(demoRpmRef.current) < 2) demoRpmRef.current = 0;
-
-      const steering = (keys.has("ArrowRight") ? 1 : 0) - (keys.has("ArrowLeft") ? 1 : 0);
-      setDemoSteering(steering * 24);
-      setSnapshot(prev => ({
-        ...prev,
-        motorRpm: demoRpmRef.current,
-        pedalPct: Math.abs(throttle) * 100,
-        brakePct: brake ? 100 : 0,
-        driveMode: demoRpmRef.current < -2 ? "Reverse" : demoRpmRef.current > 2 ? "Drive" : "Park",
-      }));
-    }, 50);
-
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
-      demoKeysRef.current.clear();
-    };
-  }, [isLocalDemo]);
-
-  const setLocalDemoEnabled = useCallback((enabled: boolean) => {
-    demoKeysRef.current.clear();
-    demoRpmRef.current = 0;
-    setDemoSteering(enabled ? 0 : null);
-    setIsLocalDemo(enabled);
-    setSnapshot(enabled ? {
-      ...DEFAULT_SNAPSHOT,
-      motorRpm: 0,
-      pedalPct: 0,
-      brakePct: 0,
-      liveTextLogs: ["DashboardLocalDemo active — Arrow keys drive, Space brakes"],
-    } : DEFAULT_SNAPSHOT);
-  }, []);
+  }, [runtime, fetchSnapshot, pollIntervalMs]);
 
   const sendMotorCommand = useCallback(
     async (command: BackendMotorCommandRequest) => {
-      if (runtime !== "tauri" || isLocalDemo) return;
+      if (runtime !== "tauri") return;
       try {
         await invoke("send_motor_command", { command });
       } catch (error) {
         console.error("failed to send motor command", error);
       }
     },
-    [runtime, isLocalDemo, snapshot.driveMode, snapshot.isSerialReady],
+    [runtime, snapshot.driveMode, snapshot.isSerialReady],
   );
 
   const changeDriveMode = useCallback(
@@ -188,26 +123,18 @@ export function useVehicleTelemetry(pollIntervalMs = 100) {
   );
 
   const engageEmergencyStop = useCallback(async () => {
-    if (isLocalDemo) {
-      demoRpmRef.current = 0;
-      setSnapshot(prev => ({ ...prev, motorRpm: 0, pedalPct: 0, brakePct: 100, driveMode: "Park" }));
-      return;
-    }
     if (runtime !== "tauri") return;
     try {
       await invoke("engage_emergency_stop");
     } catch (error) {
       console.error("failed to send emergency stop", error);
     }
-  }, [runtime, isLocalDemo]);
+  }, [runtime]);
 
   return useMemo(
     () => ({
       snapshot,
       runtime,
-      isLocalDemo,
-      setLocalDemoEnabled,
-      demoSteering,
       driveMode: snapshot.driveMode,
       cruiseTargetRpm: snapshot.cruiseTargetRpm ?? null,
       isSerialReady: snapshot.isSerialReady,
@@ -220,6 +147,6 @@ export function useVehicleTelemetry(pollIntervalMs = 100) {
       increaseCruiseBy50: () => adjustCruiseRpm(CRUISE_COARSE_STEP_RPM),
       engageEmergencyStop,
     }),
-    [adjustCruiseRpm, changeDriveMode, demoSteering, engageEmergencyStop, isLocalDemo, runtime, setLocalDemoEnabled, snapshot],
+    [adjustCruiseRpm, changeDriveMode, engageEmergencyStop, runtime, snapshot],
   );
 }
