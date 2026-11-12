@@ -145,8 +145,8 @@ function VehicleModel({ rpm, driveMode, steering }: VehicleSceneProps) {
 
     const steeringAngle = THREE.MathUtils.degToRad(steering ?? Math.sin(state.clock.elapsedTime * 0.5) * 4);
     steeringPivotsRef.current.forEach(pivot => (pivot.rotation.y = steeringAngle));
-    frontWheelsRef.current.forEach(wheel => (wheel.rotation.z += wheelSpinRadians));
-    rearWheelsRef.current.forEach(wheel => (wheel.rotation.z += wheelSpinRadians));
+    frontWheelsRef.current.forEach(wheel => (wheel.rotation.y += wheelSpinRadians));
+    rearWheelsRef.current.forEach(wheel => (wheel.rotation.y += wheelSpinRadians));
 
     scene.position.copy(basePositionRef.current);
     scene.rotation.y = THREE.MathUtils.degToRad((smoothRpm.current / 3000) * 6);
