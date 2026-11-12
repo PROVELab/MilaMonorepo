@@ -8,16 +8,29 @@ import application.UI.NotificationPanel;
 import application.UI.SensorSelectionPanel;
 import lookup.TelemetryLookup;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+
 public class MainApp {
+    private static final String DATABASE_URL = "jdbc:sqlite:telem_dashboard.db";
     public static void main(String[] args) {
         // Start in dark
         try { UIManager.setLookAndFeel(new FlatDarkLaf()); }
         catch (Exception ex) { System.err.println("Failed to init LaF"); }
+        
+         try {
+            initializeDatabase();
+        } catch (SQLException error) {
+            System.err.println("Database setup failed: " + error.getMessage());
+            error.printStackTrace();
+        }
 
         SwingUtilities.invokeLater(() -> {
             try {
@@ -56,4 +69,51 @@ public class MainApp {
             }
         });
     }
+    private static void initializeDatabase() throws SQLException {
+        try (Connection db = DriverManager.getConnection(DATABASE_URL);
+             var createTable = db.createStatement()) {
+
+            // Create the readings table if this is a new database.
+            createTable.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS telemetry_readings (
+                    session_id TEXT NOT NULL,
+                    group_sequence INTEGER NOT NULL,
+                    parsed_at_ms INTEGER NOT NULL,
+                    elapsed_ns INTEGER NOT NULL,
+                    node_id INTEGER NOT NULL,
+                    frame_index INTEGER NOT NULL,
+                    data_index INTEGER NOT NULL,
+                    value INTEGER NOT NULL,
+                    PRIMARY KEY (
+                        session_id,
+                        group_sequence,
+                        data_index
+                    )
+                )
+                """);
+
+            // Create the same index used by the logger.
+            createTable.executeUpdate("""
+                CREATE INDEX IF NOT EXISTS idx_telemetry_session_time
+                ON telemetry_readings (session_id, parsed_at_ms)
+                """);
+
+            // Create the view used by the guided query.
+            // time_seconds is calculated from the stored nanoseconds.
+            createTable.executeUpdate("""
+                CREATE VIEW IF NOT EXISTS telemetry_readings_seconds AS
+                SELECT
+                    session_id,
+                    group_sequence,
+                    parsed_at_ms,
+                    elapsed_ns / 1000000000.0 AS time_seconds,
+                    node_id,
+                    frame_index,
+                    data_index,
+                    value
+                FROM telemetry_readings
+                """);
+        }
+    }
+    
 }

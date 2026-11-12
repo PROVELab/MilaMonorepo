@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Debug Telemetry Dashboard",
+            "request": "launch",
+            "mainClass": "MainApp",
+            "cwd": "${workspaceFolder}/telem-dashboard"
+        }
+    ]
+}

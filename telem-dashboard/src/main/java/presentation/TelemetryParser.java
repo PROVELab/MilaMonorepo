@@ -196,6 +196,10 @@ public final class TelemetryParser {
                             CREATE INDEX IF NOT EXISTS idx_telemetry_session_time
                             ON telemetry_readings (session_id, parsed_at_ms)
                         """);
+                        createTable.executeUpdate("""
+                            CREATE VIEW IF NOT EXISTS telemetry_readings_seconds AS SELECT session_id, group_sequence, parsed_at_ms, elapsed_ns/1000000000.0 AS time_seconds, node_id, frame_index, data_index, value
+                            FROM telemetry_readings
+                        """);
                     
                   }
                   db.setAutoCommit(false);  //make sure it doesn't automatically commit each statement, so you can manage transactions manually
@@ -241,7 +245,7 @@ public final class TelemetryParser {
                         throw error;
                     }
                 } catch (SQLException | RuntimeException error){
-                    // A logging failure doesn't discard the decoded measurements.
+                    // A logging failure won't discard the decoded measurements.
                     {
                         System.err.println("Telemetry logging failed: " + error.getMessage());
                   }

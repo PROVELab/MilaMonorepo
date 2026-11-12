@@ -17,6 +17,7 @@ public class MainFrame extends JFrame {
     private final MainPanel mainPanel;
     private MessageHandler canParser;
     private final JButton serialButton = new JButton();
+    private  SqlEditorFrame sqlEditorWindow;
 
     public void toggleNightMode() {
         try {
@@ -115,6 +116,22 @@ public class MainFrame extends JFrame {
                 canParser.restartSerialConnection();
             }
         });
+        // SQL Editor Button
+        JButton sqlButton = new JButton("SQL");
+        sqlButton.setPreferredSize(buttonSize);
+        sqlButton.setMinimumSize(buttonSize);
+        sqlButton.setMaximumSize(buttonSize);
+        sqlButton.setForeground(Color.BLACK);
+        sqlButton.setBorder(UIManager.getBorder("Button.border"));
+        sqlButton.setBorderPainted(true);
+        sqlButton.setMargin(new Insets(0, 0, 0, 0));
+        sqlButton.addActionListener(e -> {
+            if (sqlEditorWindow == null || !sqlEditorWindow.isDisplayable()) {
+                sqlEditorWindow = new SqlEditorFrame();
+            }
+            sqlEditorWindow.setVisible(true);
+            sqlEditorWindow.toFront();
+        });
 
         // slider for how many data to show
         JSlider slider = new JSlider(JSlider.HORIZONTAL, 0, 100, 10);
@@ -159,7 +176,9 @@ public class MainFrame extends JFrame {
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(serialButton);
         buttonPanel.add(Box.createVerticalStrut(10));
-        buttonPanel.add(addSensorButton);
+        buttonPanel.add(sqlButton);
+        buttonPanel.add(Box.createVerticalStrut(10));
+
 
         // Splits: (notifications | (left selection | main charts))
         JSplitPane innerSplit = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, scrollPane, mainPanel);
