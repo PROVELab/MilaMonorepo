@@ -107,7 +107,7 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
         }
       }
 
-      if (/w[34]/i.test(child.name)) {
+      if (/(?:^|[_\-\s])(BL|BR)(?:$|[_\-\s])/i.test(child.name)) {
         rearWheelsRef.current.push(child);
       }
     });
