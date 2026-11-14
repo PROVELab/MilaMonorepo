@@ -4,9 +4,39 @@ from pathlib import Path
 
 import omni.timeline
 import omni.kit.app
+import omni.usd
 
 
-SCRIPT_FOLDER = Path(__file__).resolve().parent
+SCRIPT_FOLDER_NAME = "BootCode"
+
+
+def find_script_folder():
+    """Locate this template beside the project USD hierarchy.
+
+    Isaac Sim's Script Editor executes a temporary copy of boot.py, so its
+    __file__ is not the directory containing on_play.py and on_stop.py.
+    """
+    file_folder = Path(__file__).resolve().parent
+    if (file_folder / "on_play.py").is_file():
+        return file_folder
+
+    stage = omni.usd.get_context().get_stage()
+    root_layer = stage.GetRootLayer() if stage else None
+    stage_file = root_layer.realPath if root_layer else ""
+
+    if stage_file:
+        for folder in Path(stage_file).resolve().parents:
+            candidate = folder / SCRIPT_FOLDER_NAME
+            if (candidate / "on_play.py").is_file():
+                return candidate
+
+    raise FileNotFoundError(
+        "Could not find the script folder. Open a local USD stage with "
+        f"a {SCRIPT_FOLDER_NAME} folder in its parent hierarchy."
+    )
+
+
+SCRIPT_FOLDER = find_script_folder()
 
 
 # If boot.py is run again while Play is active, shut down the previous run

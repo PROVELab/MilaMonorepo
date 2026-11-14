@@ -7,8 +7,8 @@
                 double radius = 5.248652648925781
             }
             dictionary Perspective = {
-                double3 position = (-8.713646290336246, 84.29989200675297, 36.373333336384)
-                double3 target = (22.992908144988323, 42.48086370762987, 19.15991080502852)
+                double3 position = (128.0531159771536, -23.49270952163944, 3.6914744856568813)
+                double3 target = (118.8768423964089, -26.051179378414425, 3.266743409477062)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -3943,10 +3943,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -55.230776178558585)
-    float3 xformOp:rotateXYZ = (71.840485, -1.0114164e-12, -142.83115)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -9.5357307703066)
+    float3 xformOp:rotateXYZ = (87.44714, -1.0114164e-12, 105.57919)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (-8.713646290336246, 84.29989200675297, 36.373333336384)
+    double3 xformOp:translate = (128.0531159771536, -23.49270952163944, 3.6914744856568813)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -3966,11 +3966,13 @@ over "Mila"
     over "Mila_Root"
     {
         bool physxRigidBody:disableGravity = 1
+        bool physxRigidBody:retainAccelerations = 1
         float physxVehicleController:accelerator = 0
         float physxVehicleController:brake0 = 0
         float physxVehicleController:brake1 = 0
         float physxVehicleController:steer = 0
         int physxVehicleController:targetGear = 255
+        uniform token purpose = "render"
         quatf xformOp:orient = (0.70710677, 0, 0, -0.70710677)
         float3 xformOp:scale = (1, 1, 1)
         double3 xformOp:translate = (0, 0, -1.840180800103425)
@@ -4388,12 +4390,15 @@ over "Mila"
 
         def SphereLight "SphereLight" (
             prepend apiSchemas = ["ShapingAPI"]
+            instanceable = true
         )
         {
             float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
+            bool inputs:enableColorTemperature = 0
+            float inputs:exposure = -1.6
             float inputs:intensity = 30000
             bool inputs:normalize = 1
-            float inputs:radius = 0.5
+            float inputs:radius = 9.7
             float inputs:shaping:cone:angle = 180
             float inputs:shaping:cone:softness
             float inputs:shaping:focus
@@ -4401,6 +4406,7 @@ over "Mila"
             asset inputs:shaping:ies:file
             custom int omni:rtx:usdluxVersion = 2505
             bool treatAsPoint = 1
+            token visibility = "inherited"
             quatd xformOp:orient = (0.4999999999999999, 0.5, 0.5000000000000001, 0.5)
             double3 xformOp:scale = (1, 1, 1)
             double3 xformOp:translate = (1.7203451239756937, -0.5600519056663877, 0.23236415620720052)
@@ -4409,19 +4415,24 @@ over "Mila"
 
         def SphereLight "SphereLight_01" (
             prepend apiSchemas = ["ShapingAPI"]
+            instanceable = true
         )
         {
+            uniform bool collection:lightLink:includeRoot = 1
+            uniform bool collection:shadowLink:includeRoot = 1
             float3[] extent = [(-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)]
-            float inputs:intensity = 30000
-            bool inputs:normalize = 1
-            float inputs:radius = 0.5
+            bool inputs:enableColorTemperature = 1
+            float inputs:intensity = 30013.6
+            bool inputs:normalize = 0
+            float inputs:radius = 38.4
             float inputs:shaping:cone:angle = 180
             float inputs:shaping:cone:softness
             float inputs:shaping:focus
             color3f inputs:shaping:focusTint
             asset inputs:shaping:ies:file
             custom int omni:rtx:usdluxVersion = 2505
-            bool treatAsPoint = 1
+            bool treatAsPoint = 0
+            token visibility = "inherited"
             quatd xformOp:orient = (0.4999999999999999, 0.5, 0.5000000000000001, 0.5)
             double3 xformOp:scale = (1, 1, 1)
             double3 xformOp:translate = (1.7203450868407515, 0.5248706026323511, 0.23236415620724715)
@@ -4442,11 +4453,12 @@ over "Mila"
         prepend apiSchemas = ["PhysxCameraFollowLookAPI", "OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
     )
     {
+        float2 clippingRange = (0.1, 1000000)
         float exposure:fStop = 5
         float exposure:responsivity = 1.1026709
         float exposure:time = 0.02
         float focalLength = 10
-        bool omni:kit:cameraLock = 1
+        bool omni:kit:cameraLock = 0
         custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.260322270201418)
         bool omni:rtx:autoExposure:enabled = 1
         custom rel physxCamera:subject = </Mila/Mila_Root>
@@ -4481,7 +4493,7 @@ over "Mila"
         token projection = "perspective"
         float3 xformOp:rotateZYX = (-2.5948045, 7.0478864, 110.271736)
         float3 xformOp:scale = (1, 1, 1)
-        double3 xformOp:translate = (-61.61212530696466, -51.45665220405404, -9.979418274613717)
+        double3 xformOp:translate = (-144.76467419677053, -120.61758898037608, -29.793024476103863)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
     }
 }
@@ -4891,7 +4903,7 @@ def "Parkgarage_prefab" (
                 bool inputs:enable_emission = 0
                 bool inputs:enable_opacity_texture = 1
                 int inputs:opacity_mode = 0
-                asset inputs:opacity_texture = @../Documents/ACTUAL/Code/Unity/AssetPlace/Assets/textures/park_sign.png@ (
+                asset inputs:opacity_texture = @./ParkingGarageAssets/textures/park_sign.png@ (
                     colorSpace = "raw"
                 )
                 float inputs:opacity_threshold = 0.5
