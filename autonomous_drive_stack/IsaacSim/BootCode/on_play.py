@@ -4,7 +4,7 @@ import carb.settings
 from omni.kit.viewport.utility import get_active_viewport
 
 
-CAMERA_PATH = "/Mila/MilaCamera"
+CAMERA_PATH = "/FancyCar/ThirdPersonFollowCam"
 CAMERA_BINDINGS_SETTING = "/exts/omni.kit.viewport.window/bindings/camera"
 
 

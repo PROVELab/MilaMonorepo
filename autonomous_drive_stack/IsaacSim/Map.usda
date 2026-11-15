@@ -7,8 +7,8 @@
                 double radius = 5.248652648925781
             }
             dictionary Perspective = {
-                double3 position = (128.0531159771536, -23.49270952163944, 3.6914744856568813)
-                double3 target = (118.8768423964089, -26.051179378414425, 3.266743409477062)
+                double3 position = (14.645802135083905, 26.373751750216755, 9.028684234048566)
+                double3 target = (110.63265047455045, -70.39022578770218, -21.28190852832508)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -35,6 +35,7 @@
             double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSample" = 3199.99951171875
             double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse" = 3199.99951171875
             double "rtx:raytracing:inscattering:maxRTSampleUnexposedIntensity" = 204799.96875
+            bool "rtx:rtpt:ris:meshLights" = 1
             double "rtx:translucency:maxRayUnexposedIntensity" = 19199.998046875
         }
     }
@@ -51,6 +52,8 @@
 
 def Xform "ParkingLot"
 {
+    token visibility = "inherited"
+
     def Cube "Surface" (
         delete apiSchemas = ["MaterialBindingAPI"]
         prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "MaterialBindingAPI"]
@@ -3777,6 +3780,7 @@ def "Render" (
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
                 token omni:rtx:background:source:type = "domeLight"
                 bool omni:rtx:debug:view:pixelDebug:enableFixedTextPos = 1
+                string omni:rtx:debug:view:target
                 token omni:rtx:directLighting:sampledLighting:denoisingTechnique = "None"
                 bool omni:rtx:dlss:frameGeneration = 0
                 float3 omni:rtx:domeLight:rotationAxis = (0, 0, 1)
@@ -3805,6 +3809,7 @@ def "Render" (
                 int omni:rtx:rt:sss:samples = 1
                 uint omni:rtx:rtpt:maxVolumeBounces = 15
                 float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
+                bool omni:rtx:rtpt:ris:meshLights = 1
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
                 bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
                 bool omni:rtx:scene:useViewLightingMode
@@ -3943,10 +3948,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -9.5357307703066)
-    float3 xformOp:rotateXYZ = (87.44714, -1.0114164e-12, 105.57919)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -139.62619538148664)
+    float3 xformOp:rotateXYZ = (77.46219, -1.227694e-12, -135.231)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (128.0531159771536, -23.49270952163944, 3.6914744856568813)
+    double3 xformOp:translate = (14.645802135083905, 26.373751750216755, 9.028684234048566)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -3956,7 +3961,9 @@ over "PhysicsScene" (
 {
 }
 
-over "Mila"
+over "Mila" (
+    active = false
+)
 {
     quatf xformOp:orient = (1, 0, 0, 0)
     float3 xformOp:scale = (1, 1, 1)
@@ -4594,6 +4601,7 @@ def "Parkgarage_prefab" (
     prepend payload = @./ParkingGarageAssets/Parkgarage_prefab.usd@
 )
 {
+    token visibility = "inherited"
     double xformOp:rotateX:unitsResolve = 90
     float3 xformOp:rotateXYZ = (0, -1.7053026e-13, 180)
     float3 xformOp:scale = (1.5611624, 1.5611624, 0.8897034)
@@ -4629,6 +4637,8 @@ def "Parkgarage_prefab" (
             active = true
         )
         {
+            token visibility = "inherited"
+
             over "Window_A_prefab__15_"
             {
                 over "Frame_16"
@@ -4785,8 +4795,12 @@ def "Parkgarage_prefab" (
 
         over "StreetLights"
         {
+            token visibility = "inherited"
+
             over "streetLight_prefab"
             {
+                token visibility = "inherited"
+
                 over "streetLight_1"
                 {
                     over "Scene" (
@@ -4819,6 +4833,568 @@ def "Parkgarage_prefab" (
                                 }
                             }
                         }
+                    }
+                }
+
+                over "Light_1"
+                {
+                    over "Light_1" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__20_"
+            {
+                token visibility = "inherited"
+
+                over "Light_22"
+                {
+                    over "Light_22" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__19_"
+            {
+                token visibility = "inherited"
+
+                over "Light_21"
+                {
+                    over "Light_21" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__18_"
+            {
+                token visibility = "inherited"
+
+                over "Light_20"
+                {
+                    over "Light_20" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__17_"
+            {
+                token visibility = "inherited"
+
+                over "Light_19"
+                {
+                    over "Light_19" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__16_"
+            {
+                token visibility = "inherited"
+
+                over "Light_18"
+                {
+                    over "Light_18" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__15_"
+            {
+                token visibility = "inherited"
+
+                over "Light_17"
+                {
+                    over "Light_17" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__14_"
+            {
+                token visibility = "inherited"
+
+                over "Light_16"
+                {
+                    over "Light_16" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__13_"
+            {
+                token visibility = "inherited"
+
+                over "Light_15"
+                {
+                    over "Light_15" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__12_"
+            {
+                token visibility = "inherited"
+
+                over "Light_14"
+                {
+                    over "Light_14" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__11_"
+            {
+                token visibility = "inherited"
+
+                over "Light_13"
+                {
+                    over "Light_13" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__10_"
+            {
+                token visibility = "inherited"
+
+                over "Light_12"
+                {
+                    over "Light_12" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__9_"
+            {
+                token visibility = "inherited"
+
+                over "Light_11"
+                {
+                    over "Light_11" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__1_"
+            {
+                token visibility = "inherited"
+                float3 xformOp:rotateXYZ = (0, 0, 0)
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (1329.4624328613281, -950.7716178894043, 464.59808349609375)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                over "Light"
+                {
+                    over "Light" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+
+                over "Light__1__213"
+                {
+                    over "Light__1__213"
+                    {
+                        float inputs:exposure = 0
+                        float inputs:radius = 5
+                        bool light:enableCaustics = 0
+                    }
+                }
+            }
+
+            over "streetLight_prefab__1__1"
+            {
+                token visibility = "inherited"
+
+                over "Light_2"
+                {
+                    over "Light_2" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab_1"
+            {
+                token visibility = "inherited"
+
+                over "Light_3"
+                {
+                    over "Light_3" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__2_"
+            {
+                token visibility = "inherited"
+
+                over "Light_4"
+                {
+                    over "Light_4" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__3_"
+            {
+                token visibility = "inherited"
+
+                over "Light_5"
+                {
+                    over "Light_5" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__5_"
+            {
+                token visibility = "inherited"
+
+                over "Light_7"
+                {
+                    over "Light_7" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__7_"
+            {
+                token visibility = "inherited"
+
+                over "Light_9"
+                {
+                    over "Light_9" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__6_"
+            {
+                token visibility = "inherited"
+
+                over "Light_8"
+                {
+                    over "Light_8" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            over "streetLight_prefab__8_"
+            {
+                token visibility = "inherited"
+
+                over "Light_10"
+                {
+                    token visibility = "inherited"
+
+                    over "Light_10" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+
+                over "streetLight_10"
+                {
+                    token visibility = "inherited"
+                }
+
+                over "Light__1__223"
+                {
+                    token visibility = "inherited"
+                }
+            }
+
+            over "streetLight_prefab__4_"
+            {
+                token visibility = "inherited"
+
+                over "Light_6"
+                {
+                    over "Light_6" (
+                        active = false
+                    )
+                    {
+                    }
+                }
+            }
+
+            def Xform "streetLight_prefab__1__01"
+            {
+                token visibility = "inherited"
+                float3 xformOp:rotateXYZ = (0, 0, 0)
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (2172.984333947986, -950.7716178893999, 464.5980834960959)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                def Xform "streetLight"
+                {
+                    float3 xformOp:rotateXYZ = (-89.980225, -0, 0)
+                    float3 xformOp:scale = (100, 99.99997, 99.99997)
+                    double3 xformOp:translate = (0, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                    def "Scene" (
+                        instanceable = true
+                        prepend references = @./ParkingGarageAssets/props/Scene_12.usd@
+                    )
+                    {
+                    }
+
+                    def Xform "Bump"
+                    {
+                        float3 xformOp:rotateXYZ = (0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1)
+                        double3 xformOp:translate = (0, 0, 0)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                        def "Scene" (
+                            instanceable = true
+                            prepend references = @./ParkingGarageAssets/props/Scene_13.usd@
+                        )
+                        {
+                        }
+                    }
+
+                    def Xform "Glass"
+                    {
+                        float3 xformOp:rotateXYZ = (0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1)
+                        double3 xformOp:translate = (0, 0, 0)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                        def "Scene" (
+                            instanceable = true
+                            prepend references = @./ParkingGarageAssets/props/Scene_14.usd@
+                        )
+                        {
+                        }
+                    }
+                }
+
+                def Xform "Light__1__213"
+                {
+                    float3 xformOp:rotateXYZ = (-0.8941574, -0.00000526222, -0.00006269155)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (1.13372802734375, 360.80000400543213, -0.6805419921875)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                    def SphereLight "Light__1__213"
+                    {
+                        color3f inputs:color = (0.99716026, 1, 0.7941176)
+                        float inputs:exposure = 0
+                        float inputs:intensity = 30016.9
+                        bool inputs:normalize = 1
+                        float inputs:radius = 11.5
+                        bool light:enableCaustics = 0
+                        bool treatAsPoint = 1
+                    }
+                }
+            }
+
+            def Xform "streetLight_prefab__1__02"
+            {
+                token visibility = "inherited"
+                float3 xformOp:rotateXYZ = (0, 0, 0)
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (2061.7612483983357, -950.7716178893938, -304.3672588467974)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                def Xform "streetLight"
+                {
+                    float3 xformOp:rotateXYZ = (-89.980225, -0, 0)
+                    float3 xformOp:scale = (100, 99.99997, 99.99997)
+                    double3 xformOp:translate = (0, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                    def "Scene" (
+                        instanceable = true
+                        prepend references = @./ParkingGarageAssets/props/Scene_12.usd@
+                    )
+                    {
+                    }
+
+                    def Xform "Bump"
+                    {
+                        float3 xformOp:rotateXYZ = (0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1)
+                        double3 xformOp:translate = (0, 0, 0)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                        def "Scene" (
+                            instanceable = true
+                            prepend references = @./ParkingGarageAssets/props/Scene_13.usd@
+                        )
+                        {
+                        }
+                    }
+
+                    def Xform "Glass"
+                    {
+                        float3 xformOp:rotateXYZ = (0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1)
+                        double3 xformOp:translate = (0, 0, 0)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                        def "Scene" (
+                            instanceable = true
+                            prepend references = @./ParkingGarageAssets/props/Scene_14.usd@
+                        )
+                        {
+                        }
+                    }
+                }
+
+                def Xform "Light__1__213"
+                {
+                    float3 xformOp:rotateXYZ = (-0.8941574, -0.00000526222, -0.00006269155)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (1.13372802734375, 360.80000400543213, -0.6805419921875)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                    def SphereLight "Light__1__213"
+                    {
+                        color3f inputs:color = (0.99716026, 1, 0.7941176)
+                        float inputs:exposure = 0
+                        float inputs:intensity = 30000
+                        bool inputs:normalize = 0
+                        float inputs:radius = 11.5
+                        bool light:enableCaustics = 0
+                        bool treatAsPoint = 1
+                    }
+                }
+            }
+
+            def Xform "streetLight_prefab__1__03"
+            {
+                token visibility = "inherited"
+                float3 xformOp:rotateXYZ = (0, 0, 0)
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (1518.1656143930868, -950.7716178893909, 31.896722273373598)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                def Xform "streetLight"
+                {
+                    float3 xformOp:rotateXYZ = (-89.980225, -0, 0)
+                    float3 xformOp:scale = (100, 99.99997, 99.99997)
+                    double3 xformOp:translate = (0, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                    def "Scene" (
+                        instanceable = true
+                        prepend references = @./ParkingGarageAssets/props/Scene_12.usd@
+                    )
+                    {
+                    }
+
+                    def Xform "Bump"
+                    {
+                        float3 xformOp:rotateXYZ = (0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1)
+                        double3 xformOp:translate = (0, 0, 0)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                        def "Scene" (
+                            instanceable = true
+                            prepend references = @./ParkingGarageAssets/props/Scene_13.usd@
+                        )
+                        {
+                        }
+                    }
+
+                    def Xform "Glass"
+                    {
+                        float3 xformOp:rotateXYZ = (0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1)
+                        double3 xformOp:translate = (0, 0, 0)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                        def "Scene" (
+                            instanceable = true
+                            prepend references = @./ParkingGarageAssets/props/Scene_14.usd@
+                        )
+                        {
+                        }
+                    }
+                }
+
+                def Xform "Light__1__213"
+                {
+                    float3 xformOp:rotateXYZ = (-0.8941574, -0.00000526222, -0.00006269155)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (1.13372802734375, 360.80000400543213, -0.6805419921875)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
+
+                    def SphereLight "Light__1__213"
+                    {
+                        color3f inputs:color = (0.99716026, 1, 0.7941176)
+                        float inputs:exposure = 0
+                        float inputs:intensity = 30000
+                        bool inputs:normalize = 0
+                        float inputs:radius = 11.5
+                        bool light:enableCaustics = 0
+                        bool treatAsPoint = 1
                     }
                 }
             }
@@ -4861,10 +5437,17 @@ def "Parkgarage_prefab" (
                 }
             }
         }
+
+        over "Doors"
+        {
+            token visibility = "inherited"
+        }
     }
 
     over "Looks"
     {
+        token visibility = "inherited"
+
         over "arrors"
         {
             over "arrors"
@@ -4982,6 +5565,156 @@ def "Parkgarage_prefab" (
                 asset inputs:opacity_texture = @./ParkingGarageAssets/textures/park_sign.png@ (
                     colorSpace = "raw"
                 )
+            }
+        }
+    }
+}
+
+def "FancyCar" (
+    prepend references = @./FancyCar.usd@
+)
+{
+    float physxVehicleBrakes:brakes0:maxBrakeTorque = 2000
+    float physxVehicleController:accelerator = 0
+    float physxVehicleController:brake0 = 0
+    float physxVehicleController:brake1 = 0
+    float physxVehicleController:steer = 0
+    int physxVehicleController:targetGear = 1
+    float physxVehicleDriveBasic:peakTorque = 5000
+    double3 xformOp:rotateZYX = (-0, 0, -90)
+    double3 xformOp:scale = (0.07580645382404327, 0.07580645382404327, 0.07580645382404327)
+    double3 xformOp:translate = (20.788137222451468, 17.29023419408051, 4.953401550372536)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+
+    over "Wheels"
+    {
+        over "Wheel_FR"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (21.4464111328125, -12.2899169921875, 1.7104778289794922)
+            token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+            over "FL_Wheel_003"
+            {
+                double3 xformOp:rotateZYX = (0, 0, -90)
+                double3 xformOp:scale
+                double3 xformOp:translate
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+            }
+        }
+
+        over "Wheel_FL"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (21.4464111328125, 12.2899169921875, 1.7104778289794922)
+            token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+            over "FL_Wheel_001"
+            {
+                double3 xformOp:rotateZYX = (0, 0, -90)
+                double3 xformOp:scale
+                double3 xformOp:translate
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+            }
+        }
+
+        over "Wheel_BR"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-14.886604309082031, -11.157470703125, 1.7104778289794922)
+            token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+            over "FL_Wheel_004"
+            {
+                double3 xformOp:rotateZYX = (0, 0, 90)
+                double3 xformOp:scale
+                double3 xformOp:translate
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+            }
+        }
+
+        over "Wheel_BL"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (-14.886604309082031, 11.136154174804688, 1.7104778289794922)
+            token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+            over "FL_Wheel_002"
+            {
+                double3 xformOp:rotateZYX = (0, 0, 90)
+                double3 xformOp:scale
+                double3 xformOp:translate
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+            }
+        }
+    }
+
+    over "Sensors"
+    {
+        over "_62DegreeCameraFront"
+        {
+            over "oToCAM260ISP_C62M"
+            {
+                over "CameraLense"
+                {
+                    over "Cam62_5Front" (
+                        prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+                    )
+                    {
+                        float exposure:fStop = 5
+                        float exposure:responsivity = 1.1026709
+                        float exposure:time = 0.02
+                        bool omni:kit:cameraLock = 0
+                    }
+                }
+            }
+        }
+    }
+
+    over "ThirdPersonFollowCam" (
+        prepend apiSchemas = ["OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    )
+    {
+        float2 clippingRange = (0.1, 1000000)
+        float exposure:fStop = 5
+        float exposure:responsivity = 1.1026709
+        float exposure:time = 0.02
+        float focalLength = 15
+        custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -8.038873388460929e-14)
+        float omni:rtx:autoExposure:adaptationSpeed = 6.5
+        float physxFollowCamera:followMaxDistance = 4
+        float physxFollowCamera:followMaxSpeed = 82.4
+        float physxFollowCamera:followMinDistance = 3
+        float physxFollowCamera:followMinSpeed = 21.800001
+        float physxFollowCamera:lookAheadMaxSpeed = 50
+        float physxFollowCamera:lookAheadMinDistance = 0
+        float physxFollowCamera:lookAheadMinSpeed = 21.800001
+        float physxFollowCamera:lookPositionHeight = -0.5
+        float3 physxFollowCamera:positionOffset = (0, 0, 0.75)
+        float physxFollowCamera:yawAngle = -90
+        float physxFollowFollowCamera:lookAheadMaxDistance = 2
+        float3 xformOp:rotateYXZ = (-4.468667, 10.207557, -139.17174)
+        float3 xformOp:scale = (1.1091617e19, 1.1091617e19, 1.1091617e19)
+        double3 xformOp:translate = (2.5182208010336326e19, 3.427343254881648e18, 3.1039206037466004e18)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateYXZ", "xformOp:scale"]
+    }
+
+    over "Aeroshell"
+    {
+        over "Hood"
+        {
+            token visibility = "inherited"
+        }
+
+        over "Body"
+        {
+            over "Body_001"
+            {
+                token visibility = "inherited"
             }
         }
     }
