@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { DriveMode } from "../types/telemetry";
 
-const MODEL_PATH = "/octane.glb";
+const MODEL_PATH = "/Car.glb";
 const TARGET_MODEL_BOUNDS = new THREE.Vector3(5.4, 2.1, 3.0);
 const GROUND_Y = -0.36;
 
@@ -107,7 +107,7 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
         }
       }
 
-      if (/w[34]/i.test(child.name)) {
+      if (/(?:^|[_\-\s])(BL|BR)(?:$|[_\-\s])/i.test(child.name)) {
         rearWheelsRef.current.push(child);
       }
     });
@@ -144,8 +144,8 @@ function VehicleModel({ rpm, driveMode }: VehicleSceneProps) {
 
     const steeringAngle = THREE.MathUtils.degToRad(Math.sin(state.clock.elapsedTime * 0.5) * 4);
     steeringPivotsRef.current.forEach(pivot => (pivot.rotation.y = steeringAngle));
-    frontWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
-    rearWheelsRef.current.forEach(wheel => (wheel.rotation.x += wheelSpinRadians));
+    frontWheelsRef.current.forEach(wheel => wheel.rotateX(wheelSpinRadians));
+    rearWheelsRef.current.forEach(wheel => wheel.rotateX(wheelSpinRadians));
 
     scene.position.copy(basePositionRef.current);
     scene.rotation.y = THREE.MathUtils.degToRad((smoothRpm.current / 3000) * 6);
