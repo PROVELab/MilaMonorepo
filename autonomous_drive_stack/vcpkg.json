@@ -5,6 +5,8 @@
   "dependencies": [
     { "name": "curl", "features": ["openssl"] },
     "eigen3",
+    "geographiclib",
+    "manif",
     "libtins",
     "flatbuffers",
     "glfw3",
