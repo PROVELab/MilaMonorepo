@@ -4,49 +4,119 @@ An interactive C++17 and raylib simulator for visualizing Hybrid A* path plannin
 
 ## Files
 
-- `hybrid_astar_ogm_sim.cpp`: complete planner, occupancy grid, simulated course, path playback, and visualization.
+- `hybrid_astar_ogm_sim.cpp`: hybrid motion adapter, occupancy grid, simulated course, path playback, and visualization.
+- `AStarProgram.h` / `AStarProgram.cpp`: shared A* search with adapter-defined transition costs and heuristics, continuous pose records, goal predicates, and expansion limits.
 - `test_window.cpp`: minimal raylib window for checking the graphics setup.
 
-Each source file has its own `main()`. Build them separately.
+The simulator and graphics check each have their own `main()`. Link the simulator with `AStarProgram.cpp`; build the graphics check separately.
 
-## Requirements
+## Windows setup with MSYS2 UCRT64
 
-- A C++17 compiler.
-- raylib headers and libraries.
-- On the current Windows setup: MSYS2 UCRT64, installed at `C:\msys64`.
-- Optional: VS Code with the Microsoft C/C++ extension for editing and IntelliSense.
+Run the commands below in **MSYS2 UCRT64**. These commands use its Bash shell; use that terminal instead of regular Command Prompt, PowerShell, or MSYS2 MSYS. VS Code is optional for editing the files.
 
-VS Code is the editor and can invoke the compiler. MSYS2 supplies the `g++` compiler and raylib dependencies; you can build directly in VS Code's integrated terminal without opening an MSYS2 terminal.
+### 1. Install MSYS2
 
-## Build and run on Windows with VS Code
+Download and install [MSYS2](https://www.msys2.org/), keeping the default installation location: `C:\msys64`.
 
-1. Open this folder in VS Code: `C:\Users\nlvat\gitRepos\pathPlanningVisualizer`.
-2. Open **Terminal > New Terminal** and use PowerShell.
-3. Run:
+From the Windows Start menu, open **MSYS2 UCRT64**.
 
-```powershell
-# Make the compiler and runtime DLLs available in this terminal session.
-$env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
+### 2. Update MSYS2
 
-# Compile the simulator.
-g++ -std=c++17 -O2 hybrid_astar_ogm_sim.cpp -o hybrid_astar_ogm_sim.exe -lraylib -lopengl32 -lgdi32 -lwinmm
+Run:
 
-# Launch the simulator.
-.\hybrid_astar_ogm_sim.exe
+```bash
+pacman -Syu
 ```
 
-The simulator opens in a separate 1200 x 800 window and starts moving automatically. Recompile after changing the source. Close the running simulator before rebuilding its executable.
+If the update tells you to close the terminal, close it. Reopen **MSYS2 UCRT64**, then run the update again:
 
-The PATH change lasts only for the current terminal session. Run it again in a new terminal, or add `C:\msys64\ucrt64\bin` to your Windows user PATH.
-
-To build and run the smaller graphics check instead:
-
-```powershell
-g++ -std=c++17 -O2 test_window.cpp -o test_window.exe -lraylib -lopengl32 -lgdi32 -lwinmm
-.\test_window.exe
+```bash
+pacman -Syu
 ```
 
-The build command for the main simulator has been compiled and linked successfully with the installed UCRT64 toolchain. No additional assets or command-line arguments are required.
+### 3. Install C++, raylib, and pkg-config
+
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-raylib mingw-w64-ucrt-x86_64-pkgconf
+```
+
+When asked to proceed, type `Y`. Check that the compiler and raylib are available:
+
+```bash
+g++ --version
+pkg-config --modversion raylib
+```
+
+The second command should print a version number.
+
+### 4. Enter the project folder
+
+If you are working in this repository, enter its `pathCreation` folder. For the current checkout:
+
+```bash
+cd /c/Users/nlvat/gitRepos/MilaMonorepo/autonomous_drive_stack/pathCreation
+```
+
+Adjust that path if you cloned the repository elsewhere.
+
+Alternatively, if you downloaded the source files to your Windows Downloads folder, copy them into a new project folder. Replace `YOUR_WINDOWS_USERNAME` with your Windows username. This example assumes the downloaded simulator is named `hybrid_astar_ogm_sim(1).cpp`; adjust the source filename if needed.
+
+```bash
+mkdir -p ~/autonomy-sim
+cp "/c/Users/YOUR_WINDOWS_USERNAME/Downloads/hybrid_astar_ogm_sim(1).cpp" ~/autonomy-sim/hybrid_astar_ogm_sim.cpp
+cp "/c/Users/YOUR_WINDOWS_USERNAME/Downloads/AStarProgram.cpp" ~/autonomy-sim/AStarProgram.cpp
+cp "/c/Users/YOUR_WINDOWS_USERNAME/Downloads/AStarProgram.h" ~/autonomy-sim/AStarProgram.h
+cp "/c/Users/YOUR_WINDOWS_USERNAME/Downloads/test_window.cpp" ~/autonomy-sim/test_window.cpp
+cd ~/autonomy-sim
+```
+
+Check the files:
+
+```bash
+ls
+```
+
+You should see all four source/header files:
+
+```text
+hybrid_astar_ogm_sim.cpp
+AStarProgram.cpp
+AStarProgram.h
+test_window.cpp
+```
+
+The simulator requires both shared A* files alongside its source.
+
+### 5. Test that raylib can open a window
+
+Compile and run the graphics check:
+
+```bash
+g++ -std=c++17 test_window.cpp -o test_window.exe $(pkg-config --cflags --libs raylib)
+./test_window.exe
+```
+
+A small raylib window should appear. Close it before continuing.
+
+### 6. Compile and run the Hybrid A* simulator
+
+```bash
+g++ -std=c++17 -O2 hybrid_astar_ogm_sim.cpp AStarProgram.cpp -o hybrid_astar_ogm_sim.exe $(pkg-config --cflags --libs raylib)
+./hybrid_astar_ogm_sim.exe
+```
+
+The simulator opens a 1200 x 800 window and starts following its planned path automatically. Left-click to set a goal, press **A** to restore the automatic goal, right-click to add an obstacle, and press **R** to reset the vehicle. The current simulator moves automatically; arrow keys do not control it. See the full controls below.
+
+### After changing the code
+
+Close the simulator, return to your project folder in **MSYS2 UCRT64**, and repeat:
+
+```bash
+g++ -std=c++17 -O2 hybrid_astar_ogm_sim.cpp AStarProgram.cpp -o hybrid_astar_ogm_sim.exe $(pkg-config --cflags --libs raylib)
+./hybrid_astar_ogm_sim.exe
+```
+
+For the downloaded-file setup, enter `cd ~/autonomy-sim` first. For a repository checkout, use its `pathCreation` path from step 4. No additional assets or command-line arguments are required. Build and runtime verification of the shared A* integration remains pending.
 
 ## Controls
 
@@ -84,7 +154,7 @@ The right panel shows the car and goal world coordinates in meters, the car head
 2. Transform visible lane edges and obstacles into vehicle coordinates: positive x is forward and positive y is left.
 3. Build a local occupancy grid. When boundaries are enabled, cells outside the lane or too close to its boundaries are blocked. Automatic goals still follow the lane centerline when boundaries are disabled. Obstacles are enlarged by the vehicle half-width and safety margin.
 4. Select a goal up to 30 m ahead along the computed centerline, or use the clicked destination. Automatic goals shorten near the course end and retreat along the centerline if needed to reach free space.
-5. Search states consisting of a grid cell and a heading bin. Expand forward bicycle-model arcs using left, straight, and right steering choices, checking samples along each arc against the grid.
+5. Use the shared search in `AStarProgram.cpp` with adapter-defined distance plus steering costs and a heuristic measuring distance to the goal tolerance region. Each search state consists of a grid cell and a heading bin. Expand forward bicycle-model arcs using left, straight, and right steering choices, checking samples along each arc against the grid.
 6. Convert a successful path to world coordinates and play back its arcs at 4 m/s. Replace the path on each replan; stop if planning fails or the path endpoint is reached.
 
 The replan interval is 0.08 seconds, targeting 12.5 Hz when computation allows. Rendering targets 60 FPS. Both planning and rendering run on the same thread.
@@ -126,9 +196,10 @@ To experiment with other courses, edit `makeTrack()`. The perception-style input
 
 ## Troubleshooting
 
-- **`g++` is not recognized:** run the PATH command above and verify that `C:\msys64\ucrt64\bin\g++.exe` exists.
+- **`g++` or `pkg-config` is not found:** open **MSYS2 UCRT64** and install the packages from step 3. These instructions require that terminal.
 - **`raylib.h` is missing or the linker cannot find raylib:** ensure raylib is installed for the same UCRT64 environment as the compiler. Avoid mixing UCRT64 and MINGW64 libraries.
-- **A DLL is missing at launch:** run from the terminal with the UCRT64 PATH configured. Keep that path available even when launching an already compiled executable.
-- **Multiple definitions of `main`:** compile only one of the two source files per executable.
+- **A DLL is missing at launch:** run the executable from **MSYS2 UCRT64** so its compiler and raylib runtime DLLs are available.
+- **Multiple definitions of `main`:** build `test_window.cpp` separately. Build the simulator with `hybrid_astar_ogm_sim.cpp AStarProgram.cpp`, as shown above.
+- **Undefined references to `path_planning::findPath`:** include `AStarProgram.cpp` in the simulator compile command.
 - **The vehicle stops:** read the planner status. Press A to restore automatic goals, or press R to return to the start. R retains a clicked goal; press A as well if you want automatic mode.
 - **Rebuilding reports permission denied for the executable:** close the simulator window and rebuild.
