@@ -7,8 +7,8 @@
                 double radius = 5.248652648925781
             }
             dictionary Perspective = {
-                double3 position = (14.138766168671014, 14.740022348064372, 6.61241469314071)
-                double3 target = (20.551994541249712, 15.716622986074153, 4.086164134822591)
+                double3 position = (14.160021379562211, 14.743259072427117, 6.60404200075217)
+                double3 target = (20.551994541249712, 15.716622986074153, 4.0861641348225906)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -18,7 +18,7 @@
                 double3 position = (0.8552154338536352, -0.0003269040206178367, 50000.574314620506)
                 double radius = 9.191596984863281
             }
-            string boundCamera = "/Mila/MilaCamera"
+            string boundCamera = "/OmniverseKit_Persp"
         }
         dictionary metricsAssembler = {
             dictionary "/Mila/Parkgarage_prefab" = {
@@ -30,6 +30,7 @@
         }
         dictionary renderSettings = {
             double "rtx:directLighting:sampledLighting:maxRayUnexposedIntensity" = 6399.9990234375
+            bool "rtx:ecoMode:enabled" = 0
             double "rtx:indirectDiffuse:maxRayUnexposedIntensity" = 6399.9990234375
             double "rtx:pathtracing:fireflyFilter:maxPerEmissiveUnexposedIntensity" = 3199.99951171875
             double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSample" = 3199.99951171875
@@ -3772,7 +3773,7 @@ def "Render" (
                 no_delete = true
             )
             {
-                rel camera = </Mila/MilaCamera>
+                rel camera = </OmniverseKit_Persp>
                 token omni:rtx:ambientOcclusion:denoiserMode = "none"
                 token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
                 token omni:rtx:background:source:type = "domeLight"
@@ -3797,7 +3798,7 @@ def "Render" (
                 color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
                 bool omni:rtx:rt:demoire = 0
                 float omni:rtx:rt:directLighting:maxRayUnexposedIntensity = 6399.999
-                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:ecoMode:enabled = 0
                 float omni:rtx:rt:indirectdiffuse:maxRayUnexposedIntensity = 6399.999
                 float omni:rtx:rt:inscattering:maxRTSampleUnexposedIntensity = 204799.97
                 bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
@@ -3882,7 +3883,7 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__CameraPlacementStudy_wKG/oTo_62deg/Right>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:ecoMode:enabled = 0
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
@@ -3897,9 +3898,9 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__700108702Rev80OSExteriorSpecOS1BH_04302026A_ui0FIRZ0pJAY0i0l0d1/lidar/sensor>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:ecoMode:enabled = 0
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                rel orderedVars = </Render/Vars/GenericModelOutput>
+                rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
             }
@@ -3912,7 +3913,7 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__CameraPlacementStudy_wKG/oTo_120deg/Left>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:ecoMode:enabled = 0
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
@@ -3927,7 +3928,7 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__CameraPlacementStudy_wKG/oTo_62deg_1/Front>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:ecoMode:enabled = 0
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
@@ -4007,10 +4008,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.961694394930887)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.938621416092801)
     float3 xformOp:rotateXYZ = (68.72291, -9.00097e-13, -81.34157)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (14.138766168671014, 14.740022348064372, 6.61241469314071)
+    double3 xformOp:translate = (14.160021379562211, 14.743259072427117, 6.60404200075217)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -4465,7 +4466,7 @@ over "Mila"
         }
 
         def Xform "SensorStudy" (
-            references = @../../../../Tmp/Sensor_Placement_Model.usd@
+            references = @./Sensor_Placement_Model.usd@
         )
         {
             quatd xformOp:orient = (6.123233995736766e-17, 0, 0, 1)
@@ -4591,7 +4592,7 @@ over "Mila"
         float exposure:time = 0.02
         float focalLength = 10
         bool omni:kit:cameraLock = 0
-        custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.260322270201418)
+        custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.2317296633504045)
         bool omni:rtx:autoExposure:enabled = 1
         custom rel physxCamera:subject = </Mila/Mila_Root>
         float3 physxFollowCamera:cameraPositionTimeConstant = (0.5, 0.5, 0.1)
@@ -4625,7 +4626,7 @@ over "Mila"
         token projection = "perspective"
         float3 xformOp:rotateZYX = (-2.5948045, 7.0478864, 110.271736)
         float3 xformOp:scale = (1, 1, 1)
-        double3 xformOp:translate = (-207.12908586412493, -172.48829156261763, -44.653229127221465)
+        double3 xformOp:translate = (-20.039359089212248, -16.877471250033413, -0.13693559405613698)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
     }
 }
