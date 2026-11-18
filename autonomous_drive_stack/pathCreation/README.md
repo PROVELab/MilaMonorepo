@@ -33,6 +33,61 @@ ctest --test-dir build/prove-planner -C Debug --output-on-failure
 The standalone build does not need the Ouster SDK. The library is also added to
 the main autonomy stack's CMake build.
 
+## Visualize the test scenes
+
+`examples/planner_visualizer.cpp` runs the real planner on the spatial test
+scenarios and writes a single HTML file. It uses only the C++ standard library
+and the existing planner; the viewer uses your browser's built-in canvas, with
+no packages, network requests, or local server. Scene inputs are shared with
+the tests in `tests/scenarios.hpp`.
+
+From `MilaMonorepo` in Windows PowerShell (Visual Studio generator):
+
+```powershell
+cmake -S autonomous_drive_stack/pathCreation -B build/prove-planner
+cmake --build build/prove-planner --config Debug
+ctest --test-dir build/prove-planner -C Debug --output-on-failure
+.\build\prove-planner\Debug\planner_visualizer.exe .\build\prove-planner\planner_visualizer.html
+Start-Process .\build\prove-planner\planner_visualizer.html
+```
+
+With Ninja or Makefiles, the executable is directly inside `build/prove-planner`
+instead of its `Debug` subfolder. On Linux/macOS, after the build above:
+
+```sh
+/tmp/prove-planner-build/planner_visualizer /tmp/planner_visualizer.html
+# Open /tmp/planner_visualizer.html in your browser.
+```
+
+Choose a scene to inspect obstacles, unknown cells, detours, blocked routes,
+vehicle overlap at the start, and grid rasterization of circles, polygons,
+rotated boxes, and lane boundaries. Play or drag the sample slider to inspect
+the vehicle body, safety margin, heading, steering, and curvature along the
+returned path. Compare the detour scenes with and without smoothing. Playback
+steps through path samples, not physical time or intermediate search states.
+Grid-only cases do not run the planner; malformed-input tests have no spatial
+scene. Re-run the executable after changing inputs or planner code.
+
+The shared scenarios also include five harder static cases:
+
+- Staggered parked cars requiring a route above one car and below the next.
+- Construction clutter with a drum, angled barrier, and irregular debris.
+- An offset approach through a 3.5 m gate between barriers.
+- Ordered left/right lane boundaries forming an S bend, with a static drum.
+- The same lane blocked by a barrier; planning must fail with an empty path.
+
+These are synthetic scenes with illustrative dimensions. The lane edges define
+the observed drivable corridor, so leaving that corridor is blocked. Successful
+paths are checked for goal reach, bicycle-model consistency, steering limits,
+and clearance of the full vehicle plus safety margin against occupied/unknown
+cells and map edges. Intermediate arc poses are checked at intervals of at most
+5 cm; this is a regression check, not a continuous collision proof. All five
+cases appear in the visualizer and as separate CTest tests. To run only them:
+
+```powershell
+ctest --test-dir build/prove-planner -C Debug --output-on-failure -R "static_|lane_"
+```
+
 ## Data contract
 
 Include `prove/grid_builder.hpp` to build a map and `prove/planner.hpp` to plan
