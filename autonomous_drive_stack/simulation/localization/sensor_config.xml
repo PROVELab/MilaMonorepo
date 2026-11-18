@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+
+<!--
+  Primary sensor noise settings.
+
+  Larger values produce noisier simulated measurements.
+  Set a value to 0 to disable that component of white noise.
+
+  Restart the sensor nodes after changing these values.
+
+  Other simulation settings, including sensor biases and drift,
+  use the defaults in sensor_config.py.
+-->
+
+<sensor_simulation>
+
+  <imu>
+    <!-- Accelerometer noise density: (m/s²) / √Hz -->
+    <accel_noise_density_mps2_per_sqrt_hz>
+      0.000588399
+    </accel_noise_density_mps2_per_sqrt_hz>
+
+    <!-- Gyroscope noise density: (rad/s) / √Hz -->
+    <gyro_noise_density_radps_per_sqrt_hz>
+      0.00013962634015954636
+    </gyro_noise_density_radps_per_sqrt_hz>
+  </imu>
+
+  <magnetometer>
+    <!-- Magnetic-field white-noise standard deviation, in tesla -->
+    <white_noise_std_t>
+      0.00000004
+    </white_noise_std_t>
+  </magnetometer>
+
+</sensor_simulation>
