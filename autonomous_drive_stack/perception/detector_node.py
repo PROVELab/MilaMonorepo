@@ -193,11 +193,11 @@ class DetectorNode(Node):
             self.get_logger().error(f'[{cam_name}] inference failed: {e}')
             return
 
-        det_arr = self._results_to_msg(results, msg, cam_name)
+        det_arr = self._results_to_msg(results, msg)
         self.publishers_[cam_name].publish(det_arr)
         self._det_counts[cam_name] += len(det_arr.detections)
 
-    def _results_to_msg(self, results, img_msg: Image, cam_name: str) -> Detection2DArray:
+    def _results_to_msg(self, results, img_msg: Image) -> Detection2DArray:
         """Convert ultralytics YOLO result -> vision_msgs/Detection2DArray.
 
         Timestamp comes from the IMAGE, not the current clock, so the fusion
