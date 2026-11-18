@@ -14,11 +14,20 @@ map snapshots; it does not connect to real sensors or command a vehicle.
 
 From the repository root:
 
+Mac:
 ```sh
 cmake -S autonomous_drive_stack/pathCreation -B /tmp/prove-planner-build
 cmake --build /tmp/prove-planner-build
 ctest --test-dir /tmp/prove-planner-build --output-on-failure
 /tmp/prove-planner-build/planner_updates_example
+```
+
+If your on Windows: 
+```sh
+cmake -S autonomous_drive_stack/pathCreation -B build/prove-planner
+cmake --build build/prove-planner --config Debug
+ctest --test-dir build/prove-planner -C Debug --output-on-failure
+.\build\prove-planner\Debug\planner_updates_example.exe
 ```
 
 The standalone build does not need the Ouster SDK. The library is also added to
