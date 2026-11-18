@@ -10,6 +10,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include(CTest)
+add_subdirectory(pathCreation)
+
 # Suppress GCC 15/16's strict template body checking on spdlog
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION
    VERSION_GREATER_EQUAL 15)

@@ -4,6 +4,10 @@ Everything that will run on the AGX Orin, or is part of Isaac Sim Simulation bel
 
 A modular C++ autonomy stack featuring real-time Ouster LiDAR integration, point cloud processing, and sensor capture/playback capabilities.
 
+The [path creation planner](pathCreation/README.md) can be built independently
+of the Ouster SDK. Its README describes the occupancy-grid input, path output,
+vehicle configuration, and the remaining perception and controls integration.
+
 ---
 
 ## Prerequisites
