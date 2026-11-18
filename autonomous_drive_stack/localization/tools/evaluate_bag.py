@@ -88,7 +88,7 @@ def main():
                      f"{ev.fmt_m(s['max'])} | - | - | - | - | - | - |")
         traces[(hz, "gps_held")] = (th, held)
         for name, binary, sensors, extra, label in variants:
-            cmd = [f"./build/{binary}", "-o", f"out/{ds}_{name}", "--datum", ev.DATUM,
+            cmd = [str(ev.BIN / binary), "-o", f"out/{ds}_{name}", "--datum", ev.DATUM,
                    "--est-every", "1", "--sensors", sensors, *extra]
             for kv in INIT:
                 cmd += ["--set", kv]

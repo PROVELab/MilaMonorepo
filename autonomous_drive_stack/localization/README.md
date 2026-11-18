@@ -33,15 +33,15 @@ headers, e.g. `#include "loc/localizer.hpp"`.
 
 | File | What it is |
 |---|---|
-| `CMakeLists.txt` | Build script. Needs Eigen and GeographicLib (`brew install cmake eigen geographiclib`); downloads manif and doctest itself. Builds the filter library (double and float versions), the replay programs and the tests: `cmake -S . -B build && cmake --build build` |
+| `CMakeLists.txt` | Build script, included by `autonomous_drive_stack/CMakeLists.txt`. Its libraries (Eigen, GeographicLib, manif, GoogleTest) come from the stack's `vcpkg.json`. Builds the filter library (double and float versions), the replay programs and the tests. From `autonomous_drive_stack/`, after the stack's setup (vcpkg in `~/vcpkg`, see its README): `just build`, or just our parts: `cmake --preset default && cmake --build build --target replay replay_f32 replay_all test_localizer` |
 | `config.hpp` | Every setting in one place. At the top, on/off switches for each sensor (`LOC_USE_*`) and number precision (`LOC_SCALAR`). Below, noise levels, where things are mounted on the car, vehicle size and fault limits. Values marked PLACEHOLDER must be measured on the car. |
 | `eskf.hpp`, `eskf.cpp` | The Kalman filter maths, nothing car-specific: move the estimate forward with each IMU sample, correct it with a measurement (skipping outliers), and fold the correction in. |
 | `localizer.hpp`, `localizer.cpp` | The car-specific layer: what each sensor should read, start-up (level the IMU, then find the heading), faults that should stop the car, and the output (position, lat/lon/alt, the error it believes it has). Needs readings in time order. |
 | `live_localizer.hpp`, `live_localizer.cpp` | What the car calls. On the car, readings arrive late and out of order (GPS ~50-100 ms late), so this holds them for 0.15 s, passes them to the localizer in time order, and predicts the output forward to "now". |
-| `test_localizer.cpp` | Safety tests on a tiny simulated car: IMU stops, late data, wheel slip, bad GPS, clearing faults, start-up while turning or reversing. Run: `ctest --test-dir build --output-on-failure` |
+| `test_localizer.cpp` | Safety tests (GoogleTest) on a tiny simulated car: IMU stops, late data, wheel slip, bad GPS, clearing faults, start-up while turning or reversing. Run from `autonomous_drive_stack/`: `ctest --test-dir build/localization --output-on-failure` |
 | `replay.cpp` | Runs logged sensor data (CSV files) through the filter and writes its estimates (`_est.csv`) and every innovation (`_innov.csv`). Built three ways: `replay` (the car's settings), `replay_f32` (float, like the ESP32) and `replay_all` (every sensor compiled in, for comparisons). |
 | `sim_drive.py` | Makes a fake 150 s drive with exact ground truth and every sensor. `--stress` adds GPS outages and bad fixes; `--realistic` adds errors the filter doesn't model (timing, mounting, tyre slip). |
-| `evaluate.py` | Runs `sim_drive.py` and `replay` for each sensor combination and compares against the truth. Writes tables and plots to `results/`. Run: `python3 tools/evaluate.py` |
+| `evaluate.py` | Runs `sim_drive.py` and `replay` for each sensor combination and compares against the truth. Writes tables and plots to `results/`. Run from this folder after building: `python3 tools/evaluate.py` |
 | `rosbag_to_replay.py` | Converts an Isaac Sim recording (`.db3`) into replay CSVs, adding synthetic GPS because the sim has none yet. |
 | `evaluate_bag.py` | Scores an Isaac Sim recording in one command: `python3 -I tools/evaluate_bag.py BAG.db3 --name NAME` |
 

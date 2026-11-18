@@ -19,6 +19,9 @@ endif()
 
 # Submodules
 add_subdirectory(thirdparty/ouster-sdk)
+
+# GPS/RTK + IMU localization (its own libraries, tools and tests)
+add_subdirectory(localization)
 # rexport examples
 # Autonomy executable
 add_executable(main src/main.cpp)

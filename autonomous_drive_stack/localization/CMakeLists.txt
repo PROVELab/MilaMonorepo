@@ -1,37 +1,26 @@
-cmake_minimum_required(VERSION 3.24)
+# Localization: GPS/RTK + IMU error-state EKF.
+# Built as part of autonomous_drive_stack (add_subdirectory there). Its libraries
+# come from the stack's vcpkg.json, like everything else in the stack.
+cmake_minimum_required(VERSION 3.21)
 project(localization LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+if(PROJECT_IS_TOP_LEVEL AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)  # standalone build: optimise by default
 endif()
 
-find_package(Eigen3 REQUIRED NO_MODULE)
-find_package(GeographicLib REQUIRED)
-
-# manif: header-only Lie-group library (SO3 exp/log/Jacobians) used for attitude.
-# Its own CMakeLists can't detect Eigen 5's version, so we only fetch the headers
-# (SOURCE_SUBDIR points at a folder with no CMakeLists, so nothing is built).
-# Pinned to a commit (tags can be moved): this is release 0.0.5.
-include(FetchContent)
-FetchContent_Declare(manif
-  GIT_REPOSITORY https://github.com/artivis/manif.git
-  GIT_TAG        c49fec8150e62821d9be7e2a3ac49db75bf7bb92  # 0.0.5
-  SOURCE_SUBDIR  headers-only)
-FetchContent_MakeAvailable(manif)
-add_library(manif INTERFACE)
-target_include_directories(manif SYSTEM INTERFACE
-  ${manif_SOURCE_DIR}/include ${manif_SOURCE_DIR}/external/tl)
+find_package(Eigen3 CONFIG REQUIRED)
+find_package(GeographicLib CONFIG REQUIRED)  # WGS84 <-> local metres, normal gravity
+find_package(manif CONFIG REQUIRED)          # SO(3) rotation maths for the attitude
+find_package(GTest CONFIG REQUIRED)
 
 # Filter core. Precision is chosen by LOC_SCALAR (see include/loc/config.hpp);
 # any extra arguments are more compile definitions.
 function(add_loc_library name scalar)
   add_library(${name} src/eskf.cpp src/localizer.cpp src/live_localizer.cpp)
+  target_compile_features(${name} PUBLIC cxx_std_23)
   target_include_directories(${name} PUBLIC include)
   target_compile_definitions(${name} PUBLIC LOC_SCALAR=${scalar} ${ARGN})
-  target_link_libraries(${name} PUBLIC Eigen3::Eigen manif GeographicLib::GeographicLib)
+  target_link_libraries(${name} PUBLIC Eigen3::Eigen MANIF::manif ${GeographicLib_LIBRARIES})
   target_compile_options(${name} PRIVATE -Wall -Wextra)
 endfunction()
 
@@ -48,15 +37,9 @@ target_link_libraries(replay_f32 PRIVATE loc_f32)
 add_executable(replay_all tools/replay.cpp)
 target_link_libraries(replay_all PRIVATE loc_all)
 
-# Tests: ctest --test-dir build --output-on-failure
-# doctest is a single-header test library; only the header is fetched.
-FetchContent_Declare(doctest
-  GIT_REPOSITORY https://github.com/doctest/doctest.git
-  GIT_TAG        1da23a3e8119ec5cce4f9388e91b065e20bf06f5  # v2.4.12
-  SOURCE_SUBDIR  doctest)
-FetchContent_MakeAvailable(doctest)
+# Tests (GoogleTest): ctest --test-dir <build>/localization --output-on-failure
 enable_testing()
+include(GoogleTest)
 add_executable(test_localizer tests/test_localizer.cpp)
-target_include_directories(test_localizer SYSTEM PRIVATE ${doctest_SOURCE_DIR})
-target_link_libraries(test_localizer PRIVATE loc_f64)
-add_test(NAME test_localizer COMMAND test_localizer)
+target_link_libraries(test_localizer PRIVATE loc_f64 GTest::gtest_main)
+gtest_discover_tests(test_localizer)

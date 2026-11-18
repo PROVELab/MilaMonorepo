@@ -1,10 +1,9 @@
 // Tests for the safety logic. Each test drives a tiny, noise-free synthetic car
 // through one situation the red-team review found a problem with.
 //
-//   cmake --build build && ctest --test-dir build --output-on-failure
+//   ctest --test-dir <build>/localization --output-on-failure
 
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include <doctest/doctest.h>
+#include <gtest/gtest.h>
 
 #include "loc/live_localizer.hpp"
 
@@ -100,132 +99,143 @@ double east_error(const Filter& f, const Sensors& s) {
 
 }  // namespace
 
-TEST_CASE("normal drive: starts up, becomes ready, stays accurate, no faults") {
+// normal drive: starts up, becomes ready, stays accurate, no faults
+TEST(Localizer, NormalDrive) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 20);
   const Output o = L.output();
-  CHECK(o.ready);
-  CHECK(o.faults == 0);
-  CHECK(o.late_measurements == 0);
-  CHECK(east_error(L, s) < 0.01);
+  EXPECT_TRUE(o.ready);
+  EXPECT_EQ(o.faults, 0u);
+  EXPECT_EQ(o.late_measurements, 0u);
+  EXPECT_LT(east_error(L, s), 0.01);
 }
 
-TEST_CASE("IMU stops while other sensors keep talking -> IMU gap fault, not ready") {
+// IMU stops while other sensors keep talking -> IMU gap fault, not ready
+TEST(Localizer, ImuStopsRaisesImuGap) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 20);
-  REQUIRE(L.output().ready);
+  ASSERT_TRUE(L.output().ready);
   drive(L, s, 20, 20.5, {.imu = false});  // GPS + wheel speed only
-  CHECK((L.faults() & kFaultImuGap) != 0);
-  CHECK_FALSE(L.output().ready);
+  EXPECT_NE(L.faults() & kFaultImuGap, 0u);
+  EXPECT_FALSE(L.output().ready);
 }
 
-TEST_CASE("a reading older than data already used is dropped and counted, not fused") {
+// a reading older than data already used is dropped and counted, not fused
+TEST(Localizer, LateReadingDroppedAndCounted) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 20);
   const double t_now = L.output().t;
-  CHECK_FALSE(L.on_wheel_rpm(t_now - 0.003, s.rpm(t_now)).has_value());  // 3 ms late
-  CHECK(L.output().late_measurements == 1);
+  EXPECT_FALSE(L.on_wheel_rpm(t_now - 0.003, s.rpm(t_now)).has_value());  // 3 ms late
+  EXPECT_EQ(L.output().late_measurements, 1u);
 }
 
-TEST_CASE("live: GPS arriving 80 ms late is still used (LiveLocalizer)") {
+// live: GPS arriving 80 ms late is still used (LiveLocalizer)
+TEST(LiveLocalizer, LateGpsStillUsed) {
   Sensors s;
   const Feed late_gps{.gps_latency = 0.08};
 
   LiveLocalizer live(s.cfg);
   drive(live, s, 0, 20, late_gps);
   const Output o = live.output();
-  CHECK(o.ready);
-  CHECK(o.faults == 0);
-  CHECK(o.late_measurements == 0);
-  CHECK(o.t == doctest::Approx(20 - 1 / kImuRate));  // output is current, not 0.15 s behind
-  CHECK(east_error(live, s) < 0.01);
+  EXPECT_TRUE(o.ready);
+  EXPECT_EQ(o.faults, 0u);
+  EXPECT_EQ(o.late_measurements, 0u);
+  EXPECT_NEAR(o.t, 20 - 1 / kImuRate, 1e-9);  // output is current, not 0.15 s behind
+  EXPECT_LT(east_error(live, s), 0.01);
 
   // Without the delay buffer every late fix after start-up would be dropped.
   Localizer plain(s.cfg);
   drive(plain, s, 0, 20, late_gps);
-  CHECK(plain.output().late_measurements > 100);
+  EXPECT_GT(plain.output().late_measurements, 100u);
 }
 
-TEST_CASE("live: IMU stops while other sensors keep talking -> IMU gap fault") {
+// live: IMU stops while other sensors keep talking -> IMU gap fault
+TEST(LiveLocalizer, ImuStopsRaisesImuGap) {
   Sensors s;
   LiveLocalizer live(s.cfg);
   drive(live, s, 0, 20);
-  REQUIRE(live.output().ready);
+  ASSERT_TRUE(live.output().ready);
   drive(live, s, 20, 20.5, {.imu = false});
-  CHECK((live.faults() & kFaultImuGap) != 0);
-  CHECK_FALSE(live.output().ready);
+  EXPECT_NE(live.faults() & kFaultImuGap, 0u);
+  EXPECT_FALSE(live.output().ready);
 }
 
-TEST_CASE("wheel slip for 0.3 s is skipped, a dead wheel sensor still raises a fault") {
+// wheel slip for 0.3 s is skipped, a dead wheel sensor still raises a fault
+TEST(Faults, WheelSlipSkippedDeadSensorFaults) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 20);
-  REQUIRE(L.output().ready);
+  ASSERT_TRUE(L.output().ready);
 
   drive(L, s, 20, 20.3, {.rpm_scale = 1.4});  // wheels spin 40% fast (old code: fault in 30 ms)
-  CHECK(L.faults() == 0);
+  EXPECT_EQ(L.faults(), 0u);
   drive(L, s, 20.3, 22);
-  CHECK(L.output().ready);
+  EXPECT_TRUE(L.output().ready);
 
   drive(L, s, 22, 24, {.rpm_scale = 0});  // sensor reads 0 while the car drives
-  CHECK((L.faults() & kFaultInnovation) != 0);
-  CHECK_FALSE(L.output().ready);
+  EXPECT_NE(L.faults() & kFaultInnovation, 0u);
+  EXPECT_FALSE(L.output().ready);
 }
 
-TEST_CASE("GPS is the reference: 1 bad fix is skipped, 3 in a row stop the car") {
+// GPS is the reference: 1 bad fix is skipped, 3 in a row stop the car
+TEST(Faults, GpsBadFixSkippedThreeInARowStop) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 20);
   drive(L, s, 20, 20.05, {.gps_jump = 1.5});  // one fix 1.5 m off
   drive(L, s, 20.05, 22);
-  CHECK(L.faults() == 0);
+  EXPECT_EQ(L.faults(), 0u);
   drive(L, s, 22, 22.25, {.gps_jump = 1.5});  // three fixes (0.2 s at 10 Hz)
-  CHECK((L.faults() & kFaultInnovation) != 0);
+  EXPECT_NE(L.faults() & kFaultInnovation, 0u);
 }
 
-TEST_CASE("clear_faults: the filter has to earn `ready` again") {
+// clear_faults: the filter has to earn `ready` again
+TEST(Faults, ClearFaultsMustEarnReadyAgain) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 20);
   drive(L, s, 20, 22, {.rpm_scale = 0});
-  REQUIRE(L.faults() != 0);
+  ASSERT_NE(L.faults(), 0u);
 
   drive(L, s, 22, 22.5);  // sensor fixed
   L.clear_faults();
-  CHECK(L.faults() == 0);
-  CHECK_FALSE(L.output().ready);  // not straight back to ready
+  EXPECT_EQ(L.faults(), 0u);
+  EXPECT_FALSE(L.output().ready);  // not straight back to ready
   drive(L, s, 22.5, 22.6, {.rpm_scale = 1.4});  // one short bad burst: no instant re-fault
-  CHECK(L.faults() == 0);
+  EXPECT_EQ(L.faults(), 0u);
   drive(L, s, 22.6, 27);
-  CHECK(L.output().ready);
+  EXPECT_TRUE(L.output().ready);
 }
 
-TEST_CASE("start-up: no heading from GPS while turning") {
+// start-up: no heading from GPS while turning
+TEST(StartUp, NoHeadingWhileTurning) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 3);                   // parked: level + gyro bias
   drive(L, s, 3, 8, {.gyro_z = 0.2});  // moving at > 2 m/s, but turning
-  CHECK(L.status() == Status::WaitingForHeading);
+  EXPECT_EQ(L.status(), Status::WaitingForHeading);
   drive(L, s, 8, 9);  // straight
-  CHECK(L.status() == Status::Running);
+  EXPECT_EQ(L.status(), Status::Running);
 }
 
-TEST_CASE("start-up: no heading from GPS while reversing (wheel speed says so)") {
+// start-up: no heading from GPS while reversing (wheel speed says so)
+TEST(StartUp, NoHeadingWhileReversing) {
   Sensors s;
   s.car.direction = -1;  // nose east, driving west
   Localizer L(s.cfg);
   drive(L, s, 0, 8);
-  CHECK(L.status() == Status::WaitingForHeading);  // old code: started 180 deg off
+  EXPECT_EQ(L.status(), Status::WaitingForHeading);  // old code: started 180 deg off
 }
 
-TEST_CASE("start-up without GPS velocity: two fixes with the same time don't divide by zero") {
+// start-up without GPS velocity: two fixes with the same time don't divide by zero
+TEST(StartUp, SameTimeFixesDontDivideByZero) {
   Sensors s;
   Localizer L(s.cfg);
   drive(L, s, 0, 2.5, {.gps = false});  // level + gyro bias
-  REQUIRE(L.status() == Status::WaitingForHeading);
+  ASSERT_EQ(L.status(), Status::WaitingForHeading);
   GpsFix a = s.gps(2.5), b = s.gps(2.5);
   a.has_vel = b.has_vel = false;
   L.on_gps(a);
@@ -233,6 +243,6 @@ TEST_CASE("start-up without GPS velocity: two fixes with the same time don't div
   b.lat_deg += 4 / 111e3;    // 4 m north of the first fix, same timestamp
   L.on_gps(b);
   const Output o = L.output();
-  CHECK(o.v_enu.allFinite());
-  CHECK((L.faults() & kFaultNumerical) == 0);
+  EXPECT_TRUE(o.v_enu.allFinite());
+  EXPECT_EQ(L.faults() & kFaultNumerical, 0u);
 }

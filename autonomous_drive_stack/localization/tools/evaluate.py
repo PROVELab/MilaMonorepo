@@ -18,6 +18,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 DATUM = "35.3,-120.6625,100"
+# Replay programs: the stack's build (autonomous_drive_stack/build) or a standalone build here.
+BIN = next((d for d in (Path("../build/localization"), Path("build")) if (d / "replay").exists()),
+           Path("../build/localization"))
 SENSORS_FUSED = "imu,gps,gpsvel,rpm,steer"  # what the car's build (config.hpp) uses
 # replay_all has every correction compiled in, to compare the ones the car leaves out.
 # The magnetometer gets the hard-iron calibration the sim used (a calibrated sensor).
@@ -153,7 +156,7 @@ def main():
                      f"{fmt_m(s['p95'])} | {fmt_m(s['max'])} | - | - | - | - | - | - |")
         traces[(ds, "gps_held")] = (th, held, None)
         for name, binary, sensors, extra, label in VARIANTS:
-            stdout = run([f"./build/{binary}", "-o", f"out/{ds}_{name}", "--datum", DATUM,
+            stdout = run([str(BIN / binary), "-o", f"out/{ds}_{name}", "--datum", DATUM,
                           "--sensors", sensors, *extra,
                           f"data/{ds}_sensors.csv", f"data/{ds}_gps.csv"])
             est = load(f"out/{ds}_{name}_est.csv")
