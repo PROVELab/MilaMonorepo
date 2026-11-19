@@ -1,321 +1,378 @@
 
-"""Evaluate YOLO 2D detections against Isaac Sim ground truth.
-
-Supported modes:
-1. Isaac Sim Replicator dataset + YOLO model (.pt or .engine)
-2. Original ground-truth JSON + predictions JSON
-
-Replicator files:
-    rgb_0000.png
-    bounding_box_2d_tight_0000.npy
-    bounding_box_2d_tight_labels_0000.json
-
-Bounding boxes use pixel coordinates [xmin, ymin, xmax, ymax].
-
-Note:
-    Replicator 2D boxes do not provide object distances.
-    Distance filtering is disabled unless --max-distance is supplied.
-"""
-
 import argparse
-import json
-from pathlib import Path
+import time
+from collections import OrderedDict
+
+import cv2
+import numpy as np
+import rclpy
+
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from vision_msgs.msg import Detection2DArray
+from ultralytics import YOLO
 
 
-def iou(a, b):
-    x1, y1 = max(a[0], b[0]), max(a[1], b[1])
-    x2, y2 = min(a[2], b[2]), min(a[3], b[3])
+CAMERAS = ["front", "left", "right"]
 
-    intersection = max(0, x2 - x1) * max(0, y2 - y1)
+# New synchronized image topics
+IMAGE_PREFIX = "/benchmark_camera"
+GT_PREFIX = "/ground_truth"
 
-    area_a = max(0, a[2] - a[0]) * max(0, a[3] - a[1])
-    area_b = max(0, b[2] - b[0]) * max(0, b[3] - b[1])
+MODEL = "yolov8n.pt"
+CONFIDENCE = 0.25
+IMAGE_SIZE = 640
+IOU_THRESHOLD = 0.50
+
+MIN_GT_INSTANCES = 1000
+MIN_RECALL = 0.95
+MAX_FDR = 0.05
+
+MAX_CACHE = 100
+
+
+def timestamp(msg):
+    return (
+        msg.header.stamp.sec,
+        msg.header.stamp.nanosec,
+    )
+
+
+def image_to_bgr(msg):
+    if msg.encoding not in ("rgb8", "bgr8"):
+        raise ValueError(
+            f"Unsupported image encoding: {msg.encoding}"
+        )
+
+    raw = np.frombuffer(msg.data, dtype=np.uint8)
+
+    image = raw.reshape(
+        msg.height,
+        msg.step,
+    )[:, :msg.width * 3]
+
+    image = image.reshape(
+        msg.height,
+        msg.width,
+        3,
+    )
+
+    if msg.encoding == "rgb8":
+        image = cv2.cvtColor(
+            image,
+            cv2.COLOR_RGB2BGR,
+        )
+
+    return np.ascontiguousarray(image)
+
+
+def gt_boxes(msg):
+    boxes = []
+
+    for detection in msg.detections:
+        b = detection.bbox
+
+        x1 = b.center.position.x - b.size_x / 2
+        y1 = b.center.position.y - b.size_y / 2
+        x2 = b.center.position.x + b.size_x / 2
+        y2 = b.center.position.y + b.size_y / 2
+
+        if x2 > x1 and y2 > y1:
+            boxes.append([x1, y1, x2, y2])
+
+    return np.asarray(boxes, dtype=np.float32).reshape(-1, 4)
+
+
+def calculate_iou(a, b):
+    x1 = max(a[0], b[0])
+    y1 = max(a[1], b[1])
+    x2 = min(a[2], b[2])
+    y2 = min(a[3], b[3])
+
+    intersection = (
+        max(0, x2 - x1)
+        * max(0, y2 - y1)
+    )
+
+    area_a = max(0, a[2] - a[0]) * max(
+        0, a[3] - a[1]
+    )
+
+    area_b = max(0, b[2] - b[0]) * max(
+        0, b[3] - b[1]
+    )
 
     union = area_a + area_b - intersection
-    return intersection / union if union else 0.0
+
+    return intersection / union if union > 0 else 0.0
 
 
-def load_isaac_ground_truth(dataset):
-    """Read native Isaac Sim Replicator annotations."""
-    import numpy as np
+def match_boxes(predictions, ground_truth):
+    candidates = []
 
-    dataset = Path(dataset)
-    truth = {}
+    for pi, pred in enumerate(predictions):
+        for gi, gt in enumerate(ground_truth):
+            iou = calculate_iou(pred, gt)
 
-    images = sorted(dataset.glob("rgb_*.png"))
+            if iou >= IOU_THRESHOLD:
+                candidates.append((iou, pi, gi))
 
-    if not images:
-        raise ValueError(f"No rgb_*.png images found in {dataset}")
+    candidates.sort(reverse=True)
 
-    for image in images:
-        frame_id = image.stem.removeprefix("rgb_")
+    matched_predictions = set()
+    matched_gt = set()
+    matched_ious = []
 
-        boxes_file = dataset / (
-            f"bounding_box_2d_tight_{frame_id}.npy"
-        )
-        labels_file = dataset / (
-            f"bounding_box_2d_tight_labels_{frame_id}.json"
-        )
+    for iou, pi, gi in candidates:
+        if pi in matched_predictions or gi in matched_gt:
+            continue
 
-        if not boxes_file.exists() or not labels_file.exists():
-            raise FileNotFoundError(
-                f"Missing annotations for {image.name}"
+        matched_predictions.add(pi)
+        matched_gt.add(gi)
+        matched_ious.append(iou)
+
+    tp = len(matched_ious)
+    fp = len(predictions) - tp
+    fn = len(ground_truth) - tp
+
+    return tp, fp, fn, matched_ious
+
+
+class AccuracyBenchmark(Node):
+    def __init__(self):
+        super().__init__("accuracy_benchmark")
+
+        print("Loading YOLOv8n...")
+        self.model = YOLO(MODEL)
+
+        self.images = OrderedDict()
+        self.truth = OrderedDict()
+
+        self.subscriptions_list = []
+
+        self.tp = 0
+        self.fp = 0
+        self.fn = 0
+
+        self.gt_count = 0
+        self.frame_count = 0
+
+        self.matched_ious = []
+        self.camera_stats = {
+            c: {"frames": 0, "tp": 0, "fp": 0, "fn": 0}
+            for c in CAMERAS
+        }
+
+        for camera in CAMERAS:
+            self.subscriptions_list.append(
+                self.create_subscription(
+                    Image,
+                    f"{IMAGE_PREFIX}/{camera}/image_raw",
+                    lambda msg, c=camera: self.on_image(msg, c),
+                    10,
+                )
             )
 
-        boxes = np.load(boxes_file, allow_pickle=False)
-
-        with open(labels_file) as f:
-            labels = json.load(f)
-
-        objects = []
-
-        for row in boxes:
-            semantic_id = str(int(row[0]))
-
-            if semantic_id not in labels:
-                raise ValueError(
-                    f"Unknown semantic ID {semantic_id} "
-                    f"in {boxes_file.name}"
+            self.subscriptions_list.append(
+                self.create_subscription(
+                    Detection2DArray,
+                    f"{GT_PREFIX}/{camera}",
+                    lambda msg, c=camera: self.on_gt(msg, c),
+                    10,
                 )
+            )
 
-            label = labels[semantic_id]["class"]
+        print("Subscribed to synchronized benchmark topics.")
 
-            box = [float(row[i]) for i in range(1, 5)]
+    def on_image(self, msg, camera):
+        key = (camera, timestamp(msg))
+        self.images[key] = msg
+        self.try_match(key)
+        self.trim_cache(self.images)
 
-            if box[2] <= box[0] or box[3] <= box[1]:
-                continue
+    def on_gt(self, msg, camera):
+        key = (camera, timestamp(msg))
+        self.truth[key] = msg
+        self.try_match(key)
+        self.trim_cache(self.truth)
 
-            objects.append({
-                "class": str(label),
-                "box": box
-            })
+    def trim_cache(self, cache):
+        while len(cache) > MAX_CACHE:
+            cache.popitem(last=False)
 
-        truth[image.name] = objects
+    def try_match(self, key):
+        if key not in self.images or key not in self.truth:
+            return
 
-    return truth
+        image_msg = self.images.pop(key)
+        gt_msg = self.truth.pop(key)
 
+        image = image_to_bgr(image_msg)
+        ground_truth = gt_boxes(gt_msg)
 
-def run_yolo(dataset, model_path, confidence=0.25, imgsz=640):
-    """Run YOLO on every Isaac Sim RGB image."""
-    from ultralytics import YOLO
-
-    dataset = Path(dataset)
-    images = sorted(dataset.glob("rgb_*.png"))
-
-    model = YOLO(str(model_path), task="detect")
-
-    predictions = {}
-
-    for index, image in enumerate(images, start=1):
-        result = model.predict(
-            source=str(image),
-            conf=confidence,
-            imgsz=imgsz,
-            verbose=False
-        )[0]
-
-        detections = []
-
-        for box in result.boxes:
-            class_id = int(box.cls.item())
-
-            detections.append({
-                "class": str(result.names[class_id]),
-                "box": [
-                    float(v) for v in box.xyxy[0].tolist()
-                ],
-                "confidence": float(box.conf.item())
-            })
-
-        predictions[image.name] = detections
-
-        if index % 50 == 0 or index == len(images):
-            print(f"Processed {index}/{len(images)} frames")
-
-    return predictions
-
-
-def evaluate(
-    truth,
-    predictions,
-    threshold=0.75,
-    max_distance=None
-):
-    tp = fp = fn = 0
-
-    for frame in sorted(set(truth) | set(predictions)):
-        gt = truth.get(frame, [])
-
-        if max_distance is not None:
-            gt = [
-                x for x in gt
-                if x.get("distance_m") is not None
-                and x["distance_m"] <= max_distance
-            ]
-
-        pred = predictions.get(frame, [])
-
-        # Greedy one-to-one matching, highest IoU first.
-        # Class labels must match exactly.
-        candidates = sorted(
-            (
-                (iou(g["box"], p["box"]), gi, pi)
-                for gi, g in enumerate(gt)
-                for pi, p in enumerate(pred)
-                if str(g["class"]) == str(p["class"])
-            ),
-            reverse=True
+        results = self.model.predict(
+            source=image,
+            conf=CONFIDENCE,
+            imgsz=IMAGE_SIZE,
+            classes=[0],
+            verbose=False,
         )
 
-        used_g = set()
-        used_p = set()
+        predictions = []
 
-        for score, gi, pi in candidates:
-            if score < threshold:
-                break
+        if results and results[0].boxes is not None:
+            predictions = (
+                results[0]
+                .boxes.xyxy.cpu().numpy()
+                .astype(np.float32)
+                .reshape(-1, 4)
+            )
 
-            if gi not in used_g and pi not in used_p:
-                used_g.add(gi)
-                used_p.add(pi)
+        tp, fp, fn, ious = match_boxes(
+            predictions,
+            ground_truth,
+        )
 
-        tp += len(used_g)
-        fn += len(gt) - len(used_g)
-        fp += len(pred) - len(used_p)
+        self.tp += tp
+        self.fp += fp
+        self.fn += fn
 
-    recall = tp / (tp + fn) if tp + fn else None
-    fdr = fp / (tp + fp) if tp + fp else None
+        self.gt_count += len(ground_truth)
+        self.frame_count += 1
+        self.matched_ious.extend(ious)
 
-    return tp, fp, fn, recall, fdr
+        camera = key[0]
+        stats = self.camera_stats[camera]
+
+        stats["frames"] += 1
+        stats["tp"] += tp
+        stats["fp"] += fp
+        stats["fn"] += fn
+
+        if self.frame_count % 30 == 0:
+            print(
+                f"Processed {self.frame_count} frames | "
+                f"GT instances: {self.gt_count}"
+            )
+
+    def report(self):
+        recall = (
+            self.tp / (self.tp + self.fn)
+            if self.tp + self.fn
+            else 0.0
+        )
+
+        fdr = (
+            self.fp / (self.tp + self.fp)
+            if self.tp + self.fp
+            else 0.0
+        )
+
+        mean_iou = (
+            float(np.mean(self.matched_ious))
+            if self.matched_ious
+            else 0.0
+        )
+
+        print("\n" + "=" * 50)
+        print("YOLOv8n ACCURACY BENCHMARK")
+        print("=" * 50)
+
+        print(f"Frames evaluated: {self.frame_count}")
+        print(f"GT person instances: {self.gt_count}")
+        print(f"True positives: {self.tp}")
+        print(f"False positives: {self.fp}")
+        print(f"False negatives: {self.fn}")
+
+        print(f"\nRecall: {recall * 100:.2f}%")
+        print(f"False discovery rate: {fdr * 100:.2f}%")
+        print(f"Mean matched IoU: {mean_iou:.3f}")
+
+        print("\nPer-camera results:")
+
+        for camera, stats in self.camera_stats.items():
+            total_gt = stats["tp"] + stats["fn"]
+            total_pred = stats["tp"] + stats["fp"]
+
+            camera_recall = (
+                stats["tp"] / total_gt
+                if total_gt else 0.0
+            )
+
+            camera_fdr = (
+                stats["fp"] / total_pred
+                if total_pred else 0.0
+            )
+
+            print(
+                f"{camera}: "
+                f"frames={stats['frames']}, "
+                f"recall={camera_recall * 100:.2f}%, "
+                f"FDR={camera_fdr * 100:.2f}%"
+            )
+
+        enough_data = self.gt_count >= MIN_GT_INSTANCES
+
+        passed = (
+            enough_data
+            and recall >= MIN_RECALL
+            and fdr <= MAX_FDR
+        )
+
+        print("\n" + "=" * 50)
+
+        if not enough_data:
+            print(
+                "INCOMPLETE: fewer than "
+                f"{MIN_GT_INSTANCES} GT instances"
+            )
+        elif passed:
+            print("PASS")
+        else:
+            print("FAIL")
+
+        print("=" * 50)
 
 
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "--dataset",
-        help="Isaac Sim Replicator dataset directory"
-    )
-    parser.add_argument(
-        "--model",
-        help="YOLO model (.pt or .engine)"
-    )
-    parser.add_argument(
-        "--ground-truth",
-        help="Original ground-truth JSON"
-    )
-    parser.add_argument(
-        "--predictions",
-        help="Original predictions JSON"
-    )
-    parser.add_argument(
-        "--iou",
+        "--seconds",
         type=float,
-        default=0.75
-    )
-    parser.add_argument(
-        "--conf",
-        type=float,
-        default=0.25
-    )
-    parser.add_argument(
-        "--imgsz",
-        type=int,
-        default=640
-    )
-    parser.add_argument(
-        "--max-distance",
-        type=float,
-        default=None,
-        help="Filter ground truth by distance in meters"
-    )
-    parser.add_argument(
-        "--output",
-        help="Optional path to save predictions JSON"
+        default=60,
     )
 
     args = parser.parse_args()
 
-    if args.dataset:
-        if not args.model:
-            parser.error("--dataset requires --model")
+    rclpy.init()
+    node = AccuracyBenchmark()
 
-        if args.max_distance is not None:
-            parser.error(
-                "Native Replicator 2D annotations do not "
-                "contain distance_m; omit --max-distance"
+    print(
+        f"Running benchmark for {args.seconds:.0f} seconds..."
+    )
+
+    start = time.monotonic()
+
+    try:
+        while (
+            rclpy.ok()
+            and time.monotonic() - start < args.seconds
+        ):
+            rclpy.spin_once(
+                node,
+                timeout_sec=0.05,
             )
 
-        print("Loading Isaac Sim ground truth...")
-        truth = load_isaac_ground_truth(args.dataset)
+    except KeyboardInterrupt:
+        pass
 
-        print(f"Loaded {len(truth)} frames")
-        print(
-            "Ground-truth objects:",
-            sum(len(v) for v in truth.values())
-        )
-
-        print(f"Running YOLO model: {args.model}")
-        predictions = run_yolo(
-            args.dataset,
-            args.model,
-            args.conf,
-            args.imgsz
-        )
-
-    else:
-        if not args.ground_truth or not args.predictions:
-            parser.error(
-                "Provide --dataset and --model, or "
-                "--ground-truth and --predictions"
-            )
-
-        with open(args.ground_truth) as f:
-            truth = json.load(f)
-
-        with open(args.predictions) as f:
-            predictions = json.load(f)
-
-    if args.output:
-        output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(output, "w") as f:
-            json.dump(predictions, f, indent=2)
-
-        print(f"Saved predictions to {output}")
-
-    tp, fp, fn, recall, fdr = evaluate(
-        truth,
-        predictions,
-        args.iou,
-        args.max_distance
-    )
-
-    print("\n===== ACCURACY BENCHMARK =====")
-    print(f"IoU threshold: {args.iou}")
-    print(f"TP={tp}, FP={fp}, FN={fn}")
-
-    print(
-        f"Recall: {recall:.2%}"
-        if recall is not None else "Recall: N/A"
-    )
-    print(
-        f"FDR: {fdr:.2%}"
-        if fdr is not None else "FDR: N/A"
-    )
-
-    if recall is not None and fdr is not None:
-        print(
-            "PASS"
-            if recall >= 0.95 and fdr <= 0.05
-            else "FAIL"
-        )
-
-    print(
-        "NOTE: Results use all annotated objects. "
-        "No distance filtering is applied by default."
-    )
+    finally:
+        node.report()
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":
     main()
+

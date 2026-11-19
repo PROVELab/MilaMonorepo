@@ -1,98 +1,226 @@
-"""Offline YOLO model benchmark on the same recorded camera images.
 
-Requires: pip install ultralytics opencv-python
-Optional GPU telemetry: pip install nvidia-ml-py
+"""Live YOLO performance benchmark for three Isaac Sim cameras.
+
+Reads ROS 2 camera topics directly.
+No images, videos, or predictions are saved.
 """
-import argparse
-import csv
-import json
-import time
-from pathlib import Path
 
-import cv2
+import argparse
+import time
+from collections import defaultdict
+
+import numpy as np
+import rclpy
+import torch
+from rclpy.node import Node
+from sensor_msgs.msg import Image
 from ultralytics import YOLO
+
+
+CAMERAS = {
+    "front": "/camera/front/image_raw",
+    "left": "/camera/left/image_raw",
+    "right": "/camera/right/image_raw",
+}
+
+
+class PerformanceBenchmark(Node):
+    def __init__(self, args):
+        super().__init__("performance_benchmark")
+
+        self.args = args
+        self.model = YOLO(args.model, task="detect")
+        self.cuda = args.device != "cpu" and torch.cuda.is_available()
+
+        self.stats = defaultdict(
+            lambda: {"frames": 0, "latency_ms": 0.0}
+        )
+
+        self.gpu_samples = []
+        self.vram_samples = []
+        self.nvml = None
+
+        # Optional NVIDIA GPU monitoring
+        try:
+            import pynvml
+            pynvml.nvmlInit()
+            self.nvml = pynvml
+            self.gpu = pynvml.nvmlDeviceGetHandleByIndex(0)
+        except Exception:
+            self.nvml = None
+
+        # Warm up YOLO before measuring
+        sample = np.zeros((640, 640, 3), dtype=np.uint8)
+
+        for _ in range(5):
+            self.model.predict(
+                sample,
+                imgsz=args.imgsz,
+                device=args.device,
+                verbose=False,
+            )
+
+        self.sync()
+        self.started = time.monotonic()
+
+        self.subscriptions = []
+
+        for name, topic in CAMERAS.items():
+            sub = self.create_subscription(
+                Image,
+                topic,
+                lambda msg, camera=name: self.process(msg, camera),
+                10,
+            )
+            self.subscriptions.append(sub)
+
+        self.timer = self.create_timer(5.0, self.report)
+
+        print("\nLive performance benchmark started.")
+        print("Cameras: front, left, right")
+        print(f"Duration: {args.seconds} seconds")
+        print("No images will be saved.\n")
+
+    def sync(self):
+        if self.cuda:
+            torch.cuda.synchronize()
+
+    def process(self, msg, camera):
+        if time.monotonic() - self.started >= self.args.seconds:
+            return
+
+        if msg.encoding not in ("rgb8", "bgr8"):
+            self.get_logger().warning(
+                f"Unsupported image encoding: {msg.encoding}",
+                once=True,
+            )
+            return
+
+        raw = np.frombuffer(msg.data, dtype=np.uint8)
+        frame = raw.reshape(msg.height, msg.step)
+        frame = frame[:, :msg.width * 3].reshape(
+            msg.height, msg.width, 3
+        )
+
+        if msg.encoding == "rgb8":
+            frame = frame[:, :, ::-1]
+
+        frame = np.ascontiguousarray(frame)
+
+        self.sync()
+        start = time.perf_counter()
+
+        self.model.predict(
+            frame,
+            imgsz=self.args.imgsz,
+            conf=self.args.conf,
+            device=self.args.device,
+            verbose=False,
+        )
+
+        self.sync()
+        latency = (time.perf_counter() - start) * 1000
+
+        stats = self.stats[camera]
+        stats["frames"] += 1
+        stats["latency_ms"] += latency
+
+        if self.nvml:
+            try:
+                util = self.nvml.nvmlDeviceGetUtilizationRates(
+                    self.gpu
+                ).gpu
+                vram = self.nvml.nvmlDeviceGetMemoryInfo(
+                    self.gpu
+                ).used / (1024 ** 2)
+
+                self.gpu_samples.append(util)
+                self.vram_samples.append(vram)
+            except Exception:
+                pass
+
+    def report(self):
+        elapsed = min(
+            time.monotonic() - self.started,
+            self.args.seconds
+        )
+
+        print(f"\n===== PERFORMANCE: {elapsed:.0f}s =====")
+
+        total_frames = 0
+
+        for camera in CAMERAS:
+            s = self.stats[camera]
+            frames = s["frames"]
+            total_frames += frames
+
+            fps = frames / elapsed if elapsed else 0
+            latency = (
+                s["latency_ms"] / frames
+                if frames else 0
+            )
+
+            print(
+                f"{camera:5s} | "
+                f"{fps:5.1f} FPS | "
+                f"{latency:6.1f} ms avg latency"
+            )
+
+        throughput = total_frames / elapsed if elapsed else 0
+
+        print(f"Total throughput: {throughput:.1f} FPS")
+
+        if self.gpu_samples:
+            print(
+                f"Average GPU usage: "
+                f"{np.mean(self.gpu_samples):.1f}%"
+            )
+            print(
+                f"Average VRAM used: "
+                f"{np.mean(self.vram_samples):.0f} MB"
+            )
+
+    def cleanup(self):
+        if self.nvml:
+            self.nvml.nvmlShutdown()
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--images', required=True)
-    parser.add_argument('--model', default='yolov8n.pt')
-    parser.add_argument('--output', default='benchmark_results.json')
-    parser.add_argument('--predictions', default='predictions.json')
-    parser.add_argument('--imgsz', type=int, default=640)
-    parser.add_argument('--conf', type=float, default=0.35)
-    parser.add_argument('--device', default='0')
+
+    parser.add_argument("--model", default="yolov8n.pt")
+    parser.add_argument("--seconds", type=float, default=60)
+    parser.add_argument("--imgsz", type=int, default=640)
+    parser.add_argument("--conf", type=float, default=0.25)
+    parser.add_argument("--device", default="0")
+
     args = parser.parse_args()
-    paths = sorted(p for p in Path(args.images).rglob('*') if p.suffix.lower() in {'.jpg', '.jpeg', '.png'})
-    if not paths:
-        raise SystemExit('No images found')
-    model = YOLO(args.model)
-    import torch
-    cuda = args.device != 'cpu' and torch.cuda.is_available()
-    def sync():
-        if cuda:
-            torch.cuda.synchronize()
-    # Warm up to exclude one-time model initialization/compilation.
-    sample = cv2.imread(str(paths[0]))
-    if sample is None:
-        raise SystemExit('Cannot read first image')
-    for _ in range(5):
-        model.predict(sample, imgsz=args.imgsz, conf=args.conf, device=args.device, verbose=False)
-    sync()
-    telemetry = []
-    nvml = None
+
+    rclpy.init()
+    node = None
+
     try:
-        import pynvml
-        pynvml.nvmlInit()
-        nvml = pynvml
-        handle = nvml.nvmlDeviceGetHandleByIndex(0)
-    except Exception:
-        handle = None
-    predictions = {}
-    timings_ms = []
-    try:
-        for idx, path in enumerate(paths):
-            frame = cv2.imread(str(path))
-            if frame is None:
-                print(f'Skipping unreadable image: {path}')
-                continue
-            sync()
-            start = time.perf_counter()
-            results = model.predict(frame, imgsz=args.imgsz, conf=args.conf, device=args.device, verbose=False)
-            sync()
-            timings_ms.append((time.perf_counter() - start) * 1000)
-            result = results[0]
-            boxes = []
-            for b in result.boxes:
-                boxes.append({
-                    'class': result.names[int(b.cls.item())],
-                    'box': [float(x) for x in b.xyxy[0].tolist()],
-                    'confidence': float(b.conf.item()),
-                })
-            predictions[path.name] = boxes
-            if handle is not None and idx % 10 == 0:
-                util = nvml.nvmlDeviceGetUtilizationRates(handle).gpu
-                vram = nvml.nvmlDeviceGetMemoryInfo(handle).used / 1024**2
-                telemetry.append({'gpu_util_percent': util, 'vram_used_mb': vram})
+        node = PerformanceBenchmark(args)
+
+        while (
+            rclpy.ok()
+            and time.monotonic() - node.started < args.seconds
+        ):
+            rclpy.spin_once(node, timeout_sec=0.1)
+
+        node.report()
+
+    except KeyboardInterrupt:
+        if node:
+            node.report()
+
     finally:
-        if nvml is not None:
-            nvml.nvmlShutdown()
-    if not timings_ms:
-        raise SystemExit('No valid images processed')
-    total_seconds = sum(timings_ms) / 1000
-    report = {
-        'model': args.model, 'frames': len(timings_ms),
-        'avg_inference_call_ms': sum(timings_ms) / len(timings_ms),
-        'throughput_fps': len(timings_ms) / total_seconds,
-        'gpu_util_avg_percent': sum(x['gpu_util_percent'] for x in telemetry) / len(telemetry) if telemetry else None,
-        'vram_used_avg_mb': sum(x['vram_used_mb'] for x in telemetry) / len(telemetry) if telemetry else None,
-        'note': 'Time includes Ultralytics preprocessing and postprocessing, not ROS2 or image disk loading. GPU utilization samples are approximate.',
-    }
-    Path(args.output).write_text(json.dumps(report, indent=2))
-    Path(args.predictions).write_text(json.dumps(predictions, indent=2))
-    print(json.dumps(report, indent=2))
-    print(f'Saved {args.output} and {args.predictions}')
+        if node:
+            node.cleanup()
+            node.destroy_node()
+
+        rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
