@@ -119,7 +119,7 @@ for path in person_paths:
 
     # FIX: Use the USD prim path, not a Python string.
     sem = Semantics.SemanticsAPI.Get(
-        prim.,
+        prim,
         "Semantics",
     )
 
@@ -359,5 +359,6 @@ GT_TASK = asyncio.ensure_future(
 )
 
 print("Ground-truth publisher ready")
+
 
 
