@@ -182,7 +182,7 @@ def process():
                 cv2.putText(
                     img,
                     f"YOLO: {len(predictions)} | GT: {gt_text}",
-                    (20, 75),
+                    (20, 150),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1.1,
                     (255, 255, 255),

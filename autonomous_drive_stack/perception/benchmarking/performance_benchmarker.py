@@ -63,7 +63,7 @@ class PerformanceBenchmark(Node):
         self.sync()
         self.started = time.monotonic()
 
-        self.subscriptions = []
+        self.camera_subs = []
 
         for name, topic in CAMERAS.items():
             sub = self.create_subscription(
@@ -72,7 +72,7 @@ class PerformanceBenchmark(Node):
                 lambda msg, camera=name: self.process(msg, camera),
                 10,
             )
-            self.subscriptions.append(sub)
+            self.camera_subs.append(sub)
 
         self.timer = self.create_timer(5.0, self.report)
 
