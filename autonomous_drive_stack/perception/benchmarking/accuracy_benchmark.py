@@ -19,7 +19,7 @@ CAMERAS = ["front", "left", "right"]
 IMAGE_PREFIX = "/benchmark_camera"
 GT_PREFIX = "/ground_truth"
 
-MODEL = "yolov8n.pt"
+MODEL = "cone_v11m.pt"
 CONFIDENCE = 0.25
 IMAGE_SIZE = 640
 IOU_THRESHOLD = 0.50
