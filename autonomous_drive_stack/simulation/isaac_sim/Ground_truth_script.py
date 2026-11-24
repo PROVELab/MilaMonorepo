@@ -93,30 +93,23 @@ for name in CAMERAS:
 
 
 # --------------------------------------------------
-# Label people
+# Label cones
 # --------------------------------------------------
 
 stage = omni.usd.get_context().get_stage()
 
-person_paths = ["/ParkingLot/Xform"]
+cones_root = stage.GetPrimAtPath("/RandomCones")
 
-people_root = stage.GetPrimAtPath(
-    "/ParkingLot/BenchmarkHumans"
-)
-
-if people_root.IsValid():
-    for child in people_root.GetChildren():
-        person_paths.append(str(child.GetPath()))
+if not cones_root.IsValid():
+    raise RuntimeError("RandomCones not found")
 
 labeled = 0
 
-for path in person_paths:
-    prim = stage.GetPrimAtPath(path)
+for prim in cones_root.GetChildren():
 
-    if not prim.IsValid():
+    if not prim.GetName().startswith("Cone_"):
         continue
 
-    # FIX: Use the USD prim path, not a Python string.
     sem = Semantics.SemanticsAPI.Get(
         prim,
         "Semantics",
@@ -129,11 +122,11 @@ for path in person_paths:
         )
 
     sem.CreateSemanticTypeAttr().Set("class")
-    sem.CreateSemanticDataAttr().Set("person")
+    sem.CreateSemanticDataAttr().Set("cone")
 
     labeled += 1
 
-print(f"Labeled {labeled} person prims")
+print(f"Labeled {labeled} cone prims")
 
 
 # --------------------------------------------------
@@ -241,6 +234,7 @@ def make_boxes(result, stamp, camera):
         "idToLabels", {}
     )
 
+    seen_boxes = set()
     for row in rows:
 
         semantic_id = int(row["semanticId"])
@@ -250,7 +244,7 @@ def make_boxes(result, stamp, camera):
             labels.get(semantic_id, {}),
         )
 
-        if label_data.get("class") != "person":
+        if label_data.get("class") != "cone":
             continue
 
         x1 = float(row["x_min"])
@@ -260,6 +254,11 @@ def make_boxes(result, stamp, camera):
 
         if x2 <= x1 or y2 <= y1:
             continue
+
+        box_key = (x1, y1, x2, y2)
+        if box_key in seen_boxes:
+            continue
+        seen_boxes.add(box_key)
 
         det = Detection2D()
         det.header = msg.header
@@ -271,7 +270,7 @@ def make_boxes(result, stamp, camera):
         det.bbox.size_y = y2 - y1
 
         hypothesis = ObjectHypothesisWithPose()
-        hypothesis.hypothesis.class_id = "person"
+        hypothesis.hypothesis.class_id = "cone"
         hypothesis.hypothesis.score = 1.0
 
         det.results.append(hypothesis)
@@ -358,6 +357,7 @@ GT_TASK = asyncio.ensure_future(
 )
 
 print("Ground-truth publisher ready")
+
 
 
 
