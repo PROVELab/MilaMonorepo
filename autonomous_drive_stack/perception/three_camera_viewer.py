@@ -16,6 +16,23 @@ from ultralytics import YOLO
 names = ["left", "front", "right"]
 frames = {}
 ground_truth = {}
+matched = {}
+
+def match_frame(name, key):
+    if key in frames and key in ground_truth:
+        matched[name] = (
+            frames.pop(key),
+            ground_truth.pop(key),
+            time.monotonic(),
+            key[1]
+        )
+
+    while len(frames) > 60:
+        del frames[next(iter(frames))]
+
+    while len(ground_truth) > 60:
+        del ground_truth[next(iter(ground_truth))]
+
 latest = None
 lock = threading.Lock()
 
@@ -44,7 +61,7 @@ class Cameras(Node):
                     Detection2DArray,
                     f"/ground_truth/{name}",
                     lambda msg, n=name: self.receive_gt(n, msg),
-                    10
+                    qos_profile_sensor_data
                 )
             )
 
@@ -74,7 +91,9 @@ class Cameras(Node):
                 a = cv2.cvtColor(a, cv2.COLOR_BGRA2BGR)
 
             with lock:
-                frames[name] = (a.copy(), stamp(msg))
+                key = (name, stamp(msg))
+                frames[key] = a.copy()
+                match_frame(name, key)
 
         except (ValueError, cv2.error):
             pass
@@ -90,7 +109,7 @@ class Cameras(Node):
                 detection.results[0].hypothesis.class_id
             )
 
-            if label not in ("person", "0"):
+            if label not in ("cone", "blue_cone", "orange_cone", "yellow_cone", "0", "1", "2"):
                 continue
 
             b = detection.bbox
@@ -107,46 +126,43 @@ class Cameras(Node):
             ))
 
         with lock:
-            ground_truth[name] = (boxes, time.monotonic())
+            key = (name, stamp(msg))
+            ground_truth[key] = boxes
+            match_frame(name, key)
 
 
 def process():
     global latest
 
-    model = YOLO("yolov8n.pt")
+    model = YOLO("/home/nvidia/models/cone_v11m.pt")
 
     while True:
         tiles = []
 
         for name in names:
             with lock:
-                item = frames.get(name)
-                gt_item = ground_truth.get(name)
+                item = matched.get(name)
 
                 if item is None:
                     img = None
-                else:
-                    img, image_stamp = item
-                    img = img.copy()
-
-                if gt_item is None:
                     boxes = None
                     gt_age = None
                 else:
-                    boxes, received_at = gt_item
+                    img, boxes, received_at, image_stamp = item
+                    img = img.copy()
                     boxes = list(boxes)
                     gt_age = time.monotonic() - received_at
 
             if img is None:
-                tile = np.zeros((360, 480, 3), np.uint8)
+                tile = np.zeros((360, 640, 3), np.uint8)
 
             else:
                 result = model.predict(
                     img,
                     device=0,
-                    imgsz=640,
-                    conf=0.25,
-                    classes=[0],
+                    imgsz=960,
+                    conf=0.05,
+                    classes=[0, 1, 2],
                     verbose=False
                 )[0]
 
@@ -181,7 +197,7 @@ def process():
 
                 cv2.putText(
                     img,
-                    f"YOLO: {len(predictions)} | GT: {gt_text}",
+                    f"YOLO: {len(predictions)} | GT: {gt_text} | SYNC",
                     (20, 150),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1.1,
@@ -192,7 +208,7 @@ def process():
                 if gt_age is not None and gt_age > 2:
                     cv2.putText(
                         img,
-                        f"GT STALE: {gt_age:.1f}s",
+                        f"FRAME STALE: {gt_age:.1f}s",
                         (20, 120),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.9,
@@ -200,7 +216,7 @@ def process():
                         2
                     )
 
-                tile = cv2.resize(img, (480, 360))
+                tile = cv2.resize(img, (640, 360))
 
             cv2.putText(
                 tile,

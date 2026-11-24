@@ -8,6 +8,7 @@ import numpy as np
 import rclpy
 
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray
 from ultralytics import YOLO
@@ -16,13 +17,13 @@ from ultralytics import YOLO
 CAMERAS = ["front", "left", "right"]
 
 # New synchronized image topics
-IMAGE_PREFIX = "/benchmark_camera"
+IMAGE_PREFIX = "/camera"
 GT_PREFIX = "/ground_truth"
 
-MODEL = "cone_v11m.pt"
-CONFIDENCE = 0.25
-IMAGE_SIZE = 640
-IOU_THRESHOLD = 0.50
+MODEL = "/home/nvidia/models/cone_v11m.pt"
+CONFIDENCE = 0.05
+IMAGE_SIZE = 1280
+IOU_THRESHOLD = 0.75
 
 MIN_GT_INSTANCES = 1000
 MIN_RECALL = 0.95
@@ -142,7 +143,7 @@ class AccuracyBenchmark(Node):
     def __init__(self):
         super().__init__("accuracy_benchmark")
 
-        print("Loading YOLOv8n...")
+        print("Loading custom cone model...")
         self.model = YOLO(MODEL)
 
         self.images = OrderedDict()
@@ -169,7 +170,7 @@ class AccuracyBenchmark(Node):
                     Image,
                     f"{IMAGE_PREFIX}/{camera}/image_raw",
                     lambda msg, c=camera: self.on_image(msg, c),
-                    10,
+                    qos_profile_sensor_data,
                 )
             )
 
@@ -178,7 +179,7 @@ class AccuracyBenchmark(Node):
                     Detection2DArray,
                     f"{GT_PREFIX}/{camera}",
                     lambda msg, c=camera: self.on_gt(msg, c),
-                    10,
+                    qos_profile_sensor_data,
                 )
             )
 
@@ -214,7 +215,7 @@ class AccuracyBenchmark(Node):
             source=image,
             conf=CONFIDENCE,
             imgsz=IMAGE_SIZE,
-            classes=[0],
+            classes=[0, 1, 2], device=0,
             verbose=False,
         )
 
@@ -275,11 +276,11 @@ class AccuracyBenchmark(Node):
         )
 
         print("\n" + "=" * 50)
-        print("YOLOv8n ACCURACY BENCHMARK")
+        print("YOLO11m CONE ACCURACY BENCHMARK")
         print("=" * 50)
 
         print(f"Frames evaluated: {self.frame_count}")
-        print(f"GT person instances: {self.gt_count}")
+        print(f"GT cone instances: {self.gt_count}")
         print(f"True positives: {self.tp}")
         print(f"False positives: {self.fp}")
         print(f"False negatives: {self.fn}")
