@@ -168,7 +168,7 @@ def wait_seconds(seconds):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate slow test pulses on EAC EXT_OUT0."
+        description="Generate test pulses on EAC EXT_OUT0."
     )
 
     parser.add_argument(
@@ -190,10 +190,10 @@ def main():
 
     args = parser.parse_args()
 
-    if not (0 < args.frequency <= 10):
+    if not (0 < args.frequency <= 3000):
         parser.error(
             "For this first version, frequency must be greater "
-            "than 0 and no more than 10 Hz."
+            "than 0 and no more than 3000 Hz."
         )
 
     if not (0 < args.duty < 100):
