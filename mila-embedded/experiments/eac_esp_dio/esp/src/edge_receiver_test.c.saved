@@ -1,0 +1,206 @@
+/*
+ * ESP32 falling-edge rate and timestamp test.
+ *
+ * Framework: ESP-IDF
+ *
+ * GPIO34 receives the verified EAC digital-output signal.
+ *
+ * The interrupt timestamps edges using the ESP's elapsed-time clock.
+ * These timestamps include interrupt latency: they are not hardware
+ * timestamps of the exact physical transition.
+ *
+ * This program reports aggregate statistics once per second instead
+ * of printing every edge. It does not synchronize clocks or use CAN.
+ */
+
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+
+#include "driver/gpio.h"
+#include "esp_err.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#define TEST_INPUT_GPIO GPIO_NUM_34
+#define REPORT_INTERVAL_MS 1000
+
+static const char *TAG = "edge_test";
+
+/*
+ * The ISR updates these values. The reporting task takes a snapshot
+ * under the same lock, then performs printing outside the lock.
+ */
+static portMUX_TYPE stats_lock = portMUX_INITIALIZER_UNLOCKED;
+
+typedef struct {
+    uint64_t total_edges;
+
+    bool have_previous_timestamp;
+    int64_t previous_timestamp_us;
+
+    uint64_t interval_count;
+    uint64_t interval_sum_us;
+    uint64_t interval_min_us;
+    uint64_t interval_max_us;
+} edge_stats_t;
+
+static edge_stats_t stats = {0};
+
+
+/*
+ * Called when GPIO34 detects a falling edge.
+ *
+ * The recorded timestamp is when the interrupt handler runs.
+ * No queue or serial output is used in the interrupt handler.
+ */
+static void on_falling_edge(void *arg)
+{
+    (void)arg;
+
+    const int64_t timestamp_us = esp_timer_get_time();
+
+    portENTER_CRITICAL_ISR(&stats_lock);
+
+    stats.total_edges++;
+
+    if (stats.have_previous_timestamp) {
+        int64_t delta_us = timestamp_us - stats.previous_timestamp_us;
+
+        if (delta_us >= 0) {
+            uint64_t interval_us = (uint64_t)delta_us;
+
+            if (
+                stats.interval_count == 0 ||
+                interval_us < stats.interval_min_us
+            ) {
+                stats.interval_min_us = interval_us;
+            }
+
+            if (
+                stats.interval_count == 0 ||
+                interval_us > stats.interval_max_us
+            ) {
+                stats.interval_max_us = interval_us;
+            }
+
+            stats.interval_count++;
+            stats.interval_sum_us += interval_us;
+        }
+    }
+
+    stats.previous_timestamp_us = timestamp_us;
+    stats.have_previous_timestamp = true;
+
+    portEXIT_CRITICAL_ISR(&stats_lock);
+}
+
+
+void app_main(void)
+{
+    gpio_config_t input_config = {
+        .pin_bit_mask = 1ULL << TEST_INPUT_GPIO,
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_NEGEDGE,
+    };
+
+    ESP_ERROR_CHECK(gpio_config(&input_config));
+
+    /*
+     * This standalone test assumes no other application component
+     * has installed the GPIO interrupt service.
+     */
+    ESP_ERROR_CHECK(gpio_install_isr_service(0));
+
+    ESP_ERROR_CHECK(
+        gpio_isr_handler_add(
+            TEST_INPUT_GPIO,
+            on_falling_edge,
+            NULL
+        )
+    );
+
+    ESP_LOGI(
+        TAG,
+        "Listening for falling edges on GPIO %d",
+        TEST_INPUT_GPIO
+    );
+
+    ESP_LOGI(
+        TAG,
+        "Reporting interrupt counts and interval statistics once per second"
+    );
+
+    ESP_LOGI(
+        TAG,
+        "Timestamps are ESP elapsed time; interrupt latency is included"
+    );
+
+    printf(
+        "window_ms,new_edges,total_edges,"
+        "interval_count,mean_interval_us,min_interval_us,max_interval_us\n"
+    );
+    fflush(stdout);
+
+    uint64_t previous_total = 0;
+    int64_t previous_report_us = esp_timer_get_time();
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(REPORT_INTERVAL_MS));
+
+        edge_stats_t snapshot;
+        int64_t report_time_us;
+
+        portENTER_CRITICAL(&stats_lock);
+
+        snapshot = stats;
+        report_time_us = esp_timer_get_time();
+
+        /*
+         * Reset only the window statistics. Retain the previous
+         * edge timestamp so intervals spanning report windows count.
+         */
+        stats.interval_count = 0;
+        stats.interval_sum_us = 0;
+        stats.interval_min_us = 0;
+        stats.interval_max_us = 0;
+
+        portEXIT_CRITICAL(&stats_lock);
+
+        const uint64_t new_edges =
+            snapshot.total_edges - previous_total;
+
+        const double window_ms =
+            (double)(report_time_us - previous_report_us) / 1000.0;
+
+        double mean_interval_us = 0.0;
+
+        if (snapshot.interval_count > 0) {
+            mean_interval_us =
+                (double)snapshot.interval_sum_us /
+                (double)snapshot.interval_count;
+        }
+
+        printf(
+            "%.3f,%" PRIu64 ",%" PRIu64 ",%" PRIu64
+            ",%.2f,%" PRIu64 ",%" PRIu64 "\n",
+            window_ms,
+            new_edges,
+            snapshot.total_edges,
+            snapshot.interval_count,
+            mean_interval_us,
+            snapshot.interval_min_us,
+            snapshot.interval_max_us
+        );
+        fflush(stdout);
+
+        previous_total = snapshot.total_edges;
+        previous_report_us = report_time_us;
+    }
+}
