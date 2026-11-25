@@ -37,6 +37,7 @@
             double "rtx:raytracing:inscattering:maxRTSampleUnexposedIntensity" = 204799.96875
             token "rtx:rendermode" = "MinimalRendering"
             double "rtx:translucency:maxRayUnexposedIntensity" = 19199.998046875
+            bool "rtx:useViewLightingMode" = 1
         }
     }
     defaultPrim = "Mila"
@@ -3808,7 +3809,7 @@ def "Render" (
                 float omni:rtx:rtpt:modulatingRoughnessThreshold = 0.08
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
                 bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
-                bool omni:rtx:scene:useViewLightingMode
+                bool omni:rtx:scene:useViewLightingMode = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -3886,7 +3887,7 @@ def "Render" (
                 token omni:rtx:rendermode = "MinimalRendering"
                 bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                bool omni:rtx:scene:useViewLightingMode
+                bool omni:rtx:scene:useViewLightingMode = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -3903,7 +3904,7 @@ def "Render" (
                 token omni:rtx:rendermode = "MinimalRendering"
                 bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                bool omni:rtx:scene:useViewLightingMode
+                bool omni:rtx:scene:useViewLightingMode = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -3920,7 +3921,7 @@ def "Render" (
                 token omni:rtx:rendermode = "MinimalRendering"
                 bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                bool omni:rtx:scene:useViewLightingMode
+                bool omni:rtx:scene:useViewLightingMode = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -3937,7 +3938,7 @@ def "Render" (
                 token omni:rtx:rendermode = "MinimalRendering"
                 bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
-                bool omni:rtx:scene:useViewLightingMode
+                bool omni:rtx:scene:useViewLightingMode = 1
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -4657,7 +4658,51 @@ over "Mila"
         token projection = "perspective"
         float3 xformOp:rotateZYX = (-2.5948045, 7.0478864, 110.271736)
         float3 xformOp:scale = (1, 1, 1)
-        double3 xformOp:translate = (-247.55368978968357, -204.6861341752756, -50.770199606269735)
+        double3 xformOp:translate = (-268.1974296688232, -221.6783792181507, -55.24183202640673)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+    }
+
+    def Camera "ThirdPersonFollowCam" (
+        prepend apiSchemas = ["PhysxCameraFollowLookAPI", "OmniRtxCameraAutoExposureAPI_1", "OmniRtxCameraExposureAPI_1"]
+    )
+    {
+        float exposure:fStop = 5
+        float exposure:responsivity = 1.1026709
+        float exposure:time = 0.02
+        custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -48.71462399460112)
+        custom rel physxCamera:subject
+        prepend rel physxCamera:subject = </Mila/Mila_Root>
+        float3 physxFollowCamera:cameraPositionTimeConstant = (0.5, 0.5, 0.1)
+        float physxFollowCamera:followMaxDistance = 20
+        float physxFollowCamera:followMaxSpeed = 30
+        float physxFollowCamera:followMinDistance = 20
+        float physxFollowCamera:followMinSpeed = 3
+        float physxFollowCamera:followTurnRateGain = 0.2
+        float physxFollowCamera:lookAheadMaxSpeed = 20
+        float physxFollowCamera:lookAheadMinDistance = 0
+        float physxFollowCamera:lookAheadMinSpeed = 0
+        float physxFollowCamera:lookAheadTurnRateGain = 0.2
+        float physxFollowCamera:lookPositionHeight = 0.5
+        float3 physxFollowCamera:lookPositionTimeConstant = (0.2, 0.2, 0.5)
+        float physxFollowCamera:pitchAngle = 25
+        float physxFollowCamera:pitchAngleTimeConstant = 0.2
+        float3 physxFollowCamera:positionOffset = (0, 0, 0)
+        float physxFollowCamera:slowPitchAngleSpeed = 1000
+        float physxFollowCamera:slowSpeedPitchAngleScale = 0.5
+        float physxFollowCamera:velocityNormalMinSpeed = 600
+        float physxFollowCamera:yawAngle = -90
+        float physxFollowCamera:yawRateTimeConstant = 0.2
+        float physxFollowFollowCamera:lookAheadMaxDistance = 5
+        float physxFollowLookCamera:downHillGroundAngle = -45
+        float physxFollowLookCamera:downHillGroundPitch = 10
+        float physxFollowLookCamera:followReverseDistance = 30
+        float physxFollowLookCamera:followReverseSpeed = 15
+        float physxFollowLookCamera:upHillGroundAngle = 45
+        float physxFollowLookCamera:upHillGroundPitch = -10
+        float physxFollowLookCamera:velocityBlendTimeConstant = 0.1
+        double3 xformOp:rotateZYX = (-59.99999999999999, -2.1136304441467844e-14, -180)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (-165.89196534908254, -93.76656825112133, -11.731158564469656)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
     }
 
