@@ -7,8 +7,8 @@
                 double radius = 5.248652648925781
             }
             dictionary Perspective = {
-                double3 position = (14.160021379562211, 14.743259072427117, 6.60404200075217)
-                double3 target = (20.551994541249712, 15.716622986074153, 4.0861641348225906)
+                double3 position = (-3.7670885586681777, -3.1867111307092237, 17.57023892333654)
+                double3 target = (23.82152832934451, 1.0144585905878003, 6.702739004798206)
             }
             dictionary Right = {
                 double3 position = (0, -5, 0)
@@ -30,12 +30,12 @@
         }
         dictionary renderSettings = {
             double "rtx:directLighting:sampledLighting:maxRayUnexposedIntensity" = 6399.9990234375
-            bool "rtx:ecoMode:enabled" = 0
             double "rtx:indirectDiffuse:maxRayUnexposedIntensity" = 6399.9990234375
             double "rtx:pathtracing:fireflyFilter:maxPerEmissiveUnexposedIntensity" = 3199.99951171875
             double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSample" = 3199.99951171875
             double "rtx:pathtracing:fireflyFilter:maxUnexposedIntensityPerSampleDiffuse" = 3199.99951171875
             double "rtx:raytracing:inscattering:maxRTSampleUnexposedIntensity" = 204799.96875
+            token "rtx:rendermode" = "MinimalRendering"
             double "rtx:translucency:maxRayUnexposedIntensity" = 19199.998046875
         }
     }
@@ -3794,11 +3794,11 @@ def "Render" (
                 uint omni:rtx:pt:maxSamplesPerLaunch = 2073600
                 uint omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
                 bool omni:rtx:reflections:denoiser:enabled = 0
-                token omni:rtx:rendermode = "RealTimePathTracing"
+                token omni:rtx:rendermode = "MinimalRendering"
                 color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
                 bool omni:rtx:rt:demoire = 0
                 float omni:rtx:rt:directLighting:maxRayUnexposedIntensity = 6399.999
-                bool omni:rtx:rt:ecoMode:enabled = 0
+                bool omni:rtx:rt:ecoMode:enabled
                 float omni:rtx:rt:indirectdiffuse:maxRayUnexposedIntensity = 6399.999
                 float omni:rtx:rt:inscattering:maxRTSampleUnexposedIntensity = 204799.97
                 bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
@@ -3883,8 +3883,10 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__CameraPlacementStudy_wKG/oTo_62deg/Right>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled = 0
+                token omni:rtx:rendermode = "MinimalRendering"
+                bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:useViewLightingMode
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -3898,8 +3900,10 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__700108702Rev80OSExteriorSpecOS1BH_04302026A_ui0FIRZ0pJAY0i0l0d1/lidar/sensor>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled = 0
+                token omni:rtx:rendermode = "MinimalRendering"
+                bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:useViewLightingMode
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -3913,8 +3917,10 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__CameraPlacementStudy_wKG/oTo_120deg/Left>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled = 0
+                token omni:rtx:rendermode = "MinimalRendering"
+                bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:useViewLightingMode
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -3928,8 +3934,10 @@ def "Render" (
             {
                 rel camera = </Mila/Mila_Root/SensorStudy/tn__SensorPlacementModel_wKG/tn__CameraPlacementStudy_wKG/oTo_62deg_1/Front>
                 bool omni:rtx:material:db:syncLoads = 1
-                bool omni:rtx:rt:ecoMode:enabled = 0
+                token omni:rtx:rendermode = "MinimalRendering"
+                bool omni:rtx:rt:ecoMode:enabled
                 bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:useViewLightingMode
                 rel orderedVars = </Render/Vars/LdrColor>
                 custom bool overrideClipRange = 0
                 uniform int2 resolution = (1280, 720)
@@ -4008,10 +4016,10 @@ over "OmniverseKit_Persp" (
     float exposure:time = 0.02
     float focalLength = 18.147562
     float focusDistance = 400
-    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -6.938621416092801)
+    custom uniform vector3d omni:kit:centerOfInterest = (0, 0, -29.94802436388938)
     float3 xformOp:rotateXYZ = (68.72291, -9.00097e-13, -81.34157)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (14.160021379562211, 14.743259072427117, 6.60404200075217)
+    double3 xformOp:translate = (-3.7670885586681777, -3.1867111307092237, 17.57023892333654)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateXYZ", "xformOp:scale"]
 }
 
@@ -4025,7 +4033,7 @@ over "Mila"
 {
     quatf xformOp:orient = (1, 0, 0, 0)
     float3 xformOp:scale = (1, 1, 1)
-    double3 xformOp:translate = (20.788137222451468, 17.29023419408051, 4.953401550372536)
+    double3 xformOp:translate = (20.64373987913961, 16.99224504287509, 4.4716324201369995)
     uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
     over "Mila_Root"
@@ -4040,7 +4048,7 @@ over "Mila"
         uniform token purpose = "render"
         quatf xformOp:orient = (0.70710677, 0, 0, -0.70710677)
         float3 xformOp:scale = (1, 1, 1)
-        double3 xformOp:translate = (0, 0, -1.840180800103425)
+        double3 xformOp:translate = (-0.4, 0, -1.85)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
 
         over "BLENDER_AEROSHELL"
@@ -4571,6 +4579,29 @@ over "Mila"
                 }
             }
         }
+
+        def Xform "imu_link"
+        {
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+            def IsaacImuSensor "Imu_Sensor" (
+                instanceable = false
+            )
+            {
+                int angularVelocityFilterWidth = 1
+                bool enabled = 1
+                int linearAccelerationFilterWidth = 1
+                int orientationFilterWidth = 1
+                token visibility = "invisible"
+                quatd xformOp:orient = (1, 0, 0, 0)
+                double3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0, 0, 0)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+            }
+        }
     }
 
     over "VehicleConfig"
@@ -4626,8 +4657,335 @@ over "Mila"
         token projection = "perspective"
         float3 xformOp:rotateZYX = (-2.5948045, 7.0478864, 110.271736)
         float3 xformOp:scale = (1, 1, 1)
-        double3 xformOp:translate = (-20.039359089212248, -16.877471250033413, -0.13693559405613698)
+        double3 xformOp:translate = (-247.55368978968357, -204.6861341752756, -50.770199606269735)
         uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:rotateZYX", "xformOp:scale"]
+    }
+
+    def OmniGraph "ROS_IMU"
+    {
+        token evaluationMode = "Automatic"
+        token evaluator:type = "execution"
+        token fabricCacheBacking = "Shared"
+        int2 fileFormatVersion = (1, 9)
+        token pipelineStage = "pipelineStageOnDemand"
+
+        def OmniGraphNode "on_physics_step" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            token node:type = "isaacsim.core.nodes.OnPhysicsStep"
+            int node:typeVersion = 1
+            custom double outputs:deltaSimulationTime
+            custom double outputs:deltaSystemTime
+            custom uint outputs:step (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (80.8, 109.60005)
+        }
+
+        def OmniGraphNode "isaac_simulation_gate" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/on_physics_step.outputs:step>
+            custom uint inputs:step
+            token node:type = "isaacsim.core.nodes.IsaacSimulationGate"
+            int node:typeVersion = 1
+            custom uint outputs:execOut (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (334.05307, 141.14587)
+        }
+
+        def OmniGraphNode "isaac_read_imu_node" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/isaac_simulation_gate.outputs:execOut>
+            custom rel inputs:imuPrim = </Mila/Mila_Root/imu_link/Imu_Sensor> (
+                customData = {
+                    dictionary omni = {
+                        dictionary graph = {
+                            string relType = "target"
+                        }
+                    }
+                }
+            )
+            custom bool inputs:readGravity
+            custom bool inputs:useLatestData
+            token node:type = "isaacsim.sensors.physics.IsaacReadIMU"
+            int node:typeVersion = 1
+            custom vector3d outputs:angVel
+            custom uint outputs:execOut (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            custom vector3d outputs:linAcc
+            custom quatd outputs:orientation
+            custom float outputs:sensorTime
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (614.4, 101.60005)
+        }
+
+        def OmniGraphNode "isaac_read_simulation_time" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:referenceTimeDenominator
+            custom int64 inputs:referenceTimeNumerator
+            custom bool inputs:resetOnStop
+            token node:type = "isaacsim.core.nodes.IsaacReadSimulationTime"
+            int node:typeVersion = 1
+            custom double outputs:simulationTime
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (582.39996, -49.59999)
+        }
+
+        def OmniGraphNode "ros2_context" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uchar inputs:domain_id
+            custom bool inputs:useDomainIDEnvVar
+            token node:type = "isaacsim.ros2.bridge.ROS2Context"
+            int node:typeVersion = 2
+            custom uint64 outputs:context
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (347.19998, 3.9999986)
+        }
+
+        def OmniGraphNode "ros2_publish_imu" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom vector3d inputs:angularVelocity
+            prepend vector3d inputs:angularVelocity.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:angVel>
+            custom uint64 inputs:context
+            prepend uint64 inputs:context.connect = </Mila/ROS_IMU/ros2_context.outputs:context>
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:execOut>
+            custom string inputs:frameId = "imu_link"
+            custom vector3d inputs:linearAcceleration
+            prepend vector3d inputs:linearAcceleration.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:linAcc>
+            custom string inputs:nodeNamespace
+            custom quatd inputs:orientation
+            prepend quatd inputs:orientation.connect = </Mila/ROS_IMU/isaac_read_imu_node.outputs:orientation>
+            custom bool inputs:publishAngularVelocity
+            custom bool inputs:publishLinearAcceleration
+            custom bool inputs:publishOrientation
+            custom string inputs:qosProfile
+            custom uint64 inputs:queueSize
+            custom double inputs:timeStamp
+            prepend double inputs:timeStamp.connect = </Mila/ROS_IMU/isaac_read_simulation_time.outputs:simulationTime>
+            custom string inputs:topicName
+            token node:type = "isaacsim.ros2.bridge.ROS2PublishImu"
+            int node:typeVersion = 1
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (931.9998, -18.400002)
+        }
+
+        def OmniGraphNode "ros2_publish_clock" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:context
+            prepend uint64 inputs:context.connect = </Mila/ROS_IMU/ros2_context.outputs:context>
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/ROS_IMU/on_physics_step.outputs:step>
+            custom string inputs:nodeNamespace
+            custom string inputs:qosProfile
+            custom uint64 inputs:queueSize
+            custom double inputs:timeStamp
+            prepend double inputs:timeStamp.connect = </Mila/ROS_IMU/isaac_read_simulation_time.outputs:simulationTime>
+            custom string inputs:topicName
+            token node:type = "isaacsim.ros2.bridge.ROS2PublishClock"
+            int node:typeVersion = 1
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (364.7894, 269.8518)
+        }
+    }
+
+    def OmniGraph "GroundTruthPoseGraph"
+    {
+        token evaluationMode = "Automatic"
+        token evaluator:type = "execution"
+        token fabricCacheBacking = "Shared"
+        int2 fileFormatVersion = (1, 9)
+        token pipelineStage = "pipelineStageSimulation"
+
+        def OmniGraphNode "on_playback_tick" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            token node:type = "omni.graph.action.OnPlaybackTick"
+            int node:typeVersion = 2
+            custom double outputs:deltaSeconds
+            custom double outputs:frame
+            custom uint outputs:tick (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            custom double outputs:time
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (148, 105.60005)
+        }
+
+        def OmniGraphNode "isaac_read_world_pose" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom rel inputs:prim = </Mila/Mila_Root> (
+                customData = {
+                    dictionary omni = {
+                        dictionary graph = {
+                            string relType = "target"
+                        }
+                    }
+                }
+            )
+            token node:type = "isaacsim.core.nodes.IsaacReadWorldPose"
+            int node:typeVersion = 2
+            custom quatd outputs:orientation
+            custom vector3d outputs:scale
+            custom vector3d outputs:translation
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (-67.98964, 306.66254)
+        }
+
+        def OmniGraphNode "isaac_read_simulation_time" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:referenceTimeDenominator
+            custom int64 inputs:referenceTimeNumerator
+            custom bool inputs:resetOnStop
+            token node:type = "isaacsim.core.nodes.IsaacReadSimulationTime"
+            int node:typeVersion = 1
+            custom double outputs:simulationTime
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (169.45518, 253.5196)
+        }
+
+        def OmniGraphNode "isaac_time_splitter" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom token inputs:time
+            prepend token inputs:time.connect = </Mila/GroundTruthPoseGraph/isaac_read_simulation_time.outputs:simulationTime>
+            token node:type = "isaacsim.core.nodes.IsaacTimeSplitter"
+            int node:typeVersion = 1
+            custom uint outputs:microseconds
+            custom uint outputs:milliseconds
+            custom uint outputs:nanoseconds
+            custom int outputs:seconds
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (691.982, 262.69568)
+        }
+
+        def OmniGraphNode "break_3_vector" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom token inputs:tuple
+            prepend token inputs:tuple.connect = </Mila/GroundTruthPoseGraph/isaac_read_world_pose.outputs:translation>
+            token node:type = "omni.graph.nodes.BreakVector3"
+            int node:typeVersion = 1
+            custom token outputs:x
+            custom token outputs:y
+            custom token outputs:z
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (264.11035, 401.85275)
+        }
+
+        def OmniGraphNode "break_4_vector" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom token inputs:tuple
+            prepend token inputs:tuple.connect = </Mila/GroundTruthPoseGraph/isaac_read_world_pose.outputs:orientation>
+            token node:type = "omni.graph.nodes.BreakVector4"
+            int node:typeVersion = 1
+            custom token outputs:w
+            custom token outputs:x
+            custom token outputs:y
+            custom token outputs:z
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (352.57318, 586.88416)
+        }
+
+        def OmniGraphNode "ros2_publisher" (
+            prepend apiSchemas = ["NodeGraphNodeAPI"]
+        )
+        {
+            custom uint64 inputs:context
+            custom uint inputs:execIn (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            prepend uint inputs:execIn.connect = </Mila/GroundTruthPoseGraph/on_playback_tick.outputs:tick>
+            custom token inputs:header:frame_id = "world"
+            custom uint inputs:header:stamp:nanosec
+            prepend uint inputs:header:stamp:nanosec.connect = </Mila/GroundTruthPoseGraph/isaac_time_splitter.outputs:nanoseconds>
+            custom int inputs:header:stamp:sec
+            prepend int inputs:header:stamp:sec.connect = </Mila/GroundTruthPoseGraph/isaac_time_splitter.outputs:seconds>
+            custom string inputs:messageName = "PoseStamped"
+            custom string inputs:messagePackage = "geometry_msgs"
+            custom string inputs:messageSubfolder
+            custom string inputs:nodeNamespace
+            custom double inputs:pose:orientation:w
+            prepend double inputs:pose:orientation:w.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:w>
+            custom double inputs:pose:orientation:x
+            prepend double inputs:pose:orientation:x.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:x>
+            custom double inputs:pose:orientation:y
+            prepend double inputs:pose:orientation:y.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:y>
+            custom double inputs:pose:orientation:z
+            prepend double inputs:pose:orientation:z.connect = </Mila/GroundTruthPoseGraph/break_4_vector.outputs:z>
+            custom double inputs:pose:position:x
+            prepend double inputs:pose:position:x.connect = </Mila/GroundTruthPoseGraph/break_3_vector.outputs:x>
+            custom double inputs:pose:position:y
+            prepend double inputs:pose:position:y.connect = </Mila/GroundTruthPoseGraph/break_3_vector.outputs:y>
+            custom double inputs:pose:position:z
+            prepend double inputs:pose:position:z.connect = </Mila/GroundTruthPoseGraph/break_3_vector.outputs:z>
+            custom string inputs:qosProfile
+            custom uint64 inputs:queueSize
+            custom string inputs:topicName = "/ground_truth/pose"
+            token node:type = "isaacsim.ros2.bridge.ROS2Publisher"
+            int node:typeVersion = 1
+            custom uint outputs:execOut (
+                customData = {
+                    bool isExecution = 1
+                }
+            )
+            uniform token ui:nodegraph:node:expansionState = "open"
+            uniform float2 ui:nodegraph:node:pos = (978.5445, 119.0536)
+        }
     }
 }
 
@@ -5265,7 +5623,7 @@ def "Graph"
             prepend token inputs:renderProductPath.connect = </Graph/Ouster/RenderProduct.outputs:renderProductPath>
             custom bool inputs:resetSimulationTimeOnStop
             custom token[] inputs:selectedMetadata
-            custom bool inputs:showDebugView
+            custom bool inputs:showDebugView = 0
             custom string inputs:topicName = "/point_cloud"
             custom token inputs:type = "point_cloud" (
                 allowedTokens = ["laser_scan", "point_cloud"]
@@ -5727,6 +6085,242 @@ def "Graph"
                 int node:typeVersion = 4
             }
         }
+    }
+}
+
+def OmniGraph "MilaDriveTestGraph"
+{
+    token evaluationMode = "Automatic"
+    token evaluator:type = "execution"
+    token fabricCacheBacking = "StageWithoutHistory"
+    int2 fileFormatVersion = (1, 9)
+    token pipelineStage = "pipelineStageOnDemand"
+
+    def OmniGraphNode "PhysicsStep"
+    {
+        token node:type = "isaacsim.core.nodes.OnPhysicsStep"
+        int node:typeVersion = 1
+        custom double outputs:deltaSimulationTime
+        custom double outputs:deltaSystemTime
+        custom uint outputs:step (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+    }
+
+    def OmniGraphNode "DriveScript"
+    {
+        custom double inputs:deltaTime
+        prepend double inputs:deltaTime.connect = </MilaDriveTestGraph/PhysicsStep.outputs:deltaSimulationTime>
+        custom uint inputs:execIn (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        prepend uint inputs:execIn.connect = </MilaDriveTestGraph/PhysicsStep.outputs:step>
+        custom string inputs:script = '''
+"""Drive the MILA vehicle when the stage is playing."""
+
+import omni.timeline
+import omni.usd
+
+
+CAR_PATH = "/Mila/Mila_Root"
+
+ACCELERATOR = 0.10
+STEER_AMOUNT = 0.7
+BRAKE_AMOUNT = 0.03
+
+STRAIGHT_SECONDS = 3.5
+LEFT_SECONDS = 4.0
+BETWEEN_SECONDS = 2.0
+RIGHT_SECONDS = 4.0
+BRAKE_SECONDS = 5.0
+
+
+def set_controls(state, accelerator, steer, brake):
+    state.accelerator.Set(float(accelerator))
+    state.steer.Set(float(steer))
+    state.brake0.Set(float(brake))
+    state.brake1.Set(0.0)
+
+
+def reset_sequence(state):
+    state.elapsed = 0.0
+    state.phase = None
+    state.finished = False
+    set_controls(state, 0.0, 0.0, 0.0)
+
+
+def report_phase(state, name):
+    if state.phase != name:
+        state.phase = name
+        print(
+            f"Vehicle test: {name} "
+            f"(sim time: {state.elapsed:.1f} s)"
+        )
+
+
+def setup(db):
+    state = db.per_instance_state
+
+    stage = omni.usd.get_context().get_stage()
+    if stage is None:
+        raise RuntimeError("No stage is open.")
+
+    state.vehicle = stage.GetPrimAtPath(CAR_PATH)
+
+    if not state.vehicle.IsValid():
+        raise RuntimeError(
+            f"Vehicle prim not found: {CAR_PATH}"
+        )
+
+    def get_attribute(name):
+        attr = state.vehicle.GetAttribute(name)
+
+        if not attr:
+            raise RuntimeError(
+                f"Missing vehicle controller attribute: {name}"
+            )
+
+        return attr
+
+    state.accelerator = get_attribute(
+        "physxVehicleController:accelerator"
+    )
+
+    state.steer = get_attribute(
+        "physxVehicleController:steer"
+    )
+
+    state.brake0 = get_attribute(
+        "physxVehicleController:brake0"
+    )
+
+    state.brake1 = get_attribute(
+        "physxVehicleController:brake1"
+    )
+
+    reset_sequence(state)
+
+    def on_timeline_event(event):
+        if event.type == int(
+            omni.timeline.TimelineEventType.STOP
+        ):
+            if state.vehicle.IsValid():
+                reset_sequence(state)
+                print(
+                    "Vehicle test reset; controls released."
+                )
+
+    state.timeline_subscription = (
+        omni.timeline.get_timeline_interface()
+        .get_timeline_event_stream()
+        .create_subscription_to_pop(
+            on_timeline_event,
+            name="MILA stage drive test Stop",
+        )
+    )
+
+    print("MILA stage drive test initialized.")
+
+
+def compute(db):
+    state = db.per_instance_state
+
+    if not state.vehicle.IsValid():
+        db.log_error("MILA vehicle prim is no longer valid.")
+        return False
+
+    if state.finished:
+        return True
+
+    state.elapsed += float(db.inputs.deltaTime)
+    t = state.elapsed
+
+    left_start = STRAIGHT_SECONDS
+    between_start = left_start + LEFT_SECONDS
+    right_start = between_start + BETWEEN_SECONDS
+    brake_start = right_start + RIGHT_SECONDS
+    finish_time = brake_start + BRAKE_SECONDS
+
+    if t < left_start:
+        report_phase(state, "straight")
+        set_controls(
+            state,
+            ACCELERATOR,
+            0.0,
+            0.0,
+        )
+
+    elif t < between_start:
+        report_phase(state, "left turn")
+        set_controls(
+            state,
+            ACCELERATOR,
+            STEER_AMOUNT,
+            0.0,
+        )
+
+    elif t < right_start:
+        report_phase(state, "straight between turns")
+        set_controls(
+            state,
+            ACCELERATOR,
+            0.0,
+            0.0,
+        )
+
+    elif t < brake_start:
+        report_phase(state, "right turn")
+        set_controls(
+            state,
+            ACCELERATOR,
+            -STEER_AMOUNT,
+            0.0,
+        )
+
+    elif t < finish_time:
+        report_phase(state, "braking")
+        set_controls(
+            state,
+            0.0,
+            0.0,
+            BRAKE_AMOUNT,
+        )
+
+    else:
+        set_controls(state, 0.0, 0.0, 0.0)
+        report_phase(state, "complete; controls released")
+        state.finished = True
+
+    return True
+
+
+def cleanup(db):
+    state = db.per_instance_state
+
+    if (
+        hasattr(state, "vehicle")
+        and state.vehicle.IsValid()
+        and hasattr(state, "accelerator")
+    ):
+        set_controls(state, 0.0, 0.0, 0.0)
+
+    if hasattr(state, "timeline_subscription"):
+        state.timeline_subscription = None
+'''
+        custom token inputs:scriptPath = "../localization/mila_vehicle_drive_test.py"
+        custom bool inputs:usePath = 1
+        token node:type = "omni.graph.scriptnode.ScriptNode"
+        int node:typeVersion = 2
+        custom uint outputs:execOut (
+            customData = {
+                bool isExecution = 1
+            }
+        )
+        custom bool state:omni_initialized
     }
 }
 
