@@ -134,7 +134,7 @@ class Cameras(Node):
 def process():
     global latest
 
-    model = YOLO("/home/nvidia/models/cone_v11m.pt")
+    model = YOLO("/home/nvidia/models/cone_v11m.engine")
 
     while True:
         tiles = []
@@ -160,7 +160,7 @@ def process():
                 result = model.predict(
                     img,
                     device=0,
-                    imgsz=960,
+                    imgsz=1280,
                     conf=0.05,
                     classes=[0, 1, 2],
                     verbose=False

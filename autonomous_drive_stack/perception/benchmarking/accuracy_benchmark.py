@@ -20,7 +20,7 @@ CAMERAS = ["front", "left", "right"]
 IMAGE_PREFIX = "/camera"
 GT_PREFIX = "/ground_truth"
 
-MODEL = "/home/nvidia/models/cone_v11m.pt"
+MODEL = "/home/nvidia/models/cone_v11m.engine"
 CONFIDENCE = 0.05
 IMAGE_SIZE = 1280
 IOU_THRESHOLD = 0.75

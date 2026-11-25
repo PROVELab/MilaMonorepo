@@ -49,10 +49,10 @@ class DetectorNode(Node):
 
         # ---- Parameters ----
 
-        self.declare_parameter('weights', 'yolov8n.pt')
-        self.declare_parameter('conf_threshold', 0.35)
+        self.declare_parameter('weights', '/home/nvidia/models/cone_v11m.engine')
+        self.declare_parameter('conf_threshold', 0.10)
         self.declare_parameter('iou_threshold', 0.5)
-        self.declare_parameter('input_size', 640)
+        self.declare_parameter('input_size', 1280)
         self.declare_parameter(
             'device',
             'cuda:0' if torch.cuda.is_available() else 'cpu'
