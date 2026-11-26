@@ -7,7 +7,7 @@ import omni.usd
 
 CAR_PATH = "/Mila/Mila_Root"
 
-ACCELERATOR = 0.30
+ACCELERATOR = 0.50
 STEER_AMOUNT = 0.7
 BRAKE_AMOUNT = 0.03
 
