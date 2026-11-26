@@ -4,9 +4,18 @@
 
 Prerequisites: Isaac Sim, ROS 2 Humble, `colcon`, and the localization
 and perception dependencies described in their respective READMEs.
+## Isaac Sim stages
 
-1. Open `simulation/isaac_stage/Map.usda` in Isaac Sim.
-   On Windows, use a Windows-local copy of the simulation folder.
+1. Both stages use the same camera, LiDAR, IMU, magnetometer, and
+ground-truth pipelines:
+
+- **`simulation/isaac_stage/Map.usda`** — runs the automatic drive
+  test when you press Play. Edit
+  `simulation/localization/mila_vehicle_drive_test.py` to change
+  the test.
+- **`simulation/isaac_stage/Map_manual.usda`** — lets you drive
+  the vehicle manually. The automatic drive graph is disabled.
+
 2. From `autonomous_drive_stack`, run:
 
    ```bash
