@@ -26,7 +26,7 @@ import javax.swing.table.DefaultTableModel;
 
 public class SqlEditorPanel extends JPanel {
     //Database connection URL
-    private static final String DATABASE_URL = "jdbc:sqlite:telem_dashboard.db";
+    private static final String DATABASE_URL = "jdbc:sqlite:telem_dashboardv2.db";
     private static final String DEFAULT_TABLE = "telemetry_readings_seconds";
     private static final int MAX_ROWS = 1000;
     //Run Button
